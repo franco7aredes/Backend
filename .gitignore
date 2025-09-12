@@ -1,1 +1,52 @@
-.venv
+# Entorno virtual
+venv/
+fastapi_env/
+.env
+.venv/
+env/
+back/
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.so
+
+# Configuración de IDEs y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de pruebas y cobertura
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+*.log
+
+# Archivos de SQLite
+*.db
+*.sqlite3
+
+# Archivos de dependencias
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.log
+*.bak
