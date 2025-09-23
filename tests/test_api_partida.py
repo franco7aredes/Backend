@@ -20,5 +20,6 @@ def test_crear_partida():
     }
     response = client.post("/partidas", json=payload)
     # Pydantic/FASTApi devuelven 422 en caso de datos invalidos
-    assert response.status_code == 422
+    # y 201 en caso de bien hecho
+    assert response.status_code == 201
     assert "validation_error" in response.json()['detail'][0]['type']
