@@ -22,3 +22,4 @@ async def listar_partidas() -> List[Partida]:
 async def crear_partida(partida: PartidaCreada):
     # Aca se define la logica para crear una partida
     return {"mensaje": f"partida creada con exito"}
+
