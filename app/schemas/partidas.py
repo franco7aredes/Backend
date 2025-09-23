@@ -11,3 +11,10 @@ Class PartidaCreada(BaseModel):
 Class Jugador(BaseModel):
     nombre: str
     fecha_nac: datetime
+
+Class Partida(BaseModel):
+    # Esquema de los datos de partida que se envian a los usuarios
+    ID: int
+    minimo: int
+    maximo: int
+    cantidad: int
