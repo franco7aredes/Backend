@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from routers.partidas import partida_router
+from .routers.partidas import partida_router
 
 api_router=APIRouter()
 # Nota: la linea de abajo es sujeta a modificaciones: evaluar el manejo de
