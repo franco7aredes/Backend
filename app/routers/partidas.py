@@ -4,15 +4,14 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.schemas.partidas import PartidaCreada, Jugador
+from app.schemas.partidas import PartidaCreada, Jugador, Partida
 
 partidas_router= APIRouter()
 
 @partidas_router.get(path="/partidas")
-async def listar_partidas():
+async def listar_partidas() -> List[Partida]:
     # Aca se define la logica para listar partidas no empezadas,
     # y enviar al usuario
-    return {"mensaje":f"aca estan las partidas"}
 
 @partidas_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
 async def crear_partida(partida: PartidaCreada):
