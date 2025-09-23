@@ -23,18 +23,15 @@ def test_crear_partida_exitoso():
     # y 201 en caso de bien hecho
     assert response.status_code == 201
     assert response.json() == {
-        "jugador_creador": "John salchichon",
-        "fecha_nac": "1980-04-20",
-        "minimo": 2,
-        "maximo": 4
+        "mensaje": f"partida creada con exito"
     }
 
 def test_crear_partida_error_validacion():
     payload = {
         "jugador_creador": "John salchichon",
         "fecha_nac":"1980-04-20",
-        "minimo": "2",
-        "maximo": "4"
+        "minimo": "dos",
+        "maximo": "cuatro"
     }
     response = client.post("/partidas", json=payload)
     assert response.status_code == 422
