@@ -35,4 +35,6 @@ def test_crear_partida_error_validacion():
     }
     response = client.post("/partidas", json=payload)
     assert response.status_code == 422
-    assert "validation_error" in response.json()['detail'][0]['type']
+    # este assert busca el error en particular: el de dar un str para
+    # un int
+    assert response.json()['detail'][0]['type'] == 'value_error'
