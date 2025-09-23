@@ -1,8 +1,10 @@
 from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.websockets.ApiWS import ws_router
 
 app = FastAPI()
+app.include_router(ws_router)
 
 """
 app = FastAPI()
@@ -12,13 +14,14 @@ async def startup():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
-    
+"""
+  
 origins = [
     "http://localhost:5173",  # Reemplaza esto con la URL de tu frontend
     "http://localhost:5174",
     "http://127.0.0.1:8000",  # Asegúrate de incluir esta también si es diferente
 ]
-"""
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
