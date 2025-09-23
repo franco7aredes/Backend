@@ -2,11 +2,11 @@ from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import api_router
+
+from .api import api_router
 
 app = FastAPI()
 
-"""
 app = FastAPI()
 @app.on_event("startup")
 async def startup():
@@ -20,7 +20,9 @@ origins = [
     "http://localhost:5174",
     "http://127.0.0.1:8000",  # Asegúrate de incluir esta también si es diferente
 ]
-"""
+
+
+
 # Aca se incluyen los routers
 app.include_router(api_router)
 
