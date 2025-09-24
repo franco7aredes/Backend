@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
-from Backend.app.main import app
-from Backend.app.schemas.partidas import PartidaCreada, Partida, Jugador
+
+
+from app.main import app
+from app.schemas.partidas import PartidaCreada, Partida, Jugador
 
 # Nota: ir complejizando los tests a medida que se hacen features
 client = TestClient(app)
