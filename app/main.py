@@ -1,26 +1,37 @@
 from typing import Union
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from app.websockets.ApiWS import ws_router
 
-app = FastAPI()
-app.include_router(ws_router)
 
-"""
-app = FastAPI()
-@app.on_event("startup")
-async def startup():
+
+from .api import api_router
+from .websockets.ApiWS import ws_router
+
+from app.db.databases import Base, engine
+
+@asynccontextmanager
+async def lifespan(app):
     Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(lifespan=lifespan)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
-"""
-  
+    
 origins = [
     "http://localhost:5173",  # Reemplaza esto con la URL de tu frontend
     "http://localhost:5174",
     "http://127.0.0.1:8000",  # Asegúrate de incluir esta también si es diferente
 ]
+
+
+
+
+# Aca se incluyen los routers
+app.include_router(api_router)
+app.include_router(ws_router)
 
 @app.get("/")
 def read_root():
