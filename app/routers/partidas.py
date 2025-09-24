@@ -4,7 +4,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from Backend.app.schemas.partidas import PartidaCreada, Jugador, Partida
+from app.schemas.partidas import PartidaCreada, Jugador, Partida
 
 partida_router= APIRouter()
 
