@@ -11,7 +11,9 @@ partida = Partida(
     estado=EstadoPartida.en_espera,
     id_jugador_creador=1, 
     cantidad_jugadores=2,
-    turno_actual=1
+    turno_actual=1,
+    minimo=2,
+    maximo=6
 )
 
 db.add(partida)

@@ -15,4 +15,6 @@ class Partida(Base):
     id_jugador_creador=Column(Integer, ForeignKey("jugadores.id_jugador"), nullable=False)
     cantidad_jugadores= Column(Integer, nullable=False)
     turno_actual = Column(Integer, nullable=False)
-
+    minimo = Column(Integer, nullable=False)
+    maximo = Column(Integer, nullable=False)
+    
