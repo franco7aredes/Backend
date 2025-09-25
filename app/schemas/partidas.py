@@ -20,6 +20,11 @@ class Jugador(BaseModel): # Deberiamos pasar esto a un archivo schemas/jugador.p
     class Config: 
         orm_mode = True
 
+class JugadorCreate(BaseModel):
+    nombre:str
+    fecha_nacimiento:datetime
+    
+
 class PartidaCreada(BaseModel):
     jugador_creador: str
     fecha_nac: datetime
