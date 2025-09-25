@@ -11,3 +11,4 @@ class Jugador(Base):
     orden_turno = Column(Integer, nullable=False)
     id_avatar = Column(Integer, nullable=False)
     
+    cartas = relationship("Carta", back_populates="jugador")

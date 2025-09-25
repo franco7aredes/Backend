@@ -18,3 +18,4 @@ class Partida(Base):
     minimo = Column(Integer, nullable=False)
     maximo = Column(Integer, nullable=False)
     
+    cartas = relationship("Carta", back_populates="partida", cascade="all, delete")

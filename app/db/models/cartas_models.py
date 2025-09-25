@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, ForeignKey, Enum, create_engine
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
+from databases import Base
 import enum
 
-Base = declarative_base()
 
 class PosicionCarta(enum.Enum):
     mazo = "mazo"          # Mazo normal
