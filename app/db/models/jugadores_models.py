@@ -11,7 +11,7 @@ class Jugador(Base):
     orden_turno = Column(Integer, nullable=False)
     id_avatar = Column(Integer, nullable=False)
     
-    id_partida = Column(Integer, ForeignKey("partidas.id_partida"), nullable=False)
+    id_partida = Column(Integer, ForeignKey("partidas.id_partida", use_alter=True), nullable=False)
     
     partida = relationship(
         "Partida", 

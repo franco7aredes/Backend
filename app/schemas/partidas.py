@@ -1,5 +1,5 @@
 # Aca defino modelos de datos para partidas
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import List
 
@@ -17,8 +17,7 @@ class Jugador(BaseModel): # Deberiamos pasar esto a un archivo schemas/jugador.p
     # Falta el turno ?
     # Falta avatar ? 
     
-    class Config: 
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class JugadorCreate(BaseModel):
     nombre:str
@@ -41,7 +40,6 @@ class Partida(BaseModel):
     turno_actual: int
     jugadores: List[Jugador] = []
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
