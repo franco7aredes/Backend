@@ -48,6 +48,13 @@ async def crear_partida(partida: PartidaCreada):
     nueva_partida.id_jugador_creador=jugador.id_jugador
     db.commit()
 
+    partida_id = nueva_partida.id_partida
+    creador_id = jugador.id_jugador
+
     db.close()
     
-    return {"mensaje": f"partida creada con exito"}
+    return {
+    "mensaje": "partida creada con exito",
+    "id_partida": partida_id,
+    "id_jugador_creador": creador_id
+    }

@@ -18,7 +18,8 @@ if __name__ == "__main__":
 origins = [
     "http://localhost:5173",  # Reemplaza esto con la URL de tu frontend
     "http://localhost:5174",
-    "http://127.0.0.1:8000",  # Asegúrate de incluir esta también si es diferente
+    "http://127.0.0.1:8000",
+    "http://localhost:3000" 
 ]
 
 
