@@ -12,6 +12,36 @@ from sqlalchemy.orm import Session
 
 partida_router= APIRouter()
 
+@partida_router.get(path="/partidas")
+async def listar_partidas() -> List[PartidaSchema]:
+    # Aca se define la logica para listar partidas no empezadas,
+    # y enviar al usuario. Dejo lo siguiente como ejemplo, pero
+    # hay que reemplazar
+    return [
+        PartidaModel(
+            id_partida=1, 
+            minimo=2, 
+            maximo=4, 
+            cantidad_jugadores=2,
+            estado="En espera",
+            id_jugador_creador=1,
+            turno_actual=0
+            ),
+        PartidaModel(
+            id_partida=2, 
+            minimo=3, 
+            maximo=5, 
+            cantidad_jugadores=3,
+            estado="En espera",
+            id_jugador_creador=1,
+            turno_actual=0)
+    ]
+
+@partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
+async def crear_partida(partida: PartidaCreada):
+    # Aca se define la logica para crear una partida
+    return {"mensaje": f"partida creada con exito"}
+
 """
 #endpoints usados para probar cosas (adaptar y usar luego los que son)
 @partida_router.get(path="/partidas")
