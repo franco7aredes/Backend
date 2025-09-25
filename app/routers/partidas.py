@@ -2,24 +2,52 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import WebSocket, APIRouter, Depends, HTTPException, status
 
-from Backend.app.schemas.partidas import PartidaCreada, Jugador, Partida
+from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema
+
+from app.db.databases import SessionLocal
+from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
+from app.db.models.jugadores_models import Jugador as JugadorModel
+from datetime import datetime
+import json
 
 partida_router= APIRouter()
 
-@partida_router.get(path="/partidas")
-async def listar_partidas() -> List[Partida]:
-    # Aca se define la logica para listar partidas no empezadas,
-    # y enviar al usuario. Dejo lo siguiente como ejemplo, pero
-    # hay que reemplazar
-    return [
-        Partida(ID=1, minimo=2, maximo=4, cantidad=2),
-        Partida(ID=2, minimo=3, maximo=5, cantidad=3)
-    ]
 
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
 async def crear_partida(partida: PartidaCreada):
-    # Aca se define la logica para crear una partida
-    return {"mensaje": f"partida creada con exito"}
+    db = SessionLocal()
 
+    fecha_nac = partida.fecha_nac.date()
+    
+    nueva_partida = PartidaModel(
+        estado=EstadoPartida.en_espera,
+        id_jugador_creador=0,
+        cantidad_jugadores=1,
+        turno_actual=1,
+        minimo=partida.minimo,
+        maximo=partida.maximo)
+
+    db.add(nueva_partida)
+    db.commit()
+    db.refresh(nueva_partida)
+
+    jugador = JugadorModel(
+        id_partida=nueva_partida.id_partida,
+        nombre=partida.jugador_creador,
+        fecha_nacimiento=fecha_nac,
+        orden_turno=1,
+        id_avatar=1)
+
+    db.add(jugador)
+    db.commit()
+    db.refresh(jugador)
+
+
+    nueva_partida.id_jugador_creador=jugador.id_jugador
+    db.commit()
+
+    db.close()
+    
+    return {"mensaje": f"partida creada con exito"}

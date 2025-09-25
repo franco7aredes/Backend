@@ -1,13 +1,13 @@
 from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.db.databases import Base, engine
 
 
 from .api import api_router
 
 app = FastAPI()
 
-app = FastAPI()
 @app.on_event("startup")
 async def startup():
     Base.metadata.create_all(bind=engine)
@@ -20,6 +20,15 @@ origins = [
     "http://localhost:5174",
     "http://127.0.0.1:8000",  # Asegúrate de incluir esta también si es diferente
 ]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],  # Permitir todos los métodos (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Permitir todos los encabezados
+)
 
 
 
@@ -35,10 +44,3 @@ def read_root():
 def read_item(item_id: int, q: Union[str, None] = None):
     return {"item_id": item_id, "q": q}
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],  # Permitir todos los métodos (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Permitir todos los encabezados
-)

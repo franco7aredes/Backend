@@ -1,5 +1,5 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Date
-from databases import Base
+from app.db.databases import Base
 
 class Jugador(Base):
     __tablename__ = "jugadores"
