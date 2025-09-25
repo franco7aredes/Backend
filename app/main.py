@@ -5,10 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 
+
 from .api import api_router
 from .websockets.ApiWS import ws_router
 
 from app.db.databases import Base, engine
+# Importa ambos modelos para registrar las tablas en el metadata
+from app.db.models import partidas_models, jugadores_models
 
 @asynccontextmanager
 async def lifespan(app):
@@ -21,9 +24,10 @@ if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
     
 origins = [
-    "http://localhost:5173",  # Reemplaza esto con la URL de tu frontend
+    "http://localhost:5173",  
     "http://localhost:5174",
-    "http://127.0.0.1:8000",  # Asegúrate de incluir esta también si es diferente
+    "http://127.0.0.1:8000",  
+    "http://localhost:3000",  # Next.js frontend
 ]
 
 
