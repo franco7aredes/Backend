@@ -13,7 +13,7 @@ TEST_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(bind=engine)
 
-# preparamos
+# sesion de prueba con DB limpia por test
 
 @pytest.fixture(scope="function")
 def db():
