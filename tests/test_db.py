@@ -1,10 +1,10 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.db.databases import Base
-from app.db.models.jugadores_models import Jugador
-from app.db.models.partidas_models import Partida, EstadoPartida
-from app.db.models.cartas_models import PosicionCarta, Carta
+from Backend.app.db.databases import Base
+from Backend.app.db.models.jugadores_models import Jugador
+from Backend.app.db.models.partidas_models import Partida, EstadoPartida
+from Backend.app.db.models.cartas_models import PosicionCarta, Carta
 from datetime import date
 import sqlalchemy.exc
 
