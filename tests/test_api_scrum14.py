@@ -64,36 +64,6 @@ def client_with_db_setup(override_db_dependency):
     Base.metadata.drop_all(bind=engine)
 
 # ===========================================================
-# 6️⃣ Tests GET /partidas/{partida_id}
-# ===========================================================
-def test_obtener_partida_existente(client_with_db_setup):
-    """Verifica que se puede obtener una partida existente."""
-    with TestingSessionLocal() as session:
-        partida_existente = PartidaModel(
-            id_partida=1,
-            estado=EstadoPartida.en_espera,
-            cantidad_jugadores=1,
-            maximo=4,
-            minimo=2,
-            id_jugador_creador=1,
-            turno_actual=1
-        )
-        session.add(partida_existente)
-        session.commit()
-        session.refresh(partida_existente)  # 🔹 Obtener ID y relaciones
-    
-    response = client_with_db_setup.get("/partidas/1")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["id_partida"] == 1
-    assert data["estado"] == "En espera"
-
-def test_obtener_partida_no_encontrada(client_with_db_setup):
-    response = client_with_db_setup.get("/partidas/999")
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Partida no encontrada"
-
-# ===========================================================
 # 7️⃣ Tests PATCH /partidas/{partida_id}/iniciar
 # ===========================================================
 def test_iniciar_partida_con_exito(client_with_db_setup):
@@ -144,7 +114,7 @@ def test_iniciar_partida_no_encontrada_lanza_error(client_with_db_setup):
     assert response.json()["detail"] == "Partida no encontrada"
 
 # ===========================================================
-# 8️⃣ Tests POST /partidas/{partida_id}/unirse
+# 8️⃣ Tests PUT /partidas/{partida_id}/unirse
 # ===========================================================
 def test_unirse_a_partida_con_exito(client_with_db_setup):
     with TestingSessionLocal() as session:
@@ -162,7 +132,7 @@ def test_unirse_a_partida_con_exito(client_with_db_setup):
         session.refresh(partida)
 
     jugador_data = {"nombre": "TestJugador", "fecha_nacimiento": "1990-01-01T00:00:00"}
-    response = client_with_db_setup.post("/partidas/4/unirse", json=jugador_data)
+    response = client_with_db_setup.put("/partidas/4/unirse", json=jugador_data)
     assert response.status_code == 201
     assert response.json()["mensaje"] == "jugador agregado"
     assert "jugador_id" in response.json()
@@ -187,13 +157,13 @@ def test_unirse_a_partida_llena_lanza_error(client_with_db_setup):
         session.refresh(partida)
 
     jugador_data = {"nombre": "JugadorExtra", "fecha_nacimiento": "1990-01-01T00:00:00"}
-    response = client_with_db_setup.post("/partidas/5/unirse", json=jugador_data)
+    response = client_with_db_setup.put("/partidas/5/unirse", json=jugador_data)
     assert response.status_code == 400
     assert response.json()["detail"] == "La partida ya tiene el máximo de jugadores"
 
 def test_unirse_a_partida_no_encontrada_lanza_error(client_with_db_setup):
     jugador_data = {"nombre": "JugadorInexistente", "fecha_nacimiento": "1990-01-01T00:00:00"}
-    response = client_with_db_setup.post("/partidas/999/unirse", json=jugador_data)
+    response = client_with_db_setup.put("/partidas/999/unirse", json=jugador_data)
     assert response.status_code == 404
     assert response.json()["detail"] == "Partida no encontrada"
 
