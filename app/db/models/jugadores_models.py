@@ -4,7 +4,7 @@ from app.db.databases import Base
 class Jugador(Base):
     __tablename__ = "jugadores"
 
-    id_partida = Column(Integer, ForeignKey("partidas.id_partida"), nullable=False)
+    id_partida = Column(Integer, ForeignKey("partidas.id_partida", use_alter=True), nullable=False)
     id_jugador = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String, nullable=False)
     fecha_nacimiento = Column(Date, nullable=False)
