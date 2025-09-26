@@ -1,3 +1,4 @@
+
 from typing import Union
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
@@ -24,6 +25,7 @@ origins = [
     "http://localhost:5173",  # Reemplaza esto con la URL de tu frontend
     "http://localhost:5174",
     "http://127.0.0.1:8000",  # Asegúrate de incluir esta también si es diferente
+    "http://localhost:3000"
 ]
 
 

@@ -30,7 +30,9 @@ class PartidaCreada(BaseModel):
     minimo: int
     maximo: int
 
+
 class Partida(BaseModel):
+
     # Esquema de los datos de partida que se envian a los usuarios
     id_partida: int
     minimo: int
@@ -41,5 +43,4 @@ class Partida(BaseModel):
     jugadores: List[Jugador] = []
     
     model_config = ConfigDict(from_attributes=True)
-
 
