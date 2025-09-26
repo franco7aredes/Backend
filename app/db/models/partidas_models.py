@@ -1,6 +1,6 @@
 from sqlalchemy import Column, ForeignKey, Integer, Enum
 import enum
-from databases import Base
+from app.db.databases import Base
 
 class EstadoPartida(enum.Enum):
     en_espera = "En espera"
