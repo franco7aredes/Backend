@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 from .api import api_router
+from .websockets.ApiWS import ws_router
 
 from app.db.databases import Base, engine
 
@@ -32,6 +33,7 @@ origins = [
 
 # Aca se incluyen los routers
 app.include_router(api_router)
+app.include_router(ws_router)
 
 @app.get("/")
 def read_root():

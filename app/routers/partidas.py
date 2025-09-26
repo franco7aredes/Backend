@@ -1,17 +1,40 @@
 # Defino los endpoints de partidas
 
 from typing import List
-from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
-from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema
-from app.db.databases import SessionLocal, get_db
+from fastapi import APIRouter, Depends, HTTPException, status
+from app.schemas.partidas import PartidaCreada, JugadorCreate, Jugador as JugadorSchema, Partida as PartidaSchema
+from app.db.databases import get_db, SessionLocal
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
 from datetime import datetime
-
+from sqlalchemy.orm import Session
 
 partida_router= APIRouter()
 
+@partida_router.get(path="/partidas")
+async def listar_partidas() -> List[PartidaSchema]:
+    # Aca se define la logica para listar partidas no empezadas,
+    # y enviar al usuario. Dejo lo siguiente como ejemplo, pero
+    # hay que reemplazar
+    return [
+        PartidaModel(
+            id_partida=1, 
+            minimo=2, 
+            maximo=4, 
+            cantidad_jugadores=2,
+            estado="En espera",
+            id_jugador_creador=1,
+            turno_actual=0
+            ),
+        PartidaModel(
+            id_partida=2, 
+            minimo=3, 
+            maximo=5, 
+            cantidad_jugadores=3,
+            estado="En espera",
+            id_jugador_creador=1,
+            turno_actual=0)
+    ]
 
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
 async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
@@ -48,3 +71,63 @@ async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
         "id_partida": nueva_partida.id_partida,
         "id_jugador_creador": jugador.id_jugador
     }
+
+
+@partida_router.get("/partidas/{partida_id}", response_model=PartidaSchema)
+def obtener_partida(partida_id: int, db: Session = Depends(get_db)):
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    return partida
+
+@partida_router.patch("/partidas/{partida_id}/iniciar", response_model=None , status_code=status.HTTP_200_OK)
+def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    
+    if partida.estado == EstadoPartida.en_espera:
+        partida.estado = EstadoPartida.en_juego  
+        # si quiero cambiar a un estado q me llega por usuario deberia usar
+        # el dict q me llega leerlo y modificar el estado.
+    elif partida.estado == EstadoPartida.en_juego:
+        raise HTTPException(status_code=400, detail="La partida ya esta en juego")
+    
+    db.commit()
+    db.refresh(partida)
+
+    return {"mensaje":"La partida comenzo","estado": partida.estado}
+
+
+@partida_router.post("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
+def unirse_a_partida(partida_id: int,jugador: JugadorCreate , db: Session = Depends(get_db)):
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+
+    # Validar máximo de jugadores
+    if partida.cantidad_jugadores >= partida.maximo:
+        raise HTTPException(status_code=400, detail="La partida ya tiene el máximo de jugadores")
+
+    nuevo_jugador = JugadorModel(
+        id_partida=partida.id_partida,
+        nombre=jugador.nombre,
+        fecha_nacimiento=jugador.fecha_nacimiento,
+        orden_turno=0,
+        id_avatar=1  # ejemplo, puedes cambiar
+    )
+
+    db.add(nuevo_jugador)
+    partida.cantidad_jugadores +=1
+    db.commit()
+    db.refresh(nuevo_jugador)
+    db.refresh(partida)
+    
+    return {
+        "mensaje":"jugador agregado",
+        "jugador_id":nuevo_jugador.id_jugador
+    }
+    
+
+
