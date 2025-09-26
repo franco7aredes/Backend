@@ -1,45 +1,34 @@
-# Defino los endpoints de partidas
-
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.schemas.partidas import PartidaCreada, JugadorCreate, Jugador as JugadorSchema, Partida as PartidaSchema
-from app.db.databases import get_db, SessionLocal
+from sqlalchemy.orm import Session
+from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema
+from app.db.databases import get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
-from datetime import datetime
-from sqlalchemy.orm import Session
 
-partida_router= APIRouter()
+partida_router = APIRouter()
 
-@partida_router.get(path="/partidas")
-async def listar_partidas() -> List[PartidaSchema]:
-    # Aca se define la logica para listar partidas no empezadas,
-    # y enviar al usuario. Dejo lo siguiente como ejemplo, pero
-    # hay que reemplazar
-    return [
-        PartidaModel(
-            id_partida=1, 
-            minimo=2, 
-            maximo=4, 
-            cantidad_jugadores=2,
-            estado="En espera",
-            id_jugador_creador=1,
-            turno_actual=0
-            ),
-        PartidaModel(
-            id_partida=2, 
-            minimo=3, 
-            maximo=5, 
-            cantidad_jugadores=3,
-            estado="En espera",
-            id_jugador_creador=1,
-            turno_actual=0)
+@partida_router.get("/partidas", response_model=List[PartidaSchema])
+async def listar_partidas(db: Session = Depends(get_db)):
+    partidas_db = db.query(PartidaModel).filter(
+        PartidaModel.estado == EstadoPartida.en_espera).all()
+    partidas = [
+        PartidaSchema(
+            id_partida=p.id_partida,
+            minimo=p.minimo,
+            maximo=p.maximo,
+            estado=p.estado.value if hasattr(p.estado, 'value') else p.estado,
+            cantidad_jugadores=p.cantidad_jugadores,
+            turno_actual=p.turno_actual,
+            jugadores=[]
+        )
+        for p in partidas_db
     ]
+    return partidas
 
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
 async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
-    fecha_nac = partida.fecha_nac.date()
-    
+    fecha_nac = partida.fecha_nac.date() 
     nueva_partida = PartidaModel(
         estado=EstadoPartida.en_espera,
         id_jugador_creador=0,
@@ -128,6 +117,3 @@ def unirse_a_partida(partida_id: int,jugador: JugadorCreate , db: Session = Depe
         "mensaje":"jugador agregado",
         "jugador_id":nuevo_jugador.id_jugador
     }
-    
-
-

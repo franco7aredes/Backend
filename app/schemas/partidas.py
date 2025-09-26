@@ -1,8 +1,8 @@
 # Aca defino modelos de datos para partidas
+
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import List
-
 
 """
 Nota: estas clases en endpoints hacen que se verifiquen solos
@@ -16,23 +16,22 @@ class Jugador(BaseModel): # Deberiamos pasar esto a un archivo schemas/jugador.p
     fecha_nacimiento: datetime
     # Falta el turno ?
     # Falta avatar ? 
-    
     model_config = ConfigDict(from_attributes=True)
 
+    
 class JugadorCreate(BaseModel):
     nombre:str
     fecha_nacimiento:datetime
     
-
+    
 class PartidaCreada(BaseModel):
     jugador_creador: str
     fecha_nac: datetime
     minimo: int
     maximo: int
 
-
+      
 class Partida(BaseModel):
-
     # Esquema de los datos de partida que se envian a los usuarios
     id_partida: int
     minimo: int
@@ -41,6 +40,4 @@ class Partida(BaseModel):
     cantidad_jugadores: int
     turno_actual: int
     jugadores: List[Jugador] = []
-    
     model_config = ConfigDict(from_attributes=True)
-
