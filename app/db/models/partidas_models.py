@@ -25,4 +25,5 @@ class Partida(Base):
         foreign_keys="[Jugador.id_partida]",
         cascade="all, delete"
         )
-    
+      
+    cartas = relationship("Carta", back_populates="partida", cascade="all, delete")
