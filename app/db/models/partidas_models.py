@@ -4,6 +4,8 @@ from app.db.databases import Base
 from app.db.models.obtener_cartas import repartir_cartas_a_jugadores
 from sqlalchemy.orm import relationship
 
+from app.core.async_utils import _dispatch_async_notification
+
 import app.core.constantes as C
 
 class EstadoPartida(enum.Enum):
@@ -45,8 +47,33 @@ def repartir_cartas(target, value, oldvalue, initiator):
             return value
         
         # aca se usa la funcion de obtener cartas
-        mazo = repartir_cartas_a_jugadores(session, target.id_partida, C.CARTAS_POR_MANO)
+        datos_reparto = repartir_cartas_a_jugadores(session, target.id_partida, C.CARTAS_POR_MANO)
 
+        # las primeras estan separadas por jugador
+        repartidas = datos_reparto.get("repartidas",{})
+        mazo = datos_reparto.get("mazo", [])
+
+        todas_las_cartas = cartas_mazo.copy()
+
+        for jugador_id in cartas_repartidas:
+            todas_las_cartas.extend(cartas_repartidas[jugador_id]
         #se tienen que agregar las cartas a la sesion
+        session.add_all(todas_las_cartas)
+
+        # se tiene que hacer el commit ahora
+        try:
+            session.commit()
+            print(f"Cartas repartidas y guardadas para la partida {target.id_partida}: {len(todas_las_cartas)}")
+            
+            # Se tienen que notificar a cada jugador (se delega a una
+            # funcion asincrona)
+            if repartidas:
+                _dispatch_async_notification(repartidas)
+    
+
+        except Exception as e:
+            session.rollback()
+            print(f"Error al guardar cartas: {e}")
+            # Ver que hacer si falla el commit
     
     return value
