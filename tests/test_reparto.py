@@ -15,7 +15,7 @@ class MockCarta(object):
         self.id_jugador = id_jugador
 
 class MockJugador(object):
-    def __init__)self, id_jugador, id_partida):
+    def __init__(self, id_jugador, id_partida):
         self.id_jugador = id_jugador
         self.id_partida = id_partida
 

@@ -23,7 +23,7 @@ def test_listener_reparte_y_notifica(mock_obj_session, mock_repartir, mock_dispa
 
     mock_obj_session.return_value = mock_session
 
-    mock_carta_repartida = MagicMock(spec=Carta, id+jugador=1, posicion=PosicionCarta.mano)
+    mock_carta_repartida = MagicMock(spec=Carta, id_jugador=1, posicion=PosicionCarta.mano)
     mock_carta_mazo = MagicMock(spec=Carta, id+jugador=None, posicion=PosicionCarta.mazo)
 
     mock_repartir.return_value = {
