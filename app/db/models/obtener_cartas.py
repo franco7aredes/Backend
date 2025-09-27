@@ -1,8 +1,8 @@
 
 from fastapi import WebSocket
 from sqlalchemy.orm import Session
-from app.models.partidas_models import Partida
-from app.models.cartas_models import Carta
+from app.models.partidas_models import Partida, EstadoPartida
+from app.models.cartas_models import Carta, PosicionCarta
 from app.models.jugadores_models import Jugador
 from app.database import get_db
 import random
@@ -19,11 +19,11 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, manager, num
     # 2. Crear las cartas del mazo de la partida
     mazo_cartas = []
     for i in range(1,62):
-        carta = {
+        carta = (
             id_carta=i,
             id_partida=partida_id,
             posicion=PosicionCarta.mazo
-        }
+        )
         mazo_cartas.append(carta)
 
     random.shuffle(mazo_cartas)  # Barajar el mazo

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, Enum
+from sqlalchemy import Column, ForeignKey, Integer, Enum, event
 import enum
 from app.db.databases import Base
 from sqlalchemy.orm import relationship
@@ -27,4 +27,20 @@ class Partida(Base):
         )
       
     cartas = relationship("Carta", back_populates="partida", cascade="all, delete")
+    
+@event.listens_for(Partida.estado, 'set')
+def repartir_cartas(target, value, oldvalue, initiator):
 
+    cambio_valido = (oldvalue == 'En espera') and (value == 'En Juego')
+
+    partida_valida = target.id_partida is not None
+
+    if cambio_valido and partida_valida:
+        session = object_session(target)
+        if session is None:
+            print("Advertencia: La partida no esta en una sesion activa")
+            return value
+        
+        # aca se usa la funcion de obtener cartas
+
+        #se tienen que agregar las cartas a la sesion
