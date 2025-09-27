@@ -1,7 +1,10 @@
 from sqlalchemy import Column, ForeignKey, Integer, Enum, event
 import enum
 from app.db.databases import Base
+from app.db.models.obtener_cartas import repartir_cartas_a_jugadores
 from sqlalchemy.orm import relationship
+
+import app.core.constantes as C
 
 class EstadoPartida(enum.Enum):
     en_espera = "En espera"
@@ -42,6 +45,7 @@ def repartir_cartas(target, value, oldvalue, initiator):
             return value
         
         # aca se usa la funcion de obtener cartas
+        mazo = repartir_cartas_a_jugadores(session, target.id_partida, C.CARTAS_POR_MANO)
 
         #se tienen que agregar las cartas a la sesion
     
