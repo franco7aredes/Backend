@@ -2,7 +2,7 @@
 from fastapi import WebSocket
 from sqlalchemy.orm import Session
 import random
-from typing import List
+from typing import List, Dict
 
 async def repartir_cartas_a_jugadores(db: Session, partida_id: int, num_cartas: int) -> Dict[str, Any]:
 
