@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema
+from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema, JugadorCreate
 from app.db.databases import get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
