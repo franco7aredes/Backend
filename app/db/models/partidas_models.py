@@ -40,7 +40,9 @@ def repartir_cartas(target, value, oldvalue, initiator):
 
     partida_valida = target.id_partida is not None
 
-    if cambio_valido and partida_valida:
+    cant_jugadores = target.cantidad_jugadores
+
+    if cambio_valido and partida_valida and cant_jugadores >= target.minimo:
         session = object_session(target)
         if session is None:
             print("Advertencia: La partida no esta en una sesion activa")
