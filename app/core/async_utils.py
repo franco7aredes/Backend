@@ -20,7 +20,7 @@ async def _notify_players_async(cartas_repartidas: Dict[int, List[Any]]):
         }
     
         # Operacion asincrona
-         await manager.send_message(mensaje, jugador_id)
+        await manager.send_message(mensaje, jugador_id)
 
 # Esta funcion es la que se usa para notificar a todos los usuarios, de las cartas
 def  _dispatch_async_notification(cartas_repartidas: Dict[int, List[Any]]):
