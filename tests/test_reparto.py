@@ -58,7 +58,7 @@ def test_repartir_cartas_equitativamente(mock_shuffle, mock_db):
     assert mazo[0].id_jugador is None
     assert mazo[0].posicion == PosicionCarta.mazo
 
-def test_repartir_cartas_sin_jugadorse(mock_db):
+def test_repartir_cartas_sin_jugadores(mock_db):
     PARTIDA_ID=10
 
     mock_db.query.return_value.filter.return_value.first.return_value = MagicMock()
