@@ -13,7 +13,7 @@ async def _notify_players_async(cartas_repartidas: Dict[int, List[Any]]):
         cartas_data = [CartaSchema.from_orm(c).dict() for c in cartas]
 
         mensaje = {
-            "evento" : "partida_iniciada"
+            "evento" : "partida_iniciada",
             "data" : {
                 "mano": cartas_data
             }
@@ -32,7 +32,7 @@ def  _dispatch_async_notification(cartas_repartidas: Dict[int, List[Any]):
         # agenda la corrutina en el event loop de forma segura
         # esto evita bloquear el hilo actual del listener
         loop.call_soon_threadsafe(
-            lambda: asyncio.create_task(_notify_players_async(cartas_repartidas)
+            lambda: asyncio.create_task(_notify_players_async(cartas_repartidas))
         )
 
     except RunTimeError:

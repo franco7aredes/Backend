@@ -53,9 +53,9 @@ def repartir_cartas(target, value, oldvalue, initiator):
         repartidas = datos_reparto.get("repartidas",{})
         mazo = datos_reparto.get("mazo", [])
 
-        todas_las_cartas = cartas_mazo.copy()
+        todas_las_cartas = mazo.copy()
 
-        for jugador_id in cartas_repartidas:
+        for jugador_id in repartidas:
             todas_las_cartas.extend(cartas_repartidas[jugador_id]
         #se tienen que agregar las cartas a la sesion
         session.add_all(todas_las_cartas)

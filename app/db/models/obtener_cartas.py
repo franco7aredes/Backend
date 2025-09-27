@@ -20,7 +20,7 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, num_cartas: 
     # 2. Crear las cartas del mazo de la partida
     mazo_cartas = []
     for i in range(1,62):
-        carta = (
+        carta = Carta(
             id_carta=i,
             id_partida=partida_id,
             posicion=PosicionCarta.mazo
@@ -47,7 +47,7 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, num_cartas: 
             
             else:
                 break
-    cartas_restantes_mazo = mazo[idx_carta:]
+    cartas_restantes_mazo = mazo_cartas[idx_carta:]
 
     return {
         "repartidas": cartas_por_jugador,
