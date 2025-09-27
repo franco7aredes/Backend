@@ -1,9 +1,9 @@
 
 from fastapi import WebSocket
 from sqlalchemy.orm import Session
-from app.models.partida import Partida
-from app.models.carta import Carta
-from app.models.jugador import Jugador
+from app.models.partidas_models import Partida
+from app.models.cartas_models import Carta
+from app.models.jugadores_models import Jugador
 from app.database import get_db
 import random
 
@@ -20,8 +20,9 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, manager, num
     mazo_cartas = []
     for i in range(1,62):
         carta = {
-            id_carta=i
-            id_partida=
+            id_carta=i,
+            id_partida=partida_id,
+            posicion=PosicionCarta.mazo
         }
         mazo_cartas.append(carta)
 
@@ -32,9 +33,9 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, manager, num
         cartas_repartidas = mazo_cartas[:num_cartas]
         mazo_cartas = mazo_cartas[num_cartas:]
          
-    for carta in cartas_repartidas:
-        carta.id_jugador = jugador.id_jugador
-        carta.posicion = 'mano'
+        for carta in cartas_repartidas:
+            carta.id_jugador = jugador.id_jugador
+            carta.posicion = 'mano'
                                                                                                             
     db.commit()
 
