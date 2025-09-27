@@ -22,7 +22,7 @@ async def _notify_players_async(cartas_repartidas: Dict[int, List[Any]]):
          await manager.send_message(mensaje, jugador_id)
 
 # Esta funcion es la que se usa para notificar a todos los usuarios, de las cartas
-def  _dispatch_async_notification(cartas_repartidas: Dict[int, List[Any]):
+def  _dispatch_async_notification(cartas_repartidas: Dict[int, List[Any]]):
     # Esta funcion es llamada por un listener de SQLAlchemy.
     # Delega la tarea de notificacion a FASTApi
 
