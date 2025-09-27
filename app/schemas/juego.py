@@ -1,6 +1,6 @@
 # Aca defino modelos que use en el juego
 
-from pydantic import Basemodel
+from pydantic import BaseModel
 from typing import Optional
 from app.db.models.cartas_models import PosicionCarta
 
