@@ -5,6 +5,7 @@ from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partid
 from app.db.databases import get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
+from app.websockets import ConnectionManager
 
 partida_router = APIRouter()
 

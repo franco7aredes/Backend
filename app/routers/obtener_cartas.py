@@ -16,12 +16,15 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, manager, num
     jugadores = db.query(Jugador).filter(Jugador.id_partida == partida_id).all()
     if not jugadores:
         return {"error": "Jugadores no encontrados"}
-    # 2. Obtener las cartas del mazo de la partida
-    mazo_cartas = db.query(Carta).filter(
-        Carta.id_partida == partida_id,
-        Carta.posicion == 'mazo'
-    ).all()
-                       
+    # 2. Crear las cartas del mazo de la partida
+    mazo_cartas = []
+    for i in range(1,62):
+        carta = {
+            id_carta=i
+            id_partida=
+        }
+        mazo_cartas.append(carta)
+
     random.shuffle(mazo_cartas)  # Barajar el mazo
 
     # 3. Repartir cartas a cada jugador
@@ -43,8 +46,8 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, manager, num
         ).all()
                                                           
     # Construir el mensaje con las cartas del jugador
-    mensaje = {
-        "evento": "cartas_repartidas",
-        "cartas": [carta.to_dict() for carta in cartas_jugador]
-    }
-    await manager.send_personal_message(mensaje, jugador.id_jugador)
+        mensaje = {
+            "evento": "cartas_repartidas",
+            "cartas": [carta.to_dict() for carta in cartas_jugador]
+        }
+        await manager.send_message(mensaje, jugador.id_jugador)
