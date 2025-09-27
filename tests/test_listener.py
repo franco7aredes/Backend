@@ -62,7 +62,7 @@ def test_listener_maneja_fallo_commit(mock_obj_session, mock_repartir, mock_disp
     repartir_cartas(partida_target, EstadoPartida.en_juego.value, EstadoPartida.en_espera.value, None)
 
     # Verificacion de Rollback
-    mock_session.rollback,.assert_called_once()
+    mock_session.rollback.assert_called_once()
 
     # Verificacion de que no se llamo la notificacion
     mock_dispatch.assert_not_called()

@@ -23,7 +23,7 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, num_cartas: 
         carta = Carta(
             id_carta=i,
             id_partida=partida_id,
-            posicion=PosicionCarta.mazo
+            posicion=PosicionCarta.mazo,
             id_jugador=None
         )
         mazo_cartas.append(carta)
