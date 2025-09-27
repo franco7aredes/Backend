@@ -17,6 +17,7 @@ async def _notify_players_async(cartas_repartidas: Dict[int, List[Any]]):
             "data" : {
                 "mano": cartas_data
             }
+        }
     
         # Operacion asincrona
          await manager.send_message(mensaje, jugador_id)
