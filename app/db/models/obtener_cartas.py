@@ -6,8 +6,9 @@ from app.models.cartas_models import Carta, PosicionCarta
 from app.models.jugadores_models import Jugador
 from app.database import get_db
 import random
+from typing import List
 
-async def repartir_cartas_a_jugadores(db: Session, partida_id: int, manager, num_cartas: int):
+async def repartir_cartas_a_jugadores(db: Session, partida_id: int, num_cartas: int) -> List[Carta]:
     # 1. Obtener la partida y sus jugadores
     partida = db.query(Partida).filter(Partida.id == partida_id).first()
     if not partida:
@@ -36,19 +37,7 @@ async def repartir_cartas_a_jugadores(db: Session, partida_id: int, manager, num
         for carta in cartas_repartidas:
             carta.id_jugador = jugador.id_jugador
             carta.posicion = 'mano'
+    
+    return mazo_cartas
                                                                                                             
-    db.commit()
 
-    # 4. Notificar a cada jugador a través de WebSocket
-    for jugador in jugadores:
-        cartas_jugador = db.query(Carta).filter(
-            Carta.id_jugador == jugador.id_jugador,
-            Carta.posicion == 'mano'
-        ).all()
-                                                          
-    # Construir el mensaje con las cartas del jugador
-        mensaje = {
-            "evento": "cartas_repartidas",
-            "cartas": [carta.to_dict() for carta in cartas_jugador]
-        }
-        await manager.send_message(mensaje, jugador.id_jugador)

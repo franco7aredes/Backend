@@ -44,3 +44,5 @@ def repartir_cartas(target, value, oldvalue, initiator):
         # aca se usa la funcion de obtener cartas
 
         #se tienen que agregar las cartas a la sesion
+    
+    return value
