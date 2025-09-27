@@ -62,13 +62,6 @@ async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
     }
 
 
-@partida_router.get("/partidas/{partida_id}", response_model=PartidaSchema)
-def obtener_partida(partida_id: int, db: Session = Depends(get_db)):
-    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
-    if not partida:
-        raise HTTPException(status_code=404, detail="Partida no encontrada")
-    return partida
-
 @partida_router.patch("/partidas/{partida_id}/iniciar", response_model=None , status_code=status.HTTP_200_OK)
 def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
     partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
@@ -89,7 +82,7 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
     return {"mensaje":"La partida comenzo","estado": partida.estado}
 
 
-@partida_router.post("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
+@partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
 def unirse_a_partida(partida_id: int,jugador: JugadorCreate , db: Session = Depends(get_db)):
     partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
     if not partida:
