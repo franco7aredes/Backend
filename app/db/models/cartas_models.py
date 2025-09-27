@@ -13,7 +13,7 @@ class Carta(Base):
     __tablename__ = "cartas"
 
     id_carta = Column(Integer, primary_key=True, autoincrement=False)
-    id_partida = Column(Integer,primary_key=True, ForeignKey("partidas.id_partida"), nullable=False)
+    id_partida = Column(Integer, ForeignKey("partidas.id_partida"), primary_key=True,  nullable=False)
     id_jugador = Column(Integer, ForeignKey("jugadores.id_jugador"), nullable=True)  # Puede no tener dueño
     posicion = Column(Enum(PosicionCarta), nullable=False, default=PosicionCarta.mazo)
 
