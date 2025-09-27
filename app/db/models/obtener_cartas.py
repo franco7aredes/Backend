@@ -1,10 +1,10 @@
 
 from fastapi import WebSocket
 from sqlalchemy.orm import Session
-from app.models.partidas_models import Partida, EstadoPartida
-from app.models.cartas_models import Carta, PosicionCarta
-from app.models.jugadores_models import Jugador
-from app.database import get_db
+from app.db.models.partidas_models import Partida, EstadoPartida
+from app.db.models.cartas_models import Carta, PosicionCarta
+from app.db.models.jugadores_models import Jugador
+from app.db.databases import get_db
 import random
 from typing import List
 
