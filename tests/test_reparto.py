@@ -24,7 +24,7 @@ class MockJugador(object):
 def mock_db():
     return MagicMock(spec=Session)
 
-@patch('app.db.models.obtener_cartas.Carta', MockCarta) # Cambio mi modelo carta por el mock
+@patch('app.db.models.cartas_models.Carta', MockCarta) # Cambio mi modelo carta por el mock
 @patch('app.db.models.obtener_cartas.random.shuffle') # Evito barajar para controlar mejor
 
 def test_repartir_cartas_equitativamente(mock_shuffle, mock_db):
@@ -40,7 +40,7 @@ def test_repartir_cartas_equitativamente(mock_shuffle, mock_db):
     mock_db.query.return_value.filter.return_value.all.return_value = jugadores_mock
 
     # Ejecuto la funcion
-    resultado = repartir_cartas_a_jugadores(mock_db, PARTIDA_ID, NUM_CARTAS)
+    resultado = await repartir_cartas_a_jugadores(mock_db, PARTIDA_ID, NUM_CARTAS)
 
     repartidas = resultado["repartidas"]
     mazo = resultado["mazo"]
@@ -64,6 +64,6 @@ def test_repartir_cartas_sin_jugadores(mock_db):
     mock_db.query.return_value.filter.return_value.first.return_value = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = []
 
-    resultado = repartir_cartas_a_jugadores(mock_db, PARTIDA_ID, 6)
+    resultado = await repartir_cartas_a_jugadores(mock_db, PARTIDA_ID, 6)
 
     assert resultado == []
