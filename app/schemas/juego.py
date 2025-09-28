@@ -1,6 +1,6 @@
 # Aca defino modelos que use en el juego
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from app.db.models.cartas_models import PosicionCarta
 
@@ -10,10 +10,8 @@ class Carta(BaseModel):
     id_partida: int
     id_jugador: Optional[int] = None # Valor por defecto None
     posicion: PosicionCarta
-
-    # Configuracion para SQLAlchemy
-    class Config:
-        # le permite a pydantic leer los datos directamente desde un objeto ORM
-        orm_mode = True
-
-        use_enum_values = True
+    # Pydantic v2 config (Para evitar los warnings)
+    model_config = ConfigDict(
+        from_attributes=True,
+        use_enum_values=True,
+    )

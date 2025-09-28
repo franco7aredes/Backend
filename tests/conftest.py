@@ -3,6 +3,8 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.db.databases import Base, get_db
+# Importar modelos para registrar tablas en el metadata antes de create_all
+from app.db.models import partidas_models, jugadores_models, cartas_models  # noqa: F401
 from app.main import app as fastapi_app
 from fastapi.testclient import TestClient
 
@@ -40,6 +42,6 @@ def setup_db_once():
         os.remove("./test.db")
 
 @pytest.fixture
-def client():
+def client(setup_db_once):
     with TestClient(fastapi_app) as c:
         yield c

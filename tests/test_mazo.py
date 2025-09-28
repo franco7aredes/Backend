@@ -37,8 +37,8 @@ def setup_db(client):
     partida = db.query(Partida).filter_by(id_partida=id_partida).first()
     jugador = db.query(Jugador).filter_by(id_jugador=id_jugador).first()
 
-    # Crear carta para el jugador
-    carta = Carta(id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
+    # Crear carta para el jugador (PK compuesta requiere id_carta explícito)
+    carta = Carta(id_carta=1, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
     db.add(carta)
     db.commit()
     db.refresh(carta)
@@ -91,7 +91,7 @@ def test_descartar_carta_jugador_inexistente(client, setup_db):
 def test_descartar_carta_varias_cartas(client, setup_db):
     db, partida, jugador, carta1 = setup_db
     # Crear segunda carta para el mismo jugador
-    carta2 = Carta(id_partida=partida.id_partida, id_jugador=jugador.id_jugador, posicion=PosicionCarta.mano)
+    carta2 = Carta(id_carta=carta1.id_carta + 1, id_partida=partida.id_partida, id_jugador=jugador.id_jugador, posicion=PosicionCarta.mano)
     db.add(carta2)
     db.commit()
     db.refresh(carta2)
