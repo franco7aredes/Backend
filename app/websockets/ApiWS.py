@@ -34,8 +34,8 @@ class ConnectionManager:
                 self.disconnect(id_jugador)
 
     async def broadcast(self, message: str):
-        # Envía un mensaje a todos los clientes conectados
-        for connection in self.active_connections.values():
+        # Envía un mensaje a todos los clientes conectados (con id)
+        for connection in list(self.active_connections.values()):
             await connection.send_text(message)
 
 
@@ -51,5 +51,7 @@ async def websocket_endpoint(websocket: WebSocket, id_jugador: int):
             print(f"Mensaje recibido de {id_jugador}: {text}")
             # Ejemplo de eco
             await manager.send_message({"evento": "echo", "data": text}, id_jugador)
+            # También broadcasteamos el texto a todos los jugadores conectados
+            await manager.broadcast(text)
     except WebSocketDisconnect:
         manager.disconnect(id_jugador)

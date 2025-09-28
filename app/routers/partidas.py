@@ -109,7 +109,7 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
         # se tiene que hacer el commit ahora
         try:
             db.commit()
-            print(f"Cartas repartidas y guardadas para la partida {target.id_partida}: {len(todas_las_cartas)}")
+            print(f"Cartas repartidas y guardadas para la partida {partida.id_partida}: {len(todas_las_cartas)}")
 
             # Se tienen que notificar a cada jugador
             if repartidas:
@@ -143,7 +143,7 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
 
 
 @partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
-def unirse_a_partida(partida_id: int,jugador: JugadorSchema , db: Session = Depends(get_db)):
+def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session = Depends(get_db)):
     partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
     if not partida:
         raise HTTPException(status_code=404, detail="Partida no encontrada")

@@ -61,9 +61,11 @@ def test_repartir_cartas_equitativamente(mock_shuffle, mock_db):
 def test_repartir_cartas_sin_jugadores(mock_db):
     PARTIDA_ID=10
 
+    # La partida existe
     mock_db.query.return_value.filter.return_value.first.return_value = MagicMock()
-    mock_db.query.return_value.filter.return_value.first.return_value = []
+    # No hay jugadores en la partida
+    mock_db.query.return_value.filter.return_value.all.return_value = []
 
     resultado = repartir_cartas_a_jugadores(mock_db, PARTIDA_ID, 6)
 
-    assert resultado == []
+    assert resultado == {"repartidas": {}, "mazo": []}

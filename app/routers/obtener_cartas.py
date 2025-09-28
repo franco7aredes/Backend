@@ -13,11 +13,11 @@ def repartir_cartas_a_jugadores(db: Session, partida_id: int, num_cartas: int) -
     # 1. Obtener la partida y sus jugadores
     partida = db.query(Partida).filter(Partida.id_partida == partida_id).first()
     if not partida:
-        return []
+        return {"repartidas": {}, "mazo": []}
 
     jugadores = db.query(Jugador).filter(Jugador.id_partida == partida_id).all()
     if not jugadores:
-        return []
+        return {"repartidas": {}, "mazo": []}
     # 2. Crear las cartas del mazo de la partida
     mazo_cartas = []
     for i in range(1,62):
