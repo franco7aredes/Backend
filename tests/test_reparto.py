@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.models.cartas_models import PosicionCarta, Carta
 from app.db.models.jugadores_models import Jugador
 from app.db.models.partidas_models import Partida
-from app.db.models.obtener_cartas import repartir_cartas_a_jugadores
+from app.routers.obtener_cartas import repartir_cartas_a_jugadores
 
 # Voy a mockear objetos de BD
 class MockCarta(object):
@@ -25,7 +25,7 @@ def mock_db():
     return MagicMock(spec=Session)
 
 @patch('app.db.models.cartas_models.Carta', MockCarta) # Cambio mi modelo carta por el mock
-@patch('app.db.models.obtener_cartas.random.shuffle') # Evito barajar para controlar mejor
+@patch('app.routers.obtener_cartas.random.shuffle') # Evito barajar para controlar mejor
 
 def test_repartir_cartas_equitativamente(mock_shuffle, mock_db):
     PARTIDA_ID=10
