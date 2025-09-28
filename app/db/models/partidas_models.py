@@ -1,7 +1,12 @@
-from sqlalchemy import Column, ForeignKey, Integer, Enum
+from sqlalchemy import Column, ForeignKey, Integer, Enum, event
 import enum
 from app.db.databases import Base
 from sqlalchemy.orm import relationship
+
+
+from sqlalchemy.orm import object_session # necesito esto para tests
+
+import app.core.constantes as C
 
 class EstadoPartida(enum.Enum):
     en_espera = "En espera"
@@ -27,4 +32,4 @@ class Partida(Base):
         )
       
     cartas = relationship("Carta", back_populates="partida", cascade="all, delete")
-
+    

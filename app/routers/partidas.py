@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 import asyncio
 from sqlalchemy.orm import Session
@@ -7,6 +7,13 @@ from app.db.databases import get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
 from app.websockets.ApiWS import manager
+
+
+import app.core.constantes as C
+
+from app.routers.obtener_cartas import repartir_cartas_a_jugadores
+from app.core.async_utils import _notify_players_async
+
 
 partida_router = APIRouter()
 
@@ -84,11 +91,40 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(partida)
 
-    return {"mensaje":"La partida comenzo","estado": partida.estado}
+    # Aca voy a meter la logica de obtener cartas, y enviarlas a cada jugador
+    datos_reparto = repartir_cartas_a_jugadores(db, partida.id_partida, C.CARTAS_POR_MANO)
+    # esto de arriba es un Dict[str, Any]
+    
+    repartidas = datos_reparto.get("repartidas", {})
+    mazo = datos_reparto.get("mazo", [])
+
+    todas_las_cartas = mazo.copy()
+    for jugador_id in repartidas:
+        todas_las_cartas.extend(repartidas[jugador_id])
+        # se tienen que agregar las cartas a la sesion
+        db.add_all(todas_las_cartas)
+
+        # se tiene que hacer el commit ahora
+        try:
+            db.commit()
+            print(f"Cartas repartidas y guardadas para la partida {target.id_partida}: {len(todas_las_cartas)}")
+
+            # Se tienen que notificar a cada jugador
+            if repartidas:
+                _notify_players_async(repartidas)
+
+
+        except Exception as e:
+            db.rollback()
+            print(f"Error al guardar cartas: {e}")
+            # Ver que hacer si falla el commit
+
+    
+    return {"mensaje": "La partida comenzo", "estado": partida.estado}
 
 
 @partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
-def unirse_a_partida(partida_id: int,jugador: JugadorCreate , db: Session = Depends(get_db)):
+def unirse_a_partida(partida_id: int,jugador: JugadorSchema , db: Session = Depends(get_db)):
     partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
     if not partida:
         raise HTTPException(status_code=404, detail="Partida no encontrada")

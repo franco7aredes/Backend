@@ -1,8 +1,26 @@
 # tests/test_api_scrum14.py
 import pytest
 from fastapi.testclient import TestClient
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+import sys
+import os
+
+
+# -----------------------------------------------------------
+# 1️⃣ Configurar la ruta raíz del proyecto
+# -----------------------------------------------------------
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# -----------------------------------------------------------
+# 2️⃣ Importar tu app y modelos
+# -----------------------------------------------------------
+
 import pytest
 from fastapi.testclient import TestClient
+
 from app.main import app as fastapi_app
 from app.db.databases import Base, get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
@@ -41,9 +59,14 @@ def test_iniciar_partida_con_exito(client):
         partida_actualizada = session.query(PartidaModel).filter(PartidaModel.id_partida==2).first()
         assert partida_actualizada.estado == EstadoPartida.en_juego
 
+
+    # Aca voy a testear que se hallan enviado las cartas a cada jugador
+
+
 def test_iniciar_partida_ya_iniciada_lanza_error(client):
     from app.db.databases import SessionLocal
     with SessionLocal() as session:
+
         partida = PartidaModel(
             id_partida=3,
             estado=EstadoPartida.en_juego,

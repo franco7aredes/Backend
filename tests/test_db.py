@@ -127,12 +127,12 @@ def test_cartas_en_jugadores(db):
     facu_id = jugadores[1].id_jugador
     gero_id = jugadores[2].id_jugador
     cartas = [
-       Carta(id_partida=partida.id_partida, id_jugador=joa_id, posicion="mano"),
-       Carta(id_partida=partida.id_partida, id_jugador=facu_id, posicion="mano"),
-       Carta(id_partida=partida.id_partida, id_jugador=gero_id, posicion="mano"),
-       Carta(id_partida=partida.id_partida, posicion="mazo"),
-       Carta(id_partida=partida.id_partida, posicion="descarte"),
-       Carta(id_partida=partida.id_partida, posicion="mazo")
+       Carta(id_carta=1, id_partida=partida.id_partida, id_jugador=joa_id, posicion="mano"),
+       Carta(id_carta=2, id_partida=partida.id_partida, id_jugador=facu_id, posicion="mano"),
+       Carta(id_carta=3, id_partida=partida.id_partida, id_jugador=gero_id, posicion="mano"),
+       Carta(id_carta=4, id_partida=partida.id_partida, posicion="mazo"),
+       Carta(id_carta=5, id_partida=partida.id_partida, posicion="descarte"),
+       Carta(id_carta=6, id_partida=partida.id_partida, posicion="mazo")
     ]
     db.add_all(cartas)
     db.commit()
