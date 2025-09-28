@@ -16,7 +16,16 @@ def mock_session():
 @pytest.mark.asyncio
 @patch('app.db.models.partidas_models._dispatch_async_notification') # Aislamos la funcion q nos interesa
 @patch('app.db.models.partidas_models.repartir_cartas_a_jugadores')
-@patch('app.db.models.partidas_models.object_session') 
+@patch('sqlalchemy.orm.session.object_session') 
+
+def test_repartir_is_called(mock_session, mock_repartir, mock_dispatch):
+    # This is a bare-bones test to confirm the patch works
+    repartir_cartas_a_jugadores = MagicMock(return_value={})
+    
+    with patch('app.db.models.partidas_models.repartir_cartas_a_jugadores', repartir_cartas_a_jugadores):
+        partida = Partida(id_partida=10, estado='En espera', cantidad_jugadores=4, minimo=2)
+        repartir_cartas(partida, 'En Juego', 'En espera', None)
+        repartir_cartas_a_jugadores.assert_called_once()
 
 def test_listener_reparte_y_notifica(mock_obj_session, mock_repartir, mock_dispatch, mock_session):
     PARTIDA_ID = 5
@@ -32,7 +41,11 @@ def test_listener_reparte_y_notifica(mock_obj_session, mock_repartir, mock_dispa
     }
 
     # Creo un objeto partida (el target)
-    partida_target = Partida(id_partida=PARTIDA_ID, estado=EstadoPartida.en_espera.value)
+    partida_target = Partida(id_partida=PARTIDA_ID,
+            estado=EstadoPartida.en_espera.value,
+            cantidad_jugadores=4,
+            minimo=2
+    )
 
     # 1. Ejecutar el listener simulando el cambio de estado
     repartir_cartas(partida_target, EstadoPartida.en_juego.value, EstadoPartida.en_espera.value, None)
@@ -58,7 +71,11 @@ def test_listener_maneja_fallo_commit(mock_obj_session, mock_repartir, mock_disp
     mock_obj_session.return_value = mock_session
     mock_repartir.return_value = {"repartidas": {1:[MagicMock()]}, "mazo": []}
 
-    partida_target = Partida(id_partida=5, estado=EstadoPartida.en_espera.value)
+    partida_target = Partida(id_partida=5,
+            estado=EstadoPartida.en_espera.value,
+            cantidad_jugadores=4,
+            minimo=2
+    )
 
     repartir_cartas(partida_target, EstadoPartida.en_juego.value, EstadoPartida.en_espera.value, None)
 

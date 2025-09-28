@@ -6,6 +6,8 @@ from sqlalchemy.orm import relationship
 
 from app.core.async_utils import _dispatch_async_notification
 
+from sqlalchemy.orm import object_session # necesito esto para tests
+
 import app.core.constantes as C
 
 class EstadoPartida(enum.Enum):
@@ -33,6 +35,7 @@ class Partida(Base):
       
     cartas = relationship("Carta", back_populates="partida", cascade="all, delete")
     
+# esto es un listener, actua de forma similar a un trigger de base de datos
 @event.listens_for(Partida.estado, 'set')
 def repartir_cartas(target, value, oldvalue, initiator):
 
