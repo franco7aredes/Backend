@@ -33,10 +33,20 @@ class ConnectionManager:
                 print(f"Error al enviar mensaje al jugador {id_jugador}: {e}")
                 self.disconnect(id_jugador)
 
+    async def send_text(self, id_jugador: int, message: str):
+        # Envía texto plano a un cliente específico
+        if id_jugador in self.active_connections:
+            try:
+                await self.active_connections[id_jugador].send_text(message)
+            except RuntimeError as e:
+                print(f"Error al enviar mensaje al jugador {id_jugador}: {e}")
+                self.disconnect(id_jugador)
+
     async def broadcast(self, message: str):
         # Envía un mensaje a todos los clientes conectados (con id)
         for connection in list(self.active_connections.values()):
             await connection.send_text(message)
+
 
 
 manager = ConnectionManager()
