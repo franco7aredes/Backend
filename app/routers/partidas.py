@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema
@@ -87,6 +87,7 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
 
     # Aca voy a meter la logica de obtener cartas, y enviarlas a cada jugador
     datos_reparto = repartir_cartas_a_jugadores(db, partida.id_partida, C.CARTAS_POR_MANO)
+    # esto de arriba es un Dict[str, Any]
     
     repartidas = datos_reparto.get("repartidas", {})
     mazo = datos_reparto.get("mazo", [])
