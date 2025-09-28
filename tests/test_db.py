@@ -1,28 +1,17 @@
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.db.databases import Base
+from app.db.databases import Base, SessionLocal
 from app.db.models.jugadores_models import Jugador
 from app.db.models.partidas_models import Partida, EstadoPartida
 from app.db.models.cartas_models import PosicionCarta, Carta
 from datetime import date
 import sqlalchemy.exc
 
-
-# configuracion de base de datos en memoria
-TEST_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(bind=engine)
-
-# sesion de prueba con DB limpia por test
-
-@pytest.fixture(scope="function")
+# Usa la sesión centralizada por conftest.py
+@pytest.fixture
 def db():
-    Base.metadata.create_all(bind=engine)
-    session = TestingSessionLocal()
+    session = SessionLocal()
     yield session
     session.close()
-    Base.metadata.drop_all(bind=engine)
 
 # test
 

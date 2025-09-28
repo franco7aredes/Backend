@@ -1,16 +1,19 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
 from sqlalchemy.orm import Session
-from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema
+from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema, JugadorCreate
 from app.db.databases import get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
 from app.websockets.ApiWS import manager
 
+
 import app.core.constantes as C
 
 from app.routers.obtener_cartas import repartir_cartas_a_jugadores
 from app.core.async_utils import _notify_players_async
+
 
 partida_router = APIRouter()
 
@@ -60,6 +63,9 @@ async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
 
     nueva_partida.id_jugador_creador=jugador.id_jugador
     db.commit()
+
+    # Broadcast por WebSocket para que el frontend se actualice
+    await manager.broadcast("nueva_partida")
     
     return {
         "mensaje": "partida creada con exito",
