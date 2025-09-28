@@ -7,13 +7,14 @@ from app.db.databases import get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
 from app.websockets.ApiWS import manager
-
+from datetime import datetime
 
 import app.core.constantes as C
 
 from app.routers.obtener_cartas import repartir_cartas_a_jugadores
 from app.core.async_utils import _notify_players_async
 
+from app.routers.calcular_turnos import asignar_turnos 
 
 partida_router = APIRouter()
 
@@ -91,6 +92,7 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(partida)
 
+
     # Aca voy a meter la logica de obtener cartas, y enviarlas a cada jugador
     datos_reparto = repartir_cartas_a_jugadores(db, partida.id_partida, C.CARTAS_POR_MANO)
     # esto de arriba es un Dict[str, Any]
@@ -119,6 +121,23 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
             print(f"Error al guardar cartas: {e}")
             # Ver que hacer si falla el commit
 
+
+    #Logica de calcular turnos
+
+    jugadores = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
+
+    if not jugadores:
+        raise HTTPException(status_code=404, detail="No hay jugadores")
+    
+    #Paso todos las fecha nac de jugadores a date
+    for jugador in jugadores:
+        if isinstance(jugador.fecha_nacimiento, datetime):
+            jugador.fecha_nacimiento = jugador.fecha_nacimiento.date()
+
+    #funcion para ordenar
+    jugadores_ordenados = asignar_turnos(jugadores)
+
+    db.commit()
     
     return {"mensaje": "La partida comenzo", "estado": partida.estado}
 
