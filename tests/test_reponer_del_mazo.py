@@ -1,44 +1,19 @@
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 from app.main import app as fastapi_app
-from app.db.databases import get_db, Base, engine
+from app.db.databases import SessionLocal
 from app.db.models.cartas_models import Carta, PosicionCarta
 
 
-# Configuración de base de datos de test en memoria (Base de datos Temporal)
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
-TestingSessionLocal = sessionmaker(bind=engine)
-
-def override_get_db():
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-# sobrescribo get_db globalmente
-fastapi_app.dependency_overrides[get_db] = override_get_db
-
-# crea un cliente de test con tablas de DB limpias y la dependencia sobrescrita
+# Reutiliza el cliente centralizado por conftest.py y la DB compartida
 @pytest.fixture()
-def client_with_db():
-    # crear tablas
-    Base.metadata.create_all(bind=engine)
-    
-    with TestClient(fastapi_app) as client:
-        yield client
-    
-    # eliminar tablas
-    Base.metadata.drop_all(bind=engine)
+def client_with_db(client):
+    return client
 
 
 @pytest.fixture()
 def setup_reponer(client_with_db):
-    db = next(override_get_db())
+    db = SessionLocal()
     payload = {
         "jugador_creador": "pepito",
         "fecha_nac": "2002-09-15",
@@ -50,17 +25,23 @@ def setup_reponer(client_with_db):
     id_partida = data["id_partida"]
     id_jugador = data["id_jugador_creador"]
 
-    # crear 10 cartas en el mazo
-    for i in range(10):
-        carta = Carta(id_partida=id_partida, id_jugador=None, posicion=PosicionCarta.mazo)
+    # Asegurar que no haya cartas previas para esta partida (cuando los tests corren juntos)
+    db.query(Carta).filter_by(id_partida=id_partida).delete()
+    db.commit()
+
+    # crear 10 cartas en el mazo con id_carta explícito
+    for i in range(1, 11):
+        carta = Carta(id_carta=i, id_partida=id_partida, id_jugador=None, posicion=PosicionCarta.mazo)
         db.add(carta)
 
     # Crear 3 cartas ya en la mano del jugador
-    for j in range(3):
-        carta = Carta(id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
+    # continuar numeración para cartas en mano
+    for j in range(11, 14):
+        carta = Carta(id_carta=j, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
         db.add(carta)
 
     db.commit()
+    db.close()
 
     return client_with_db, id_partida, id_jugador
 
@@ -80,13 +61,14 @@ def test_reponer_del_mazo(setup_reponer):
 
 def test_reponer_maximo_cartas(setup_reponer):
     client, id_partida, id_jugador = setup_reponer
-    db = next(override_get_db())
+    db = SessionLocal()
 
     # poner 6 cartas en mano (ya está en el setup 3, agregamos 3 más)
-    for i in range(3):
-        carta = Carta(id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
+    for i in range(14, 17):
+        carta = Carta(id_carta=i, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
         db.add(carta)
     db.commit()
+    db.close()
 
     response = client.put(f"/partida/{id_partida}/reponer", json={"jugador_id": id_jugador})
     assert response.status_code == 200
@@ -96,11 +78,12 @@ def test_reponer_maximo_cartas(setup_reponer):
 
 def test_reponer_mazo_vacio(setup_reponer):
     client, id_partida, id_jugador = setup_reponer
-    db = next(override_get_db())
+    db = SessionLocal()
 
     # Vaciar el mazo
     db.query(Carta).filter_by(id_partida=id_partida, id_jugador=None, posicion=PosicionCarta.mazo).delete()
     db.commit()
+    db.close()
 
     response = client.put(f"/partida/{id_partida}/reponer", json={"jugador_id": id_jugador})
     assert response.status_code == 404
