@@ -53,7 +53,13 @@ def test_terminar_turno_valido(client):
 
 
     response = client.patch("/partidas/1/terminar_turno?id_enviada=1")
+
     assert response.status_code == 200
+    session.refresh(partida1)
+    partida_actualizada = session.query(PartidaModel).filter(PartidaModel.id_partida == 1).first()
+
+
+    assert partida_actualizada.turno_actual == 2
 
 def test_terminar_turno_invalido(client):
     response = client.patch("/partidas/1/terminar_turno?id_enviada=2")
