@@ -1,0 +1,1 @@
+CARTAS_POR_MANO = 6

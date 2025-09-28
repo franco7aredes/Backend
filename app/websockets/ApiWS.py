@@ -1,4 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from typing import Dict, Any
+import json
 
 # Creamos el router para agrupar las rutas WebSocket
 ws_router = APIRouter()
@@ -7,37 +9,47 @@ ws_router = APIRouter()
 class ConnectionManager:
     def __init__(self):
         # Hace una lista vacia donde van a ir los clientes conectados
-        self.active_connections: list[WebSocket] = []
+        self.active_connections: Dict[int, WebSocket] = {}
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, id_jugador:int, websocket: WebSocket):
         # Acepta la conexión y la agrega a la lista
         await websocket.accept()
-        self.active_connections.append(websocket)
+        self.active_connections[id_jugador] = websocket
+        print(f"Jugador {id_jugador} conectado.")
 
-    def disconnect(self, websocket: WebSocket):
+    def disconnect(self, id_jugador: int):
         # Elimina la conexión de la lista
-        self.active_connections.remove(websocket)
+        if id_jugador in self.active_connections:
+            del self.active_connections[id_jugador]
+            print(f"Jugador {id_jugador} desconectado")
 
-    async def send_message(self, message: str, websocket: WebSocket):
+    async def send_message(self, message: Dict[str, Any], id_jugador: int):
         # Envía un mensaje a un cliente específico
-        await websocket.send_text(message)
+        if id_jugador in self.active_connections:
+            try:
+                # usamos send_json para enviar cosas
+                await self.active_connections[id_jugador].send_json(message)
+            except RuntimeError as e:
+                print(f"Error al enviar mensaje al jugador {id_jugador}: {e}")
+                self.disconnect(id_jugador)
 
     async def broadcast(self, message: str):
         # Envía un mensaje a todos los clientes conectados
-        for connection in self.active_connections:
+        for connection in self.active_connections.values():
             await connection.send_text(message)
 
 
 manager = ConnectionManager()
 
 # Endpoint WebSocket
-@ws_router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+@ws_router.websocket("/ws/{id_jugador}")
+async def websocket_endpoint(websocket: WebSocket, id_jugador: int):
+    await manager.connect(id_jugador, websocket)
     try:
         while True:
             text = await websocket.receive_text()
-            print(f"Mensaje recibido de {websocket}: {text}")
-            await manager.broadcast(text)  # Probablemente se modificara en un futuro esto.
+            print(f"Mensaje recibido de {id_jugador}: {text}")
+            # Ejemplo de eco
+            await manager.send_message({"evento": "echo", "data": text}, id_jugador)
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(id_jugador)

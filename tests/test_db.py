@@ -1,28 +1,17 @@
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.db.databases import Base
+from app.db.databases import Base, SessionLocal
 from app.db.models.jugadores_models import Jugador
 from app.db.models.partidas_models import Partida, EstadoPartida
 from app.db.models.cartas_models import PosicionCarta, Carta
 from datetime import date
 import sqlalchemy.exc
 
-
-# configuracion de base de datos en memoria
-TEST_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(bind=engine)
-
-# sesion de prueba con DB limpia por test
-
-@pytest.fixture(scope="function")
+# Usa la sesión centralizada por conftest.py
+@pytest.fixture
 def db():
-    Base.metadata.create_all(bind=engine)
-    session = TestingSessionLocal()
+    session = SessionLocal()
     yield session
     session.close()
-    Base.metadata.drop_all(bind=engine)
 
 # test
 
@@ -138,12 +127,12 @@ def test_cartas_en_jugadores(db):
     facu_id = jugadores[1].id_jugador
     gero_id = jugadores[2].id_jugador
     cartas = [
-       Carta(id_partida=partida.id_partida, id_jugador=joa_id, posicion="mano"),
-       Carta(id_partida=partida.id_partida, id_jugador=facu_id, posicion="mano"),
-       Carta(id_partida=partida.id_partida, id_jugador=gero_id, posicion="mano"),
-       Carta(id_partida=partida.id_partida, posicion="mazo"),
-       Carta(id_partida=partida.id_partida, posicion="descarte"),
-       Carta(id_partida=partida.id_partida, posicion="mazo")
+       Carta(id_carta=1, id_partida=partida.id_partida, id_jugador=joa_id, posicion="mano"),
+       Carta(id_carta=2, id_partida=partida.id_partida, id_jugador=facu_id, posicion="mano"),
+       Carta(id_carta=3, id_partida=partida.id_partida, id_jugador=gero_id, posicion="mano"),
+       Carta(id_carta=4, id_partida=partida.id_partida, posicion="mazo"),
+       Carta(id_carta=5, id_partida=partida.id_partida, posicion="descarte"),
+       Carta(id_carta=6, id_partida=partida.id_partida, posicion="mazo")
     ]
     db.add_all(cartas)
     db.commit()
