@@ -167,8 +167,18 @@ def terminar_turno(partida_id: int, id_enviada: int, db: Session = Depends(get_d
     if partida.turno_actual == cantidad_jugadores:
         partida.turno_actual = 1
     else 
-        partida.turno_actual+=1
+        partida.turno_actual += 1
 
+    db.commit()
     db.refresh(partida)
 
     # Ahora, tengo que notificar a los usuarios de la partida sobre el cambio de turno
+
+    jugadores_en_partida = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
+
+    mensaje = {"turno_nuevo" : partida.turno_actual}
+    
+    for j in jugadores_en_partida:
+        await manager.send_message(mensaje, j.id_jugador)
+
+
