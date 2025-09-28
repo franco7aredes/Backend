@@ -7,7 +7,7 @@ from app.db.databases import get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
 from app.websockets.ApiWS import manager
-
+import json
 
 import app.core.constantes as C
 
@@ -124,7 +124,7 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
 
 
 @partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
-def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session = Depends(get_db)):
+async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session = Depends(get_db)):
     partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
     if not partida:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
@@ -146,6 +146,25 @@ def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session = Depe
     db.commit()
     db.refresh(nuevo_jugador)
     db.refresh(partida)
+
+    # obtenemos todos los jugadores que estan en la partida actual
+    jugadores_en_partida = db.query(JugadorModel).filter_by(id_partida=partida_id).all()
+
+    # lista que contendra la informacion que vamos a enviar al front
+    jugadores_info = []
+    for j in jugadores_en_partida:
+        jugadores_info.append({"nombre": j.nombre, "id_avatar": j.id_avatar})
+
+
+    mensaje = {
+    "evento": "jugadores_actualizados",
+    "partida_id": partida_id,
+    "jugadores": jugadores_info
+    }
+
+    # enviamos el mensaje a cada jugador conectado en la partida
+    for j in jugadores_en_partida:
+        await manager.send_message(mensaje, j.id_jugador)
     
     return {
         "mensaje":"jugador agregado",
