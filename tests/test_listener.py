@@ -47,9 +47,10 @@ def test_listener_reparte_y_notifica(mock_obj_session, mock_repartir, mock_dispa
 
     # Verificar que los datos enviados son las cartas repartidas
     # Debe ser llamado con el diccionario de repartidas
-    llamada_dispatch = mock_dispatch.call_args[0][0]
-    assert len(llamada_dispatch) == 1
-    assert llamada_dispatch[1][0] == mock_carta_repartida
+    llamada_dispatch = mock_dispatch.call_args[0]
+    repartidas_enviadas = llamada_dispatch[0]
+    assert len(repartidas_enviadas) == 1
+    assert repartidas_enviadas[1][0] == mock_carta_repartida
 
 def test_listener_maneja_fallo_commit(mock_obj_session, mock_repartir, mock_dispatch, mock_session):
     

@@ -36,6 +36,6 @@ def  _dispatch_async_notification(cartas_repartidas: Dict[int, List[Any]]):
             lambda: asyncio.create_task(_notify_players_async(cartas_repartidas))
         )
 
-    except RunTimeError:
+    except RuntimeError:
         print("AVISO: no se encontro un evento loop activo. No se envio la noti")
         pass

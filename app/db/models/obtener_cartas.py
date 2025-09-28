@@ -4,14 +4,14 @@ from sqlalchemy.orm import Session
 import random
 from typing import List, Dict, Any
 
-async def repartir_cartas_a_jugadores(db: Session, partida_id: int, num_cartas: int) -> Dict[str, Any]:
+def repartir_cartas_a_jugadores(db: Session, partida_id: int, num_cartas: int) -> Dict[str, Any]:
 
     from app.db.models.partidas_models import Partida, EstadoPartida
     from app.db.models.cartas_models import Carta, PosicionCarta
     from app.db.models.jugadores_models import Jugador
     from app.db.databases import get_db
     # 1. Obtener la partida y sus jugadores
-    partida = db.query(Partida).filter(Partida.id == partida_id).first()
+    partida = db.query(Partida).filter(Partida.id_partida == partida_id).first()
     if not partida:
         return []
 
