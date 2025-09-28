@@ -40,7 +40,7 @@ def test_repartir_cartas_equitativamente(mock_shuffle, mock_db):
     mock_db.query.return_value.filter.return_value.all.return_value = jugadores_mock
 
     # Ejecuto la funcion
-    resultado = await repartir_cartas_a_jugadores(mock_db, PARTIDA_ID, NUM_CARTAS)
+    resultado = repartir_cartas_a_jugadores(mock_db, PARTIDA_ID, NUM_CARTAS)
 
     repartidas = resultado["repartidas"]
     mazo = resultado["mazo"]
