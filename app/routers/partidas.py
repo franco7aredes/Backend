@@ -5,7 +5,7 @@ from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partid
 from app.db.databases import get_db
 from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
 from app.db.models.jugadores_models import Jugador as JugadorModel
-from app.websockets import manager
+from app.websockets.ApiWS import manager
 
 import app.core.constantes as C
 
@@ -93,8 +93,8 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
 
     todas_las_cartas = mazo.copy()
     for jugador_id in repartidas:
-            todas_las_cartas.extend(repartidas[jugador_id])
-        #se tienen que agregar las cartas a la sesion
+        todas_las_cartas.extend(repartidas[jugador_id])
+        # se tienen que agregar las cartas a la sesion
         db.add_all(todas_las_cartas)
 
         # se tiene que hacer el commit ahora
@@ -113,10 +113,11 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
             # Ver que hacer si falla el commit
 
     
+    return {"mensaje": "La partida comenzo", "estado": partida.estado}
 
 
 @partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
-def unirse_a_partida(partida_id: int,jugador: JugadorCreate , db: Session = Depends(get_db)):
+def unirse_a_partida(partida_id: int,jugador: JugadorSchema , db: Session = Depends(get_db)):
     partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
     if not partida:
         raise HTTPException(status_code=404, detail="Partida no encontrada")

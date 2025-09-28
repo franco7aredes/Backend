@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 import sys
 import os
 
+
 # -----------------------------------------------------------
 # 1️⃣ Configurar la ruta raíz del proyecto
 # -----------------------------------------------------------
@@ -88,6 +89,8 @@ def test_iniciar_partida_con_exito(client_with_db_setup):
     with TestingSessionLocal() as session:
         partida_actualizada = session.query(PartidaModel).filter(PartidaModel.id_partida==2).first()
         assert partida_actualizada.estado == EstadoPartida.en_juego
+
+    # Aca voy a testear que se hallan enviado las cartas a cada jugador
 
 def test_iniciar_partida_ya_iniciada_lanza_error(client_with_db_setup):
     with TestingSessionLocal() as session:
