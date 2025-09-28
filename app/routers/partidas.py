@@ -155,6 +155,8 @@ def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session = Depe
 # Aca se le pega cuando se quiera terminar turno, y se maneja la logica adentro
 @partida_router.patch("/partidas/{partida_id}/terminar_turno", response_model=None, status_code=status.HTTP_200_OK)
 async def terminar_turno(partida_id: int, id_enviada: int, db: Session = Depends(get_db)):
+
+
     partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
 
     jugador = db.query(JugadorModel).filter(JugadorModel.id_jugador == id_enviada).first()

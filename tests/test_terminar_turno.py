@@ -51,9 +51,10 @@ def test_terminar_turno_valido(client):
     jugador2.id_partida = partida1.id_partida
     jugador3.id_partida = partida1.id_partida
 
-    response = client.patch("/partidas/1/terminar_turno", json={"id_enviada": 1})
+
+    response = client.patch("/partidas/1/terminar_turno?id_enviada=1")
     assert response.status_code == 200
 
 def test_terminar_turno_invalido(client):
-    response = client.patch("/partidas/1/terminar_turno", json={"id_enviada": 5})
-    assert response.status_code in (405,422,404)
+    response = client.patch("/partidas/1/terminar_turno?id_enviada=2")
+    assert response.status_code == 400
