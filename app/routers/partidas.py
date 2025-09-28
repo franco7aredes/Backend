@@ -166,7 +166,7 @@ def terminar_turno(partida_id: int, id_enviada: int, db: Session = Depends(get_d
     cantidad_jugadores= partida.cantidad_jugadores
     if partida.turno_actual == cantidad_jugadores:
         partida.turno_actual = 1
-    else 
+    else:
         partida.turno_actual += 1
 
     db.commit()
