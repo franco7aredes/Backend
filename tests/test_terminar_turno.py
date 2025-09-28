@@ -34,7 +34,7 @@ def test_terminar_turno_valido(client):
     session.refresh(jugador3)
 
     partida1 = PartidaModel(
-        estado=EstadoPartida.en_espera,
+        estado=EstadoPartida.en_juego,
         id_jugador_creador=jugador1.id_jugador,
         cantidad_jugadores=3,
         turno_actual=1,
