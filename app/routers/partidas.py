@@ -281,6 +281,9 @@ async def terminar_turno(partida_id: int, id_enviada: int, db: Session = Depends
     for j in jugadores_en_partida:
         await manager.send_message(mensaje, j.id_jugador)
 
+    # También devolvemos el turno nuevo en la respuesta HTTP
+    return mensaje
+
 
 
 @partida_router.get("/partidas/{partida_id}/jugadores")
