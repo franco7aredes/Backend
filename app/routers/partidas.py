@@ -35,6 +35,23 @@ async def listar_partidas(db: Session = Depends(get_db)):
     ]
     return partidas
 
+@partida_router.get("/partidas/{partida_id}")
+async def obtener_partida(partida_id: int, db: Session = Depends(get_db)):
+    """Devuelve los datos de la partida, incluyendo el id del creador (owner)."""
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+
+    return {
+        "id_partida": partida.id_partida,
+        "minimo": partida.minimo,
+        "maximo": partida.maximo,
+        "estado": partida.estado.value if hasattr(partida.estado, 'value') else partida.estado,
+        "cantidad_jugadores": partida.cantidad_jugadores,
+        "turno_actual": partida.turno_actual,
+        "id_jugador_creador": partida.id_jugador_creador,
+    }
+
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
 async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
     fecha_nac = partida.fecha_nac.date() 
@@ -170,6 +187,8 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
     return {
         "mensaje":"jugador agregado",
         "jugador_id":nuevo_jugador.id_jugador,
+        "id_partida": partida.id_partida,
+        "id_jugador_creador": partida.id_jugador_creador,
         "estado": partida.estado.value if hasattr(partida.estado, 'value') else partida.estado
     }
 
