@@ -61,3 +61,12 @@ def descartar_carta_por_jugador(partida_id: int, data: dict, db: Session = Depen
     db.commit()
     db.refresh(carta)
     return {"mensaje": f"Carta {carta.id_carta} descartada por jugador {jugador_id} en partida {partida_id}"}
+
+
+@mazo_router.get("/partida/{partida_id}/mano/{jugador_id}", status_code=status.HTTP_200_OK)
+def obtener_mano_jugador(partida_id: int, jugador_id: int, db: Session = Depends(get_db)):
+    """
+    Devuelve la cantidad de cartas en mano del jugador en la partida.
+    """
+    count = db.query(Carta).filter_by(id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano).count()
+    return {"cantidad": count}

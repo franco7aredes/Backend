@@ -1,5 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Dict, Any
+from typing import Dict, Any, List
 import json
 
 # Creamos el router para agrupar las rutas WebSocket
@@ -10,6 +10,8 @@ class ConnectionManager:
     def __init__(self):
         # Hace una lista vacia donde van a ir los clientes conectados
         self.active_connections: Dict[int, WebSocket] = {}
+        # Salas por partida: partida_id -> lista de websockets conectados a esa sala
+        self.rooms: Dict[int, List[WebSocket]] = {}
 
     async def connect(self, id_jugador:int, websocket: WebSocket):
         # Acepta la conexión y la agrega a la lista
@@ -38,6 +40,35 @@ class ConnectionManager:
         for connection in list(self.active_connections.values()):
             await connection.send_text(message)
 
+    # --- Manejo de salas por partida ---
+    def join_room(self, partida_id: int, websocket: WebSocket):
+        if partida_id not in self.rooms:
+            self.rooms[partida_id] = []
+        self.rooms[partida_id].append(websocket)
+
+    def leave_room(self, partida_id: int, websocket: WebSocket):
+        if partida_id in self.rooms:
+            try:
+                self.rooms[partida_id].remove(websocket)
+            except ValueError:
+                pass
+            if not self.rooms[partida_id]:
+                del self.rooms[partida_id]
+
+    async def broadcast_to_partida(self, partida_id: int, message: Any):
+        # Envía un mensaje a todos los websockets conectados a la sala de esa partida
+        if partida_id not in self.rooms:
+            return
+        for ws in list(self.rooms[partida_id]):
+            try:
+                if isinstance(message, (dict, list)):
+                    await ws.send_json(message)
+                else:
+                    await ws.send_text(str(message))
+            except RuntimeError:
+                # si falla, removemos esa conexión de la sala
+                self.leave_room(partida_id, ws)
+
 
 manager = ConnectionManager()
 
@@ -55,3 +86,18 @@ async def websocket_endpoint(websocket: WebSocket, id_jugador: int):
             await manager.broadcast(text)
     except WebSocketDisconnect:
         manager.disconnect(id_jugador)
+
+# Endpoint WebSocket por partida (sala)
+@ws_router.websocket("/ws/partida/{partida_id}")
+async def websocket_partida_endpoint(websocket: WebSocket, partida_id: int):
+    # Aceptamos y agregamos la conexión a la sala correspondiente
+    await websocket.accept()
+    manager.join_room(partida_id, websocket)
+    try:
+        while True:
+            # Podemos leer mensajes entrantes si los usamos; por ahora, ignoramos o logueamos
+            data = await websocket.receive_text()
+            print(f"WS sala {partida_id} recibió: {data}")
+            # No reenviamos nada por defecto
+    except WebSocketDisconnect:
+        manager.leave_room(partida_id, websocket)
