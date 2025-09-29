@@ -249,6 +249,40 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
         "estado": partida.estado.value if hasattr(partida.estado, 'value') else partida.estado
     }
 
+
+# Aca se le pega cuando se quiera terminar turno, y se maneja la logica adentro
+@partida_router.patch("/partidas/{partida_id}/terminar_turno", response_model=None, status_code=status.HTTP_200_OK)
+async def terminar_turno(partida_id: int, id_enviada: int, db: Session = Depends(get_db)):
+
+
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+
+    jugador = db.query(JugadorModel).filter(JugadorModel.id_jugador == id_enviada).first()
+
+    # Verifico que el que me mando la solicitud es el que me mando el turno
+    if (partida.estado != EstadoPartida.en_juego or jugador.orden_turno != partida.turno_actual):
+        raise HTTPException(status_code=400, detail="No sos el que tiene el turno, crack")
+
+    cantidad_jugadores= partida.cantidad_jugadores
+    if partida.turno_actual == cantidad_jugadores:
+        partida.turno_actual = 1
+    else:
+        partida.turno_actual += 1
+
+    db.commit()
+    db.refresh(partida)
+
+    # Ahora, tengo que notificar a los usuarios de la partida sobre el cambio de turno
+
+    jugadores_en_partida = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
+
+    mensaje = {"turno_nuevo" : partida.turno_actual}
+    
+    for j in jugadores_en_partida:
+        await manager.send_message(mensaje, j.id_jugador)
+
+
+
 @partida_router.get("/partidas/{partida_id}/jugadores")
 async def listar_jugadores_partida(partida_id: int, db: Session = Depends(get_db)):
     """

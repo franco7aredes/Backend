@@ -46,3 +46,4 @@ class Partida(BaseModel):
     turno_actual: int
     jugadores: List[Jugador] = []
     model_config = ConfigDict(from_attributes=True)
+
