@@ -162,7 +162,7 @@ async def terminar_turno(partida_id: int, id_enviada: int, db: Session = Depends
     jugador = db.query(JugadorModel).filter(JugadorModel.id_jugador == id_enviada).first()
 
     # Verifico que el que me mando la solicitud es el que me mando el turno
-    if jugador.orden_turno != partida.turno_actual:
+    if (partida.estado != EstadoPartida.en_juego or jugador.orden_turno != partida.turno_actual):
         raise HTTPException(status_code=400, detail="No sos el que tiene el turno, crack")
 
     cantidad_jugadores= partida.cantidad_jugadores
