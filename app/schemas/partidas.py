@@ -14,6 +14,8 @@ class Jugador(BaseModel): # Deberiamos pasar esto a un archivo schemas/jugador.p
     id_jugador: int
     nombre: str
     fecha_nacimiento: datetime
+    id_avatar: int | None = None
+    orden_turno: int | None = None
     # Falta el turno ?
     # Falta avatar ? 
     model_config = ConfigDict(from_attributes=True)
@@ -22,6 +24,7 @@ class Jugador(BaseModel): # Deberiamos pasar esto a un archivo schemas/jugador.p
 class JugadorCreate(BaseModel):
     nombre:str
     fecha_nacimiento:datetime
+    id_avatar: int | None = 1
     
     
 class PartidaCreada(BaseModel):
@@ -29,6 +32,7 @@ class PartidaCreada(BaseModel):
     fecha_nac: datetime
     minimo: int
     maximo: int
+    id_avatar: int | None = 1
 
       
 class Partida(BaseModel):
@@ -36,8 +40,10 @@ class Partida(BaseModel):
     id_partida: int
     minimo: int
     maximo: int
+    id_jugador_creador: int | None = None
     estado: str
     cantidad_jugadores: int
     turno_actual: int
     jugadores: List[Jugador] = []
     model_config = ConfigDict(from_attributes=True)
+
