@@ -9,7 +9,6 @@ def test_unirse_a_partida_ws_broadcast(client: TestClient):
     # crear la partida
     with SessionLocal() as session:
         partida = PartidaModel(
-            id_partida=10,
             estado=EstadoPartida.en_espera,
             cantidad_jugadores=0,
             maximo=4,
@@ -26,8 +25,8 @@ def test_unirse_a_partida_ws_broadcast(client: TestClient):
 
     # mockear manager.send_message
     with patch("app.routers.partidas.manager.send_message", new_callable=AsyncMock) as mock_send:
-        response1 = client.put("/partidas/10/unirse", json=jugador1)
-        response2 = client.put("/partidas/10/unirse", json=jugador2)
+        response1 = client.put(f"/partidas/{partida.id_partida}/unirse", json=jugador1)
+        response2 = client.put(f"/partidas/{partida.id_partida}/unirse", json=jugador2)
 
 
 
