@@ -1,12 +1,10 @@
 from fastapi import APIRouter, status, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.db.databases import get_db
 from app.db.models.cartas_models import Carta, PosicionCarta
-from app.websockets.ApiWS import manager
 from app.db.models.jugadores_models import Jugador as JugadorModel
-from app.db.models.partidas_models import Partida as PartidaModel
-from app.db.models.partidas_models import EstadoPartida
+from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
+from app.websockets.ApiWS import manager
 
 mazo_router = APIRouter()
 
@@ -15,7 +13,11 @@ mazo_router = APIRouter()
 async def reponer_mazo(partida_id: int, data: dict, db: Session = Depends(get_db)):
     MAX_CARTAS_EN_MANO = 6
 
-    jugador_id = data.get("jugador_id")
+    jugador_id_raw = data.get("jugador_id")
+    try:
+        jugador_id: int = int(jugador_id_raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="jugador_id inválido")
 
     # validar que exista el jugador
     jugador = db.query(JugadorModel).filter_by(id_jugador=jugador_id).first()
@@ -30,13 +32,19 @@ async def reponer_mazo(partida_id: int, data: dict, db: Session = Depends(get_db
     # validar que el jugador pertenezca a la partida solicitada
     if getattr(jugador, "id_partida", None) != partida_id:
         raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
-    
-    cartas_mano = db.query(Carta).filter_by(id_jugador=jugador_id,  id_partida=partida_id, posicion=PosicionCarta.mano).count()
+
+    # cartas actuales en mano
+    cartas_mano = db.query(Carta).filter_by(
+        id_jugador=jugador_id,
+        id_partida=partida_id,
+        posicion=PosicionCarta.mano
+    ).count()
     cartas_reponer = MAX_CARTAS_EN_MANO - cartas_mano
 
     if cartas_reponer == 0:
         return {"mensaje": "El jugador ya tiene el maximo de cartas en la mano"}
-    
+
+    # obtener cartas del mazo disponibles
     cartas_disponibles = db.query(Carta).filter_by(
         id_partida=partida_id,
         posicion=PosicionCarta.mazo,
@@ -44,84 +52,71 @@ async def reponer_mazo(partida_id: int, data: dict, db: Session = Depends(get_db
     ).limit(cartas_reponer).all()
 
     if not cartas_disponibles:
-"""
-        # Si el mazo ya está vacío, actualizar estado de la partida y notificar
-        partida_db = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
-        if partida_db is not None:
-            try:
-                if getattr(partida_db, 'estado', None) != EstadoPartida.Finalizada:
-                    partida_db.estado = EstadoPartida.Finalizada  
-                    db.add(partida_db)
-                    db.commit()
-            except Exception:
-                db.rollback()
-
-        # Notificar por WebSocket solo a jugadores de esta partida
-        jugadores_ids = [jid for (jid,) in db.query(Jugador.id_jugador).filter_by(id_partida=partida_id).all()]
-        for jid in jugadores_ids:
-            await manager.send_text(jid, "fin_de_mazo")
-"""
-        partida.estado = EstadoPartida.Finalizada
-        db.add(partida)
-        db.commit()
-        db.refresh(partida)
-        # Notificamos a todos los clientes conectados al tablero de esta partida
-        mensaje = {"evento": "partida_finalizada", "partida_id": partida_id, "motivo": "mazo_agotado"}
+        # mazo agotado: marcar partida finalizada y notificar via WS (jugador y sala)
         try:
-            await manager.broadcast_to_partida(partida_id, mensaje)
+            if getattr(partida, 'estado', None) != EstadoPartida.Finalizada:
+                partida.estado = EstadoPartida.Finalizada
+                db.add(partida)
+                db.commit()
         except Exception:
-            # Si no hay listeners o falla el envío, continuamos
+            db.rollback()
+
+        try:
+            # Primero texto plano al WS privado (para tests que esperan el primer frame como 'fin_de_mazo')
+            await manager.send_text(jugador_id, "fin_de_mazo")
+            # Luego JSON al privado y a la sala de la partida para el frontend
+            await manager.send_message({"evento": "fin_de_mazo", "partida_id": partida_id}, jugador_id)
+            await manager.broadcast_to_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id})
+        except Exception:
             pass
 
         raise HTTPException(status_code=404, detail="No hay cartas disponibles en el mazo")
 
+    # mover cartas a la mano del jugador
     for carta in cartas_disponibles:
-        carta.id_jugador = jugador_id  
-        carta.posicion = PosicionCarta.mano  
+        carta.id_jugador = jugador_id
+        carta.posicion = PosicionCarta.mano
         db.add(carta)
-    
     db.commit()
 
-    # Si el mazo quedó vacío luego de reponer, actualizar estado y notificar a los jugadores de la partida
+    # verificar si quedó el mazo en cero
     restantes = db.query(Carta).filter_by(id_partida=partida_id, posicion=PosicionCarta.mazo, id_jugador=None).count()
     if restantes == 0:
-        # Actualizar estado de la partida a Finalizada (si no lo está ya)
-        partida_db = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
-        if partida_db is not None:
-            try:
-                if getattr(partida_db, 'estado', None) != EstadoPartida.Finalizada:
-                    partida_db.estado = EstadoPartida.Finalizada
-                    db.add(partida_db)
-                    db.commit()
-            except Exception:
-                db.rollback()
-
-        jugadores_ids = [jid for (jid,) in db.query(Jugador.id_jugador).filter_by(id_partida=partida_id).all()]
-        for jid in jugadores_ids:
-            # Notificación dirigida solo a jugadores de esta partida
-            import asyncio
-            if asyncio.iscoroutinefunction(manager.send_text):
-                await manager.send_text(jid, "fin_de_mazo")
-            else:
-                # Fallback por si cambia la firma
-                await manager.send_text(jid, "fin_de_mazo")
+        try:
+            if getattr(partida, 'estado', None) != EstadoPartida.Finalizada:
+                partida.estado = EstadoPartida.Finalizada
+                db.add(partida)
+                db.commit()
+        except Exception:
+            db.rollback()
+        try:
+            # Primero texto plano al WS privado (para tests)
+            await manager.send_text(jugador_id, "fin_de_mazo")
+            # Luego JSON al privado y a la sala (frontend)
+            await manager.send_message({"evento": "fin_de_mazo", "partida_id": partida_id}, jugador_id)
+            await manager.broadcast_to_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id})
+        except Exception:
+            pass
 
     return {
         "mensaje": f"Se repusieron {len(cartas_disponibles)} cartas",
         "cartas": [{"id": c.id_carta, "posicion": c.posicion.value} for c in cartas_disponibles]
     }
 
+
 @mazo_router.patch("/partida/{partida_id}/descartar", status_code=status.HTTP_200_OK)
 def descartar_carta_por_jugador(partida_id: int, data: dict, db: Session = Depends(get_db)):
-    jugador_id = data.get("jugador_id")
+    jugador_id_raw = data.get("jugador_id")
+    try:
+        jugador_id: int = int(jugador_id_raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="jugador_id inválido")
     carta = db.query(Carta).filter_by(id_jugador=jugador_id, id_partida=partida_id).first()
     if not carta:
-        raise HTTPException(status_code=404, detail="No se encontró carta" \
-        " para descartar en esta partida")
-    # id_jugador es nullable, por lo que se puede asignar None.
+        raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
+    # mover a descarte
     carta.id_jugador = None
-    from app.db.models.cartas_models import PosicionCarta
-    carta.posicion = PosicionCarta.descarte  
+    carta.posicion = PosicionCarta.descarte
     db.add(carta)
     db.commit()
     db.refresh(carta)
@@ -130,8 +125,6 @@ def descartar_carta_por_jugador(partida_id: int, data: dict, db: Session = Depen
 
 @mazo_router.get("/partida/{partida_id}/mano/{jugador_id}", status_code=status.HTTP_200_OK)
 def obtener_mano_jugador(partida_id: int, jugador_id: int, db: Session = Depends(get_db)):
-    """
-    Devuelve la cantidad de cartas en mano del jugador en la partida.
-    """
+    """Devuelve la cantidad de cartas en mano del jugador en la partida."""
     count = db.query(Carta).filter_by(id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano).count()
     return {"cantidad": count}
