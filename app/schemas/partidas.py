@@ -15,6 +15,7 @@ class Jugador(BaseModel): # Deberiamos pasar esto a un archivo schemas/jugador.p
     nombre: str
     fecha_nacimiento: datetime
     id_avatar: int | None = None
+    orden_turno: int | None = None
     # Falta el turno ?
     # Falta avatar ? 
     model_config = ConfigDict(from_attributes=True)

@@ -1,6 +1,6 @@
 from datetime import date
 from typing import List
-from app.db.models import Jugador as JugadorModel
+from app.db.models.jugadores_models import Jugador as JugadorModel
 
 # Fecha de referencia
 fecha_referencia = date(1980, 9, 15)
@@ -22,8 +22,8 @@ def asignar_turnos(jugadores: List[JugadorModel]) -> List[JugadorModel]:
 
     # Asignar turnos a los jugadores (el primer turno es el más cercano)
     for i, jugador in enumerate(jugadores_ordenados):
-        jugador.turno = i + 1  # Asignar el turno (1, 2, 3, ...)
-        print(f"Jugador: {jugador.nombre}, Fecha Nacimiento: {jugador.fecha_nacimiento}, Turno Asignado: {jugador.turno}")
+        jugador.orden_turno = i + 1  # Persistir en la columna correcta
+        print(f"Jugador: {jugador.nombre}, Fecha Nacimiento: {jugador.fecha_nacimiento}, Turno Asignado: {jugador.orden_turno}")
 
     
     return jugadores_ordenados
