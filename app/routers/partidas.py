@@ -35,6 +35,23 @@ async def listar_partidas(db: Session = Depends(get_db)):
     ]
     return partidas
 
+@partida_router.get("/partidas/{partida_id}")
+async def obtener_partida(partida_id: int, db: Session = Depends(get_db)):
+    """Devuelve los datos de la partida, incluyendo el id del creador (owner)."""
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+
+    return {
+        "id_partida": partida.id_partida,
+        "minimo": partida.minimo,
+        "maximo": partida.maximo,
+        "estado": partida.estado.value if hasattr(partida.estado, 'value') else partida.estado,
+        "cantidad_jugadores": partida.cantidad_jugadores,
+        "turno_actual": partida.turno_actual,
+        "id_jugador_creador": partida.id_jugador_creador,
+    }
+
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
 async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
     fecha_nac = partida.fecha_nac.date() 
@@ -70,7 +87,8 @@ async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
     return {
         "mensaje": "partida creada con exito",
         "id_partida": nueva_partida.id_partida,
-        "id_jugador_creador": jugador.id_jugador
+        "id_jugador_creador": jugador.id_jugador,
+        "estado": nueva_partida.estado.value if hasattr(nueva_partida.estado, 'value') else nueva_partida.estado
     }
 
 
@@ -138,7 +156,7 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
         nombre=jugador.nombre,
         fecha_nacimiento=jugador.fecha_nacimiento,
         orden_turno=0,
-        id_avatar=1  # ejemplo, puedes cambiar
+        id_avatar=jugador.id_avatar if getattr(jugador, 'id_avatar', None) else 1  # usa el avatar recibido o por defecto 1
     )
 
     db.add(nuevo_jugador)
@@ -151,22 +169,56 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
     jugadores_en_partida = db.query(JugadorModel).filter_by(id_partida=partida_id).all()
 
     # lista que contendra la informacion que vamos a enviar al front
-    jugadores_info = []
-    for j in jugadores_en_partida:
-        jugadores_info.append({"nombre": j.nombre, "id_avatar": j.id_avatar})
-
+    jugadores_info = [
+        {"id_jugador": j.id_jugador, "nombre": j.nombre, "id_avatar": j.id_avatar}
+        for j in jugadores_en_partida
+    ]
 
     mensaje = {
-    "evento": "jugadores_actualizados",
-    "partida_id": partida_id,
-    "jugadores": jugadores_info
+        "evento": "jugadores_actualizados",
+        "partida_id": partida_id,
+        "jugadores": jugadores_info,
     }
 
-    # enviamos el mensaje a cada jugador conectado en la partida
+    # enviamos el mensaje a cada jugador conectado en la partida (canal por jugador)
     for j in jugadores_en_partida:
         await manager.send_message(mensaje, j.id_jugador)
+
+    # Notificar a los clientes del tablero de esta partida (sala por partida)
+    await manager.broadcast_to_partida(partida.id_partida, {
+        "evento": "jugador_unido",
+        "partida_id": partida.id_partida,
+        "jugador": {
+            "id_jugador": nuevo_jugador.id_jugador,
+            "nombre": nuevo_jugador.nombre,
+            "id_avatar": nuevo_jugador.id_avatar,
+        }
+    })
     
     return {
         "mensaje":"jugador agregado",
-        "jugador_id":nuevo_jugador.id_jugador
+        "jugador_id":nuevo_jugador.id_jugador,
+        "id_partida": partida.id_partida,
+        "id_jugador_creador": partida.id_jugador_creador,
+        "estado": partida.estado.value if hasattr(partida.estado, 'value') else partida.estado
     }
+
+@partida_router.get("/partidas/{partida_id}/jugadores")
+async def listar_jugadores_partida(partida_id: int, db: Session = Depends(get_db)):
+    """
+    Devuelve la lista de jugadores de la partida con sus datos básicos
+    para que el frontend pueda renderizarlos al unirse o al ingresar al tablero.
+    """
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+
+    jugadores = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
+    return [
+        {
+            "id_jugador": j.id_jugador,
+            "nombre": j.nombre,
+            "id_avatar": j.id_avatar,
+        }
+        for j in jugadores
+    ]

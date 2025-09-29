@@ -20,8 +20,9 @@ class Jugador(BaseModel): # Deberiamos pasar esto a un archivo schemas/jugador.p
 
     
 class JugadorCreate(BaseModel):
-    nombre:str
-    fecha_nacimiento:datetime
+    nombre: str
+    fecha_nacimiento: datetime
+    id_avatar: int | None = None
     
     
 class PartidaCreada(BaseModel):
