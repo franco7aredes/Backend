@@ -26,6 +26,7 @@ async def listar_partidas(db: Session = Depends(get_db)):
             id_partida=p.id_partida,
             minimo=p.minimo,
             maximo=p.maximo,
+            id_jugador_creador=p.id_jugador_creador,
             estado=p.estado.value if hasattr(p.estado, 'value') else p.estado,
             cantidad_jugadores=p.cantidad_jugadores,
             turno_actual=p.turno_actual,
@@ -34,6 +35,40 @@ async def listar_partidas(db: Session = Depends(get_db)):
         for p in partidas_db
     ]
     return partidas
+
+@partida_router.get("/partidas/{partida_id}", response_model=PartidaSchema)
+async def obtener_partida(partida_id: int, db: Session = Depends(get_db)):
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    # Construimos el esquema incluyendo campos principales
+    return PartidaSchema(
+        id_partida=partida.id_partida,
+        minimo=partida.minimo,
+        maximo=partida.maximo,
+        id_jugador_creador=partida.id_jugador_creador,
+        estado=partida.estado.value if hasattr(partida.estado, 'value') else partida.estado,
+        cantidad_jugadores=partida.cantidad_jugadores,
+        turno_actual=partida.turno_actual,
+        jugadores=[]
+    )
+
+@partida_router.get("/partidas/{partida_id}/jugadores", response_model=List[JugadorSchema])
+async def listar_jugadores_partida(partida_id: int, db: Session = Depends(get_db)):
+    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    jugadores = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
+    # Mapear a esquema
+    return [
+        JugadorSchema(
+            id_jugador=j.id_jugador,
+            nombre=j.nombre,
+            fecha_nacimiento=j.fecha_nacimiento,
+            id_avatar=j.id_avatar,
+        )
+        for j in jugadores
+    ]
 
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
 async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
@@ -55,7 +90,7 @@ async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
         nombre=partida.jugador_creador,
         fecha_nacimiento=fecha_nac,
         orden_turno=1,
-        id_avatar=1)
+        id_avatar=partida.id_avatar or 1)
 
     db.add(jugador)
     db.commit()
@@ -75,7 +110,7 @@ async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
 
 
 @partida_router.patch("/partidas/{partida_id}/iniciar", response_model=None , status_code=status.HTTP_200_OK)
-def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
+async def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
     partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
 
     if not partida:
@@ -109,9 +144,9 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
             db.commit()
             print(f"Cartas repartidas y guardadas para la partida {partida.id_partida}: {len(todas_las_cartas)}")
 
-            # Se tienen que notificar a cada jugador
+            # Se tienen que notificar a cada jugador (por canal individual)
             if repartidas:
-                _notify_players_async(repartidas)
+                await _notify_players_async(repartidas)
 
 
         except Exception as e:
@@ -119,8 +154,10 @@ def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
             print(f"Error al guardar cartas: {e}")
             # Ver que hacer si falla el commit
 
-    
-    return {"mensaje": "La partida comenzo", "estado": partida.estado}
+    # Notificar por sala a todos los tableros conectados
+    await manager.broadcast_to_partida(partida_id, {"evento": "partida_iniciada", "partida_id": partida_id, "estado": "En Juego"})
+
+    return {"mensaje": "La partida comenzo", "estado": "En Juego"}
 
 
 @partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
@@ -138,7 +175,7 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
         nombre=jugador.nombre,
         fecha_nacimiento=jugador.fecha_nacimiento,
         orden_turno=0,
-        id_avatar=1  # ejemplo, puedes cambiar
+        id_avatar=jugador.id_avatar or 1
     )
 
     db.add(nuevo_jugador)
@@ -151,20 +188,26 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
     jugadores_en_partida = db.query(JugadorModel).filter_by(id_partida=partida_id).all()
 
     # lista que contendra la informacion que vamos a enviar al front
-    jugadores_info = []
-    for j in jugadores_en_partida:
-        jugadores_info.append({"nombre": j.nombre, "id_avatar": j.id_avatar})
+    jugadores_info = [{"id_jugador": j.id_jugador, "nombre": j.nombre, "id_avatar": j.id_avatar} for j in jugadores_en_partida]
 
-
-    mensaje = {
-    "evento": "jugadores_actualizados",
-    "partida_id": partida_id,
-    "jugadores": jugadores_info
+    # Mensajes WS
+    mensaje_lista = {
+        "evento": "jugadores_actualizados",
+        "partida_id": partida_id,
+        "jugadores": jugadores_info
+    }
+    mensaje_uno = {
+        "evento": "jugador_unido",
+        "partida_id": partida_id,
+        "jugador": {"id_jugador": nuevo_jugador.id_jugador, "nombre": nuevo_jugador.nombre, "id_avatar": nuevo_jugador.id_avatar}
     }
 
-    # enviamos el mensaje a cada jugador conectado en la partida
+    # enviamos el mensaje a cada jugador conectado en la partida (canal individual)
     for j in jugadores_en_partida:
-        await manager.send_message(mensaje, j.id_jugador)
+        await manager.send_message(mensaje_lista, j.id_jugador)
+
+    # y broadcast a la sala de la partida para tableros conectados
+    await manager.broadcast_to_partida(partida_id, mensaje_uno)
     
     return {
         "mensaje":"jugador agregado",
