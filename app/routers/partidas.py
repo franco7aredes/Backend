@@ -169,20 +169,31 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
     jugadores_en_partida = db.query(JugadorModel).filter_by(id_partida=partida_id).all()
 
     # lista que contendra la informacion que vamos a enviar al front
-    jugadores_info = []
-    for j in jugadores_en_partida:
-        jugadores_info.append({"id_jugador": j.id_jugador, "nombre": j.nombre, "id_avatar": j.id_avatar})
-
+    jugadores_info = [
+        {"id_jugador": j.id_jugador, "nombre": j.nombre, "id_avatar": j.id_avatar}
+        for j in jugadores_en_partida
+    ]
 
     mensaje = {
-    "evento": "jugadores_actualizados",
-    "partida_id": partida_id,
-    "jugadores": jugadores_info
+        "evento": "jugadores_actualizados",
+        "partida_id": partida_id,
+        "jugadores": jugadores_info,
     }
 
-    # enviamos el mensaje a cada jugador conectado en la partida
+    # enviamos el mensaje a cada jugador conectado en la partida (canal por jugador)
     for j in jugadores_en_partida:
         await manager.send_message(mensaje, j.id_jugador)
+
+    # Notificar a los clientes del tablero de esta partida (sala por partida)
+    await manager.broadcast_to_partida(partida.id_partida, {
+        "evento": "jugador_unido",
+        "partida_id": partida.id_partida,
+        "jugador": {
+            "id_jugador": nuevo_jugador.id_jugador,
+            "nombre": nuevo_jugador.nombre,
+            "id_avatar": nuevo_jugador.id_avatar,
+        }
+    })
     
     return {
         "mensaje":"jugador agregado",
