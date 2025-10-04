@@ -3,6 +3,7 @@ from app.db.databases import Base, SessionLocal
 from app.db.models.jugadores_models import Jugador
 from app.db.models.partidas_models import Partida, EstadoPartida
 from app.db.models.cartas_models import PosicionCarta, Carta
+from app.db.models.secretos_models import EstadoSecreto, TipoSecreto, SecretoDB
 from datetime import date
 import sqlalchemy.exc
 
@@ -149,3 +150,56 @@ def test_cartas_en_jugadores(db):
     assert len(descarte) == 1
     mazo = db.query(Carta).filter_by(posicion="mano").all()
     assert len(mazo) == 3
+
+def test_secretos_en_jugadores(db):
+    partida = Partida(
+        estado=EstadoPartida.en_juego,
+        id_jugador_creador=1,
+        cantidad_jugadores=3,
+        turno_actual=1,
+        minimo=2,
+        maximo=4
+    )
+    db.add(partida)
+    db.commit()
+
+    jugadores = [
+        Jugador(nombre="Joa", fecha_nacimiento=date(1995,1,1), orden_turno=1, id_avatar=1, id_partida=partida.id_partida),
+        Jugador(nombre="Facu", fecha_nacimiento=date(2002,2,2), orden_turno=2, id_avatar=2, id_partida=partida.id_partida),
+        Jugador(nombre="Gero", fecha_nacimiento=date(2004,3,3), orden_turno=3, id_avatar=3, id_partida=partida.id_partida),
+    ]
+    db.add_all(jugadores)
+    db.commit()
+
+    joa_id = jugadores[0].id_jugador
+    facu_id = jugadores[1].id_jugador
+    gero_id = jugadores[2].id_jugador
+
+    secretos = [
+        SecretoDB(id_secreto=1, id_partida=partida.id_partida, id_jugador=joa_id, tipo=TipoSecreto.asesino, estado=EstadoSecreto.oculto),
+        SecretoDB(id_secreto=2, id_partida=partida.id_partida, id_jugador=joa_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.revelado),
+        SecretoDB(id_secreto=3, id_partida=partida.id_partida, id_jugador=joa_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto),
+        SecretoDB(id_secreto=4, id_partida=partida.id_partida, id_jugador=facu_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto),
+        SecretoDB(id_secreto=5, id_partida=partida.id_partida, id_jugador=facu_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto),
+        SecretoDB(id_secreto=6, id_partida=partida.id_partida, id_jugador=facu_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto),
+        SecretoDB(id_secreto=7, id_partida=partida.id_partida, id_jugador=gero_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.revelado),
+        SecretoDB(id_secreto=8, id_partida=partida.id_partida, id_jugador=gero_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto),
+        SecretoDB(id_secreto=9, id_partida=partida.id_partida, id_jugador=gero_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.revelado)
+    ]
+
+    db.add_all(secretos)
+    db.commit()
+    revelados = db.query(SecretoDB).filter_by(estado=EstadoSecreto.revelado).all()
+    assert len(revelados) == 3
+    secretos_joa = db.query(SecretoDB).filter_by(id_jugador=joa_id).all()
+    assert len(secretos_joa) == 3
+    secretos_facu = db.query(SecretoDB).filter_by(id_jugador=facu_id).all()
+    assert len(secretos_facu) == 3
+    secretos_gero = db.query(SecretoDB).filter_by(id_jugador=gero_id).all()
+    assert len(secretos_gero) == 3
+    asesino = db.query(SecretoDB).filter_by(tipo=TipoSecreto.asesino).all()
+    assert asesino.id_jugador == joa_id
+    otros_secretos = db.query(SecretoDB).filter_by(tipo=TipoSecreto.otro).all()
+    assert len(otros_secretos) == 8
+    ocultos = db.query(SecretoDB).filter_by(estado=EstadoSecreto.oculto).all()
+    assert len(ocultos) == 6
