@@ -76,7 +76,7 @@ async def descartar_carta_por_jugador(partida_id: int, data: dict, service: Serv
 
 
 @mazo_router.get("/partida/{partida_id}/mano/{jugador_id}", status_code=status.HTTP_200_OK)
-def obtener_mano_jugador(partida_id: int, jugador_id: int, db: Session = Depends(get_db)):
+async def obtener_mano_jugador(partida_id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
     """Devuelve la cantidad de cartas en mano del jugador en la partida."""
-    count = db.query(Carta).filter_by(id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano).count()
-    return {"cantidad": count}
+    cantidad = await service.obtener_cantidad_mano(partida_id, jugador_id)
+    return {"cantidad": cantidad}

@@ -8,7 +8,7 @@ from app.db.models.jugadores_models import Jugador as JugadorModelo
 from app.capa_1_acceso_datos.repositorios.partida_contrato import IRepositorioPartida
 from app.capa_1_acceso_datos.repositorios.jugador_contrato import IRepositorioJugador
 from app.capa_1_acceso_datos.repositorios.carta_contrato import IRepositorioCarta
-from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado
+from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
 
 
 class ServicioJuego:
@@ -185,7 +185,7 @@ class ServicioJuego:
         if not partida:
             raise PartidaNoEncontrada()
         if partida.cantidad_jugadores >= partida.maximo:
-            raise ValueError("maximo_alcanzado")
+            raise MaximoJugadoresAlcanzado()
 
         if not self.jugadores:
             raise RuntimeError("Repositorio de jugadores no disponible")
@@ -315,3 +315,9 @@ class ServicioJuego:
         self.cartas.db.add(carta)  # type: ignore[attr-defined]
         await self.cartas.db.flush()  # type: ignore[attr-defined]
         return int(carta.id_carta)
+
+    async def obtener_cantidad_mano(self, partida_id: int, jugador_id: int) -> int:
+        """Devuelve la cantidad de cartas en mano del jugador para una partida."""
+        if not self.cartas:
+            return 0
+        return await self.cartas.contar_en_mano(partida_id, jugador_id)

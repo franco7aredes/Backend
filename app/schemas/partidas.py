@@ -1,49 +1,18 @@
-# Aca defino modelos de datos para partidas
+"""Compatibilidad de esquemas.
 
-from pydantic import BaseModel, ConfigDict
-from datetime import datetime
-from typing import List
-
+Este módulo re-exporta los DTOs definidos en capa_3_api/dtos/partidas para unificar
+la definición en un solo lugar, manteniendo compatibilidad con los nombres que
+utilizan los endpoints y tests actuales (PartidaCreada, JugadorCreate, etc.).
 """
-Nota: estas clases en endpoints hacen que se verifiquen solos
-los tipos.
-El formato de fechas es el de ISO 8601 (YYYY-MM-DDThh:mm:ss),
-el preferido en la mayoria de las app web
-"""
-class Jugador(BaseModel): # Deberiamos pasar esto a un archivo schemas/jugador.py ? 
-    id_jugador: int
-    nombre: str
-    fecha_nacimiento: datetime
-    id_avatar: int | None = None
-    orden_turno: int | None = None
-    # Falta el turno ?
-    # Falta avatar ? 
-    model_config = ConfigDict(from_attributes=True)
 
-    
-class JugadorCreate(BaseModel):
-    nombre:str
-    fecha_nacimiento:datetime
-    id_avatar: int | None = 1
-    
-    
-class PartidaCreada(BaseModel):
-    jugador_creador: str
-    fecha_nac: datetime
-    minimo: int
-    maximo: int
-    id_avatar: int | None = 1
+from app.capa_3_api.dtos.partidas import (
+    Jugador as Jugador,
+    Partida as Partida,
+    JugadorCrear as _JugadorCrear,
+    PartidaCrear as _PartidaCrear,
+)
 
-      
-class Partida(BaseModel):
-    # Esquema de los datos de partida que se envian a los usuarios
-    id_partida: int
-    minimo: int
-    maximo: int
-    id_jugador_creador: int | None = None
-    estado: str
-    cantidad_jugadores: int
-    turno_actual: int
-    jugadores: List[Jugador] = []
-    model_config = ConfigDict(from_attributes=True)
+# Aliases compatibles con nombres existentes en el código y tests
+JugadorCreate = _JugadorCrear
+PartidaCreada = _PartidaCrear
 

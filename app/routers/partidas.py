@@ -1,27 +1,14 @@
-from typing import List, Dict, Any
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-import asyncio
-from sqlalchemy.orm import Session
 from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema, JugadorCreate
-from app.db.databases import get_db
-from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
-from app.db.models.jugadores_models import Jugador as JugadorModel
 from app.websockets.ApiWS import manager
-from datetime import datetime
-import json
-
-
 import app.core.constantes as C
-
-from app.routers.obtener_cartas import repartir_cartas_a_jugadores
 from app.core.async_utils import _notify_players_async
-
-from app.routers.calcular_turnos import asignar_turnos 
 
 # Nuevo: servicio de juego (capa 2) con repos async 
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
-from app.capa_2_logica.errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado
+from app.capa_2_logica.errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
 
 partida_router = APIRouter()
 
@@ -100,7 +87,7 @@ async def crear_partida(partida: PartidaCreada, service: ServicioJuego = Depends
 
 
 @partida_router.patch("/partidas/{partida_id}/iniciar", response_model=None , status_code=status.HTTP_200_OK)
-async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = Depends(obtener_servicio_juego), db: Session = Depends(get_db)):
+async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = Depends(obtener_servicio_juego)):
     # Cambiamos estado vía servicio (async + validaciones)
     try:
         partida = await service.iniciar_partida(partida_id)
@@ -147,7 +134,7 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, service: Ser
         )
     except PartidaNoEncontrada:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
-    except ValueError:
+    except MaximoJugadoresAlcanzado:
         raise HTTPException(status_code=400, detail="La partida ya tiene el máximo de jugadores")
 
     # obtener jugadores para notificar

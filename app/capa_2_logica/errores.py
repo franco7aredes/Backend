@@ -8,3 +8,7 @@ class PartidaYaEnJuego(Exception):
 
 class MinimoJugadoresNoAlcanzado(Exception):
     pass
+
+
+class MaximoJugadoresAlcanzado(Exception):
+    pass
