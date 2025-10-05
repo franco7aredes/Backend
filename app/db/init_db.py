@@ -1,6 +1,7 @@
-from databases import engine, Base
-from models.jugadores_models import Jugador
-from models.partidas_models import Partida
+from app.db.databases import engine
+from app.layer_0_db_definition.database_sqlalchemy import Base
+from app.db.models.jugadores_models import Jugador
+from app.db.models.partidas_models import Partida
 
 
 Base.metadata.create_all(bind=engine)

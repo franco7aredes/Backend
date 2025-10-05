@@ -1,6 +1,6 @@
 from sqlalchemy import Column, ForeignKey, Integer, Enum, event
 import enum
-from app.db.databases import Base
+from app.layer_0_db_definition.database_sqlalchemy import Base
 from sqlalchemy.orm import relationship
 
 

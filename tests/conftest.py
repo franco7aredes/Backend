@@ -3,6 +3,8 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.db.databases import Base, get_db
+from app.layer_0_db_definition.database_sqlalchemy import get_async_db as get_async_db_en
+from app.capa_0_definicion_bd.base_datos_sqlalchemy import get_async_db as get_async_db_es
 # Importar modelos para registrar tablas en el metadata antes de create_all
 from app.db.models import partidas_models, jugadores_models, cartas_models  # noqa: F401
 from app.main import app as fastapi_app
@@ -30,6 +32,25 @@ def override_get_db():
         session.close()
 
 fastapi_app.dependency_overrides[get_db] = override_get_db
+
+# --- Sobreescritura de la base de datos asíncrona ---
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
+ASYNC_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+async_engine = create_async_engine(ASYNC_SQLALCHEMY_DATABASE_URL)
+AsyncTestingSessionLocal = async_sessionmaker(bind=async_engine, class_=AsyncSession, expire_on_commit=False)
+
+async def override_get_async_db():
+    async with AsyncTestingSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+fastapi_app.dependency_overrides[get_async_db_en] = override_get_async_db
+fastapi_app.dependency_overrides[get_async_db_es] = override_get_async_db
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db_once():

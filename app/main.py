@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import api_router
 from .websockets.ApiWS import ws_router
 
-from app.db.databases import Base, engine
+from app.layer_0_db_definition.database_sqlalchemy import Base
+from app.db.databases import engine
 # Importa ambos modelos para registrar las tablas en el metadata
 from app.db.models import partidas_models, jugadores_models
 

@@ -1,5 +1,5 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Date
-from app.db.databases import Base
+from app.layer_0_db_definition.database_sqlalchemy import Base
 from sqlalchemy.orm import relationship 
 
 class Jugador(Base):

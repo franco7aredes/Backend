@@ -18,6 +18,10 @@ from app.core.async_utils import _notify_players_async
 
 from app.routers.calcular_turnos import asignar_turnos 
 
+# Nuevo: servicio de juego (capa 2) con repos async 
+from app.capa_2_logica.servicio_juego import ServicioJuego
+from app.capa_2_logica.fabrica import obtener_servicio_juego
+
 partida_router = APIRouter()
 
 @partida_router.get("/partidas", response_model=List[PartidaSchema])
@@ -77,42 +81,23 @@ async def listar_jugadores_partida(partida_id: int, db: Session = Depends(get_db
 
 
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
-async def crear_partida(partida: PartidaCreada, db: Session = Depends(get_db)):
-    fecha_nac = partida.fecha_nac.date() 
-    nueva_partida = PartidaModel(
-        estado=EstadoPartida.en_espera,
-        id_jugador_creador=0,
-        cantidad_jugadores=1,
-        turno_actual=1,
+async def crear_partida(partida: PartidaCreada, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    # Usamos el servicio (async + repos async) para crear partida y jugador
+    nueva_partida, jugador = await service.crear_partida(
+        jugador_creador=partida.jugador_creador,
+        fecha_nac=partida.fecha_nac,
         minimo=partida.minimo,
-        maximo=partida.maximo)
-
-    db.add(nueva_partida)
-    db.commit()
-    db.refresh(nueva_partida)
-
-    jugador = JugadorModel(
-        id_partida=nueva_partida.id_partida,
-        nombre=partida.jugador_creador,
-        fecha_nacimiento=fecha_nac,
-        orden_turno=1,
-        id_avatar=partida.id_avatar or 1)
-
-    db.add(jugador)
-    db.commit()
-    db.refresh(jugador)
-
-    nueva_partida.id_jugador_creador=jugador.id_jugador
-    db.commit()
+        maximo=partida.maximo,
+    )
 
     # Broadcast por WebSocket para que el frontend se actualice
     await manager.broadcast("nueva_partida")
-    
+
     return {
         "mensaje": "partida creada con exito",
         "id_partida": nueva_partida.id_partida,
         "id_jugador_creador": jugador.id_jugador,
-        "estado": nueva_partida.estado.value if hasattr(nueva_partida.estado, 'value') else nueva_partida.estado
+        "estado": nueva_partida.estado.value if hasattr(nueva_partida.estado, 'value') else nueva_partida.estado,
     }
 
 
@@ -285,24 +270,4 @@ async def terminar_turno(partida_id: int, id_enviada: int, db: Session = Depends
     return mensaje
 
 
-
-@partida_router.get("/partidas/{partida_id}/jugadores")
-async def listar_jugadores_partida(partida_id: int, db: Session = Depends(get_db)):
-    """
-    Devuelve la lista de jugadores de la partida con sus datos básicos
-    para que el frontend pueda renderizarlos al unirse o al ingresar al tablero.
-    """
-    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
-    if not partida:
-        raise HTTPException(status_code=404, detail="Partida no encontrada")
-
-    jugadores = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
-    return [
-        {
-            "id_jugador": j.id_jugador,
-            "nombre": j.nombre,
-            "id_avatar": j.id_avatar,
-            "orden_turno": j.orden_turno,
-        }
-        for j in jugadores
-    ]
+ 
