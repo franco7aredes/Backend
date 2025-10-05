@@ -61,12 +61,11 @@ async def obtener_partida(partida_id: int, service: ServicioJuego = Depends(obte
     )
 
 @partida_router.get("/partidas/{partida_id}/jugadores", response_model=List[JugadorSchema])
-async def listar_jugadores_partida(partida_id: int, db: Session = Depends(get_db)):
-    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+async def listar_jugadores_partida(partida_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    partida = await service.obtener_por_id(partida_id)
     if not partida:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
-    jugadores = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
-    # Mapear a esquema
+    jugadores = await service.listar_jugadores(partida_id)
     return [
         JugadorSchema(
             id_jugador=j.id_jugador,
@@ -113,52 +112,23 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
         raise HTTPException(status_code=400, detail="La partida ya esta en juego")
 
 
-    # Aca voy a meter la logica de obtener cartas, y enviarlas a cada jugador
-    datos_reparto = repartir_cartas_a_jugadores(db, partida.id_partida, C.CARTAS_POR_MANO)
+    # Repartir cartas vía servicio (persiste con repos async)
+    datos_reparto = await service.repartir_cartas(partida.id_partida, C.CARTAS_POR_MANO)
     # esto de arriba es un Dict[str, Any]
     
     repartidas = datos_reparto.get("repartidas", {})
     mazo = datos_reparto.get("mazo", [])
 
-    todas_las_cartas = mazo.copy()
-    for jugador_id in repartidas:
-        todas_las_cartas.extend(repartidas[jugador_id])
-        # se tienen que agregar las cartas a la sesion
-        db.add_all(todas_las_cartas)
-
-        # se tiene que hacer el commit ahora
-        try:
-            db.commit()
-            print(f"Cartas repartidas y guardadas para la partida {partida.id_partida}: {len(todas_las_cartas)}")
-
-            # Se tienen que notificar a cada jugador (por canal individual)
-            if repartidas:
-                await _notify_players_async(repartidas)
-
-
-        except Exception as e:
-            db.rollback()
-            print(f"Error al guardar cartas: {e}")
-            # Ver que hacer si falla el commit
+    # Notificar a cada jugador (por canal individual)
+    if repartidas:
+        await _notify_players_async(repartidas)
 
 
 
     #Logica de calcular turnos
 
-    jugadores = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
-
-    # Si no hay jugadores, no cortamos el flujo (los tests esperan 200 igualmente).
-    # Solo calculamos turnos cuando existan jugadores.
-    if jugadores:
-        # Paso todos las fecha nac de jugadores a date
-        for jugador in jugadores:
-            if isinstance(jugador.fecha_nacimiento, datetime):
-                jugador.fecha_nacimiento = jugador.fecha_nacimiento.date()
-
-        # funcion para ordenar
-        jugadores_ordenados = asignar_turnos(jugadores)
-
-        db.commit()
+    # Asignar turnos usando el servicio (persistencia async)
+    await service.asignar_turnos(partida_id)
     
     # Notificar por sala a todos los tableros conectados
     await manager.broadcast_to_partida(partida_id, {"evento": "partida_iniciada", "partida_id": partida_id, "estado": "En Juego"})
@@ -167,36 +137,23 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
 
 
 @partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
-async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session = Depends(get_db)):
-    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
-    if not partida:
+async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    try:
+        partida, nuevo_jugador = await service.unirse_a_partida(
+            partida_id=partida_id,
+            nombre=jugador.nombre,
+            fecha_nacimiento=jugador.fecha_nacimiento,
+            id_avatar=jugador.id_avatar,
+        )
+    except PartidaNoEncontrada:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
-
-    # Validar máximo de jugadores
-    if partida.cantidad_jugadores >= partida.maximo:
+    except ValueError:
         raise HTTPException(status_code=400, detail="La partida ya tiene el máximo de jugadores")
 
-    nuevo_jugador = JugadorModel(
-        id_partida=partida.id_partida,
-        nombre=jugador.nombre,
-        fecha_nacimiento=jugador.fecha_nacimiento,
-        orden_turno=0,
-        id_avatar=jugador.id_avatar or 1
-    )
-
-    db.add(nuevo_jugador)
-    partida.cantidad_jugadores +=1
-    db.commit()
-    db.refresh(nuevo_jugador)
-    db.refresh(partida)
-
-    # obtenemos todos los jugadores que estan en la partida actual
-    jugadores_en_partida = db.query(JugadorModel).filter_by(id_partida=partida_id).all()
-
-    # lista que contendra la informacion que vamos a enviar al front
+    # obtener jugadores para notificar
+    jugadores_en_partida = await service.listar_jugadores(partida_id)
     jugadores_info = [{"id_jugador": j.id_jugador, "nombre": j.nombre, "id_avatar": j.id_avatar, "orden_turno": j.orden_turno} for j in jugadores_en_partida]
 
-    # Mensajes WS
     mensaje_lista = {
         "evento": "jugadores_actualizados",
         "partida_id": partida_id,
@@ -207,12 +164,8 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
         "partida_id": partida_id,
         "jugador": {"id_jugador": nuevo_jugador.id_jugador, "nombre": nuevo_jugador.nombre, "id_avatar": nuevo_jugador.id_avatar}
     }
-
-    # enviamos el mensaje a cada jugador conectado en la partida (canal individual)
     for j in jugadores_en_partida:
         await manager.send_message(mensaje_lista, j.id_jugador)
-
-    # y broadcast a la sala de la partida para tableros conectados
     await manager.broadcast_to_partida(partida_id, mensaje_uno)
     
     return {
@@ -226,36 +179,22 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, db: Session 
 
 # Aca se le pega cuando se quiera terminar turno, y se maneja la logica adentro
 @partida_router.patch("/partidas/{partida_id}/terminar_turno", response_model=None, status_code=status.HTTP_200_OK)
-async def terminar_turno(partida_id: int, id_enviada: int, db: Session = Depends(get_db)):
-
-
-    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
-
-    jugador = db.query(JugadorModel).filter(JugadorModel.id_jugador == id_enviada).first()
-
-    # Verifico que el que me mando la solicitud es el que me mando el turno
-    if (partida.estado != EstadoPartida.en_juego or jugador.orden_turno != partida.turno_actual):
+async def terminar_turno(partida_id: int, id_enviada: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    try:
+        turno_nuevo = await service.terminar_turno(partida_id, id_enviada)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except PermissionError:
         raise HTTPException(status_code=400, detail="No sos el que tiene el turno, crack")
+    except ValueError as e:
+        if str(e) == "partida_no_en_juego":
+            raise HTTPException(status_code=400, detail="La partida no está en juego")
+        raise HTTPException(status_code=404, detail="Jugador no encontrado")
 
-    cantidad_jugadores= partida.cantidad_jugadores
-    if partida.turno_actual == cantidad_jugadores:
-        partida.turno_actual = 1
-    else:
-        partida.turno_actual += 1
-
-    db.commit()
-    db.refresh(partida)
-
-    # Ahora, tengo que notificar a los usuarios de la partida sobre el cambio de turno
-
-    jugadores_en_partida = db.query(JugadorModel).filter(JugadorModel.id_partida == partida_id).all()
-
-    mensaje = {"turno_nuevo" : partida.turno_actual}
-    
+    jugadores_en_partida = await service.listar_jugadores(partida_id)
+    mensaje = {"turno_nuevo": turno_nuevo}
     for j in jugadores_en_partida:
         await manager.send_message(mensaje, j.id_jugador)
-
-    # También devolvemos el turno nuevo en la respuesta HTTP
     return mensaje
 
 
