@@ -21,14 +21,14 @@ from app.routers.calcular_turnos import asignar_turnos
 # Nuevo: servicio de juego (capa 2) con repos async 
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
+from app.capa_2_logica.errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado
 
 partida_router = APIRouter()
 
 @partida_router.get("/partidas", response_model=List[PartidaSchema])
-async def listar_partidas(db: Session = Depends(get_db)):
-    partidas_db = db.query(PartidaModel).filter(
-        PartidaModel.estado == EstadoPartida.en_espera).all()
-    partidas = [
+async def listar_partidas(service: ServicioJuego = Depends(obtener_servicio_juego)):
+    partidas_db = await service.listar_en_espera()
+    return [
         PartidaSchema(
             id_partida=p.id_partida,
             minimo=p.minimo,
@@ -37,16 +37,15 @@ async def listar_partidas(db: Session = Depends(get_db)):
             estado=p.estado.value if hasattr(p.estado, 'value') else p.estado,
             cantidad_jugadores=p.cantidad_jugadores,
             turno_actual=p.turno_actual,
-            jugadores=[]
+            jugadores=[],
         )
         for p in partidas_db
     ]
-    return partidas
 
 
 @partida_router.get("/partidas/{partida_id}", response_model=PartidaSchema)
-async def obtener_partida(partida_id: int, db: Session = Depends(get_db)):
-    partida = db.query(PartidaModel).filter(PartidaModel.id_partida == partida_id).first()
+async def obtener_partida(partida_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    partida = await service.obtener_por_id(partida_id)
     if not partida:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
     # Construimos el esquema incluyendo campos principales
@@ -102,26 +101,16 @@ async def crear_partida(partida: PartidaCreada, service: ServicioJuego = Depends
 
 
 @partida_router.patch("/partidas/{partida_id}/iniciar", response_model=None , status_code=status.HTTP_200_OK)
-async def iniciar_partida(partida_id:int, data: dict, db: Session = Depends(get_db)):
-    # Recuperar por clave primaria
-    partida = db.get(PartidaModel, partida_id)
-
-    if not partida:
+async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = Depends(obtener_servicio_juego), db: Session = Depends(get_db)):
+    # Cambiamos estado vía servicio (async + validaciones)
+    try:
+        partida = await service.iniciar_partida(partida_id)
+    except PartidaNoEncontrada:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
-    
-    # Validar cantidad mínima de jugadores antes de cambiar estado
-    if partida.cantidad_jugadores < partida.minimo:
+    except MinimoJugadoresNoAlcanzado:
         raise HTTPException(status_code=400, detail="La partida no tiene la cantidad mínima de jugadores para iniciar")
-
-    if partida.estado == EstadoPartida.en_espera:
-        partida.estado = EstadoPartida.en_juego  
-        # si quiero cambiar a un estado q me llega por usuario deberia usar
-        # el dict q me llega leerlo y modificar el estado.
-    elif partida.estado == EstadoPartida.en_juego:
+    except PartidaYaEnJuego:
         raise HTTPException(status_code=400, detail="La partida ya esta en juego")
-    
-    db.commit()
-    db.refresh(partida)
 
 
     # Aca voy a meter la logica de obtener cartas, y enviarlas a cada jugador
