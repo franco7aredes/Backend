@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from app.db.models.jugadores_models import Jugador as JugadorModelo
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModelo
 
 
 class IRepositorioJugador(ABC):

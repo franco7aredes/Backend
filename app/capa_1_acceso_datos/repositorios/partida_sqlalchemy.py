@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.partidas_models import Partida as PartidaModelo, EstadoPartida
+from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModelo, EstadoPartida
 from .partida_contrato import IRepositorioPartida
 
 

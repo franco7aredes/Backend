@@ -21,10 +21,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app as fastapi_app
-from app.db.databases import Base, get_db
-from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
-from app.db.models.jugadores_models import Jugador as JugadorModel
+from app.capa_3_api.main import app as fastapi_app
+from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import Base, get_db
+from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModel
 
 # Usa el cliente y la base de datos centralizados por conftest.py
 @pytest.fixture
@@ -35,7 +35,7 @@ def client():
 # 7️⃣ Tests PATCH /partidas/{partida_id}/iniciar
 # ===========================================================
 def test_iniciar_partida_con_exito(client):
-    from app.db.databases import SessionLocal
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
     with SessionLocal() as session:
         partida = PartidaModel(
             id_partida=2,
@@ -54,7 +54,7 @@ def test_iniciar_partida_con_exito(client):
     assert response.status_code == 200
     assert response.json()["mensaje"] == "La partida comenzo"
 
-    from app.db.databases import SessionLocal
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
     with SessionLocal() as session:
         partida_actualizada = session.query(PartidaModel).filter(PartidaModel.id_partida==2).first()
         assert partida_actualizada.estado == EstadoPartida.en_juego
@@ -64,7 +64,7 @@ def test_iniciar_partida_con_exito(client):
 
 
 def test_iniciar_partida_ya_iniciada_lanza_error(client):
-    from app.db.databases import SessionLocal
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
     with SessionLocal() as session:
 
         partida = PartidaModel(
@@ -93,7 +93,7 @@ def test_iniciar_partida_no_encontrada_lanza_error(client):
 # 8️⃣ Tests PUT /partidas/{partida_id}/unirse
 # ===========================================================
 def test_unirse_a_partida_con_exito(client):
-    from app.db.databases import SessionLocal
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
     with SessionLocal() as session:
         partida = PartidaModel(
             id_partida=4,
@@ -119,7 +119,7 @@ def test_unirse_a_partida_con_exito(client):
         assert partida_actualizada.cantidad_jugadores == 1
 
 def test_unirse_a_partida_llena_lanza_error(client):
-    from app.db.databases import SessionLocal
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
     with SessionLocal() as session:
         partida = PartidaModel(
             id_partida=5,

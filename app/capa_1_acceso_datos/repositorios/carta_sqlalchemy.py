@@ -3,7 +3,7 @@ from typing import List
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.cartas_models import Carta as CartaModelo, PosicionCarta
+from app.capa_0_definicion_bd.models.cartas_models import Carta as CartaModelo, PosicionCarta
 from .carta_contrato import IRepositorioCarta
 
 

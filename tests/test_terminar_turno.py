@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app as fastapi_app
-from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
-from app.db.models.jugadores_models import Jugador as JugadorModel
+from app.capa_3_api.main import app as fastapi_app
+from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModel
 import datetime
 
 # Uso el cliente y la base de datos centralizados por conftest.py
@@ -12,7 +12,7 @@ def client():
 
 def test_terminar_turno_valido(client):
     """Testea el PATCH de /partidas/{partida_id}/terminar_turno con IDs reales"""
-    from app.db.databases import SessionLocal
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
 
     session = SessionLocal()
     # limpiar tablas
@@ -56,7 +56,7 @@ def test_terminar_turno_valido(client):
     assert partida_actualizada.turno_actual == 2
 
 def test_terminar_turno_invalido(client):
-    from app.db.databases import SessionLocal
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
 
     session = SessionLocal()
     # limpiar tablas

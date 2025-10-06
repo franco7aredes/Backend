@@ -2,9 +2,9 @@ import pytest
 
 def test_listar_partidas(client):
 
-    from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
-    from app.db.models.jugadores_models import Jugador as JugadorModel
-    from app.db.databases import SessionLocal
+    from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
+    from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModel
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
     import datetime
 
     session = SessionLocal()

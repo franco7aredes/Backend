@@ -1,9 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app as fastapi_app
-from app.db.databases import SessionLocal
-from app.db.models.cartas_models import Carta, PosicionCarta
-from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
+from app.capa_3_api.main import app as fastapi_app
+from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
+from app.capa_0_definicion_bd.models.cartas_models import Carta, PosicionCarta
+from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
 
 
 # Reutiliza el cliente centralizado por conftest.py y la DB compartida
@@ -120,7 +120,7 @@ def test_fin_de_mazo_al_agotar(setup_reponer):
     # Dejar exactamente N cartas en mazo para que se agoten con una sola reposición
     # Primero vaciar y luego crear 2 cartas nuevas en mazo
     db.query(Carta).filter_by(id_partida=id_partida).delete()
-    from app.db.models.cartas_models import PosicionCarta as PC
+    from app.capa_0_definicion_bd.models.cartas_models import PosicionCarta as PC
     # 2 cartas en mazo, 3 en mano -> reponer necesitará 3, tomará 2 y dejará mazo en 0
     db.add(Carta(id_carta=1001, id_partida=id_partida, id_jugador=None, posicion=PC.mazo))
     db.add(Carta(id_carta=1002, id_partida=id_partida, id_jugador=None, posicion=PC.mazo))

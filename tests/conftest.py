@@ -2,12 +2,11 @@ import pytest
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.db.databases import Base, get_db
-from app.layer_0_db_definition.database_sqlalchemy import get_async_db as get_async_db_en
+from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import Base, get_db
 from app.capa_0_definicion_bd.base_datos_sqlalchemy import get_async_db as get_async_db_es
-# Importar modelos para registrar tablas en el metadata antes de create_all
-from app.db.models import partidas_models, jugadores_models, cartas_models  # noqa: F401
-from app.main import app as fastapi_app
+# Importar modelos reales para registrar tablas en el metadata antes de create_all
+from app.capa_0_definicion_bd.models import partidas_models, jugadores_models, cartas_models  # noqa: F401
+from app.capa_3_api.main import app as fastapi_app
 from fastapi.testclient import TestClient
 
 # Elimina test.db antes de la sesión
@@ -20,9 +19,9 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-import app.db.databases
-app.db.databases.engine = engine
-app.db.databases.SessionLocal = TestingSessionLocal
+import app.capa_0_definicion_bd.base_datos.base_datos_sincronica as dbsync
+dbsync.engine = engine
+dbsync.SessionLocal = TestingSessionLocal
 
 def override_get_db():
     session = TestingSessionLocal()
@@ -49,7 +48,6 @@ async def override_get_async_db():
             await session.rollback()
             raise
 
-fastapi_app.dependency_overrides[get_async_db_en] = override_get_async_db
 fastapi_app.dependency_overrides[get_async_db_es] = override_get_async_db
 
 @pytest.fixture(scope="session", autouse=True)

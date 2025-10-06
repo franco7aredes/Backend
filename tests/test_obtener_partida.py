@@ -1,6 +1,6 @@
-from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
-from app.db.models.jugadores_models import Jugador as JugadorModel
-from app.db.databases import SessionLocal
+from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModel
+from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
 from datetime import date
 
 def test_obtener_partida_existente(client):

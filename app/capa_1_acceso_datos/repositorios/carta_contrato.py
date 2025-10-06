@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from app.db.models.cartas_models import Carta as CartaModelo
+from app.capa_0_definicion_bd.models.cartas_models import Carta as CartaModelo
 
 
 class IRepositorioCarta(ABC):

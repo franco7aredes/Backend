@@ -1,9 +1,9 @@
 # tests/test_api_ws.py
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
-from app.db.models.partidas_models import Partida as PartidaModel, EstadoPartida
-from app.db.models.jugadores_models import Jugador as JugadorModel
-from app.db.databases import SessionLocal
+from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModel
+from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
 
 def test_unirse_a_partida_ws_broadcast(client: TestClient):
     # crear la partida
@@ -24,7 +24,7 @@ def test_unirse_a_partida_ws_broadcast(client: TestClient):
     jugador2 = {"nombre": "Juancito", "fecha_nacimiento": "2003-01-01T00:00:00"}
 
     # mockear manager.send_message
-    with patch("app.routers.partidas.manager.send_message", new_callable=AsyncMock) as mock_send:
+    with patch("app.capa_3_api.routers.partidas.manager.send_message", new_callable=AsyncMock) as mock_send:
         response1 = client.put(f"/partidas/{partida.id_partida}/unirse", json=jugador1)
         response2 = client.put(f"/partidas/{partida.id_partida}/unirse", json=jugador2)
 

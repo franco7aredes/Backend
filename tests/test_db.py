@@ -1,8 +1,8 @@
 import pytest
-from app.db.databases import Base, SessionLocal
-from app.db.models.jugadores_models import Jugador
-from app.db.models.partidas_models import Partida, EstadoPartida
-from app.db.models.cartas_models import PosicionCarta, Carta
+from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import Base, SessionLocal
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador
+from app.capa_0_definicion_bd.models.partidas_models import Partida, EstadoPartida
+from app.capa_0_definicion_bd.models.cartas_models import PosicionCarta, Carta
 from datetime import date
 import sqlalchemy.exc
 

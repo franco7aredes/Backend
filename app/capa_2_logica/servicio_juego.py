@@ -3,12 +3,16 @@ import random
 from typing import Dict, Any, List, Optional
 from sqlalchemy import select, func
 
-from app.db.models.partidas_models import Partida as PartidaModelo, EstadoPartida
-from app.db.models.jugadores_models import Jugador as JugadorModelo
+from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModelo, EstadoPartida
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModelo
 from app.capa_1_acceso_datos.repositorios.partida_contrato import IRepositorioPartida
 from app.capa_1_acceso_datos.repositorios.jugador_contrato import IRepositorioJugador
 from app.capa_1_acceso_datos.repositorios.carta_contrato import IRepositorioCarta
 from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
+from app.capa_0_definicion_bd.models.cartas_models import (
+    Carta as CartaModelo,
+    PosicionCarta,
+)
 
 
 class ServicioJuego:
@@ -99,7 +103,6 @@ class ServicioJuego:
             return {"repartidas": {}, "mazo": []}
 
         # 1..61 cartas por partida
-        from app.db.models.cartas_models import Carta as CartaModelo, PosicionCarta
 
         mazo_cartas: List[CartaModelo] = []
         for i in range(1, 62):
@@ -264,7 +267,6 @@ class ServicioJuego:
             return {"cartas": [], "fin_de_mazo": True, "max_alcanzado": False, "sin_cartas": True}
 
         # mover a mano
-        from app.db.models.cartas_models import PosicionCarta, Carta as CartaModelo
         for c in disponibles:
             c.id_jugador = jugador_id
             c.posicion = PosicionCarta.mano
@@ -297,7 +299,6 @@ class ServicioJuego:
         """
         if not self.cartas:
             return None
-        from app.db.models.cartas_models import Carta as CartaModelo, PosicionCarta
         if not hasattr(self.cartas, "db"):
             return None
         # buscar la primera carta del jugador en la partida

@@ -2,11 +2,11 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app as fastapi_app
-from app.db.databases import get_db, Base, engine
-from app.db.models.partidas_models import Partida, EstadoPartida
-from app.db.models.jugadores_models import Jugador
-from app.db.models.cartas_models import Carta, PosicionCarta
+from app.capa_3_api.main import app as fastapi_app
+from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import get_db, Base, engine
+from app.capa_0_definicion_bd.models.partidas_models import Partida, EstadoPartida
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador
+from app.capa_0_definicion_bd.models.cartas_models import Carta, PosicionCarta
 import datetime
 
 @pytest.fixture
@@ -15,8 +15,8 @@ def client():
 
 @pytest.fixture
 def setup_db(client):
-    from app.db.models.cartas_models import Carta, PosicionCarta
-    from app.db.databases import get_db
+    from app.capa_0_definicion_bd.models.cartas_models import Carta, PosicionCarta
+    from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import get_db
     db = next(get_db())
     # Crear partida y jugador usando el endpoint
     payload = {
@@ -32,8 +32,8 @@ def setup_db(client):
     id_jugador = data["id_jugador_creador"]
 
     # Obtener instancia de partida y jugador desde la base de datos
-    from app.db.models.partidas_models import Partida
-    from app.db.models.jugadores_models import Jugador
+    from app.capa_0_definicion_bd.models.partidas_models import Partida
+    from app.capa_0_definicion_bd.models.jugadores_models import Jugador
     partida = db.query(Partida).filter_by(id_partida=id_partida).first()
     jugador = db.query(Jugador).filter_by(id_jugador=id_jugador).first()
 

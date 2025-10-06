@@ -1,7 +1,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app as fastapi_app
+from app.capa_3_api.main import app as fastapi_app
 from app.schemas.partidas import PartidaCreada, Partida, Jugador
 
 # Usa el cliente y la base de datos centralizados por conftest.py

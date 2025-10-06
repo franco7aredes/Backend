@@ -1,16 +1,16 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.layer_0_db_definition.database_sqlalchemy import Base
+from app.capa_0_definicion_bd.base_datos_sqlalchemy import Base
 
-
-
-# Si los tests parchean el engine y SessionLocal, usa esos
+# Si tests u otros módulos ya definieron engine/SessionLocal, respetarlos
 if not ("engine" in globals() and "SessionLocal" in globals()):
     SQLALCHEMY_DATABASE_URL = "sqlite:///./db.sqlite"
-    engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Función para obtener la sesión de la base de datos
+
 def get_db():
     db = SessionLocal()
     try:

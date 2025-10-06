@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.jugadores_models import Jugador as JugadorModelo
+from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModelo
 from .jugador_contrato import IRepositorioJugador
 
 

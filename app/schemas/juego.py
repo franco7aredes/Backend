@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
-from app.db.models.cartas_models import PosicionCarta
+from app.capa_0_definicion_bd.models.cartas_models import PosicionCarta
 
 
 class Carta(BaseModel):
