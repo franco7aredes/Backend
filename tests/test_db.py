@@ -197,7 +197,7 @@ def test_secretos_en_jugadores(db):
     assert len(secretos_facu) == 3
     secretos_gero = db.query(SecretoDB).filter_by(id_jugador=gero_id).all()
     assert len(secretos_gero) == 3
-    asesino = db.query(SecretoDB).filter_by(tipo=TipoSecreto.asesino).all()
+    asesino = db.query(SecretoDB).filter_by(tipo=TipoSecreto.asesino).first()
     assert asesino.id_jugador == joa_id
     otros_secretos = db.query(SecretoDB).filter_by(tipo=TipoSecreto.otro).all()
     assert len(otros_secretos) == 8
