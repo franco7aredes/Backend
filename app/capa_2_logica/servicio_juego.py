@@ -227,6 +227,12 @@ class ServicioJuego:
         cantidad = partida.cantidad_jugadores
         partida.turno_actual = 1 if partida.turno_actual == cantidad else partida.turno_actual + 1
         await self.partidas.guardar(partida)
+        # Asegurar persistencia visible entre sesiones
+        if hasattr(self.partidas, "db"):
+            try:
+                await self.partidas.db.commit()  # type: ignore[attr-defined]
+            except Exception:
+                await self.partidas.db.rollback()  # type: ignore[attr-defined]
         return partida.turno_actual
 
     async def reponer_del_mazo(self, partida_id: int, jugador_id: int, max_cartas_en_mano: int = 6) -> Dict[str, Any]:
@@ -315,6 +321,11 @@ class ServicioJuego:
         carta.posicion = PosicionCarta.descarte
         self.cartas.db.add(carta)  # type: ignore[attr-defined]
         await self.cartas.db.flush()  # type: ignore[attr-defined]
+        # Asegurar persistencia visible entre sesiones
+        try:
+            await self.cartas.db.commit()  # type: ignore[attr-defined]
+        except Exception:
+            await self.cartas.db.rollback()  # type: ignore[attr-defined]
         return int(carta.id_carta)
 
     async def obtener_cantidad_mano(self, partida_id: int, jugador_id: int) -> int:

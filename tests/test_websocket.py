@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.capa_3_api.main import app
+from app.main import app
 
 def test_websocket_multiple_clients_broadcast():
     client = TestClient(app)

@@ -4,7 +4,7 @@ Punto de entrada HTTP/WebSockets. Contiene los routers de FastAPI y los DTOs (es
 
 ## Componentes
 
-- `dtos/partidas.py`: DTOs de dominio (Jugador, JugadorCrear, Partida, PartidaCrear). Son la fuente de verdad; `app/schemas/partidas.py` re-exporta para compatibilidad.
+- `dtos/partidas.py`: DTOs de dominio (Jugador, JugadorCrear, Partida, PartidaCrear). Son la fuente de verdad.
 - `routers/partidas.py`: Endpoints REST relacionados a partidas, jugadores y turnos.
 - `routers/mazo.py`: Endpoints para reponer cartas, descartar y consultar mano.
 - `websockets/ApiWS.py`: Manager para enviar mensajes a jugadores/salas (texto y JSON).
@@ -45,7 +45,7 @@ Las excepciones de dominio de la capa 2 se traducen a HTTP:
 
 ## Contratos de DTOs
 
-Los DTOs se definen en `dtos/partidas.py` y son re-exportados desde `app/schemas/partidas.py` con nombres esperados por el código y tests (por ejemplo, `PartidaCreada`, `JugadorCreate`). Esto permite migrar sin romper imports existentes.
+Los DTOs se definen en `dtos/partidas.py` y se usan directamente desde los routers. 
 
 ## Notas de diseño
 

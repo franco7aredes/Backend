@@ -1,7 +1,7 @@
 import asyncio
 from typing import Dict, List, Any
 from .websockets.ApiWS import manager
-from app.schemas.juego import Carta as CartaSchema
+from app.capa_3_api.dtos.juego import Carta as CartaSchema
 
 
 async def _notify_players_async(cartas_repartidas: Dict[int, List[Any]]):

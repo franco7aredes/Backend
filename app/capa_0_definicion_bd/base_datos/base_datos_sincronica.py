@@ -1,19 +1,5 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.capa_0_definicion_bd.base_datos_sqlalchemy import Base
+"""Módulo sincrónico de base de datos eliminado tras migración completa a async.
 
-# Si tests u otros módulos ya definieron engine/SessionLocal, respetarlos
-if not ("engine" in globals() and "SessionLocal" in globals()):
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./db.sqlite"
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-    )
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+Se mantiene el archivo para evitar import errors si existiera alguna referencia residual,
+pero no expone API. Si aparece alguna dependencia, hay que migrarla a async.
+"""

@@ -18,6 +18,7 @@ class Settings:
         os.getenv("CORS_ORIGIN_2", "http://localhost:5174"),
         os.getenv("CORS_ORIGIN_3", "http://127.0.0.1:8000"),
         os.getenv("CORS_ORIGIN_4", "http://localhost:3000"),
+        os.getenv("CORS_ORIGIN_4", "http://localhost:3001"),
     ]
 
 

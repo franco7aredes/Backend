@@ -1,34 +1,31 @@
-# tests/test_api_ws.py
 from unittest.mock import AsyncMock, patch
-from fastapi.testclient import TestClient
+import pytest
 from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
-from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModel
-from app.capa_0_definicion_bd.base_datos.base_datos_sincronica import SessionLocal
 
-def test_unirse_a_partida_ws_broadcast(client: TestClient):
+
+@pytest.mark.asyncio
+async def test_unirse_a_partida_ws_broadcast(async_client, db_async):
     # crear la partida
-    with SessionLocal() as session:
-        partida = PartidaModel(
-            estado=EstadoPartida.en_espera,
-            cantidad_jugadores=0,
-            maximo=4,
-            minimo=2,
-            id_jugador_creador=1,
-            turno_actual=1
-        )
-        session.add(partida)
-        session.commit()
-        session.refresh(partida)
+    partida = PartidaModel(
+        estado=EstadoPartida.en_espera,
+        cantidad_jugadores=0,
+        maximo=4,
+        minimo=2,
+        id_jugador_creador=1,
+        turno_actual=1,
+    )
+    db_async.add(partida)
+    await db_async.flush()
+    await db_async.refresh(partida)
+    await db_async.commit()
 
     jugador1 = {"nombre": "Pepito", "fecha_nacimiento": "2001-01-10T00:00:00"}
     jugador2 = {"nombre": "Juancito", "fecha_nacimiento": "2003-01-01T00:00:00"}
 
     # mockear manager.send_message
     with patch("app.capa_3_api.routers.partidas.manager.send_message", new_callable=AsyncMock) as mock_send:
-        response1 = client.put(f"/partidas/{partida.id_partida}/unirse", json=jugador1)
-        response2 = client.put(f"/partidas/{partida.id_partida}/unirse", json=jugador2)
-
-
+        response1 = await async_client.put(f"/partidas/{partida.id_partida}/unirse", json=jugador1)
+        response2 = await async_client.put(f"/partidas/{partida.id_partida}/unirse", json=jugador2)
 
         # validar respuesta HTTP
         assert response1.status_code == 201

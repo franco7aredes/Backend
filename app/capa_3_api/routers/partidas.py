@@ -1,6 +1,11 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.schemas.partidas import PartidaCreada, Jugador as JugadorSchema, Partida as PartidaSchema, JugadorCreate
+from app.capa_3_api.dtos.partidas import (
+	PartidaCrear as PartidaCreada,
+	Jugador as JugadorSchema,
+	Partida as PartidaSchema,
+	JugadorCrear as JugadorCreate,
+)
 from app.capa_3_api.websockets.ApiWS import manager
 import app.capa_2_logica.constantes as C
 from app.capa_3_api.core_async_utils import _notify_players_async
