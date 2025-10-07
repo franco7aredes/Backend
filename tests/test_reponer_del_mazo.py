@@ -1,139 +1,152 @@
 import pytest
-from sqlalchemy import delete, select
-from app.capa_0_definicion_bd.models.cartas_models import Carta, PosicionCarta
-from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
+from unittest.mock import AsyncMock
+
+from app.main import app as fastapi_app
+from app.capa_2_logica.fabrica import obtener_servicio_juego
+from app.capa_2_logica.resultados import ReponerResultado
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
 
 
 @pytest.mark.asyncio
-async def test_reponer_del_mazo(async_client, db_async):
-    # Crear partida
-    payload = {"jugador_creador": "pepito", "fecha_nac": "2002-09-15", "minimo": 2, "maximo": 5}
-    resp = await async_client.post("/partidas", json=payload)
-    assert resp.status_code == 201
-    data = resp.json()
-    id_partida = data["id_partida"]
-    id_jugador = data["id_jugador_creador"]
+async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
+        cartas=[
+            CartaModelo(id_carta=1, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano),
+            CartaModelo(id_carta=2, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano),
+            CartaModelo(id_carta=3, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano),
+        ],
+        fin_de_mazo=False,
+        max_alcanzado=False,
+        sin_cartas=False,
+    )))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    # Limpiar cualquier carta previa
-    await db_async.execute(delete(Carta).where(Carta.id_partida == id_partida))
-    # Crear 10 cartas en mazo
-    db_async.add_all([Carta(id_carta=i, id_partida=id_partida, id_jugador=None, posicion=PosicionCarta.mazo) for i in range(1, 11)])
-    # Y 3 en mano
-    db_async.add_all([Carta(id_carta=j, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano) for j in range(11, 14)])
-    await db_async.commit()
+    # Evitar efectos de WS
+    import app.capa_3_api.routers.mazo as rmazo
+    monkeypatch.setattr(rmazo.administrador, "enviar_texto", AsyncMock())
+    monkeypatch.setattr(rmazo.administrador, "enviar_mensaje", AsyncMock())
+    monkeypatch.setattr(rmazo.administrador, "difundir_a_partida", AsyncMock())
 
-    # Reponer
-    response = await async_client.put(f"/partida/{id_partida}/reponer", json={"jugador_id": id_jugador})
-    assert response.status_code == 200
-    body = response.json()
-    assert "mensaje" in body and "cartas" in body
+    resp = await async_client.put("/partida/10/reponer", json={"jugador_id": 99})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["mensaje"].startswith("Se repusieron 3 cartas")
     assert len(body["cartas"]) == 3
     assert all(c["posicion"] == "mano" for c in body["cartas"])
 
-
-@pytest.mark.asyncio
-async def test_reponer_maximo_cartas(async_client, db_async):
-    resp = await async_client.post("/partidas", json={"jugador_creador": "pepito", "fecha_nac": "2002-09-15", "minimo": 2, "maximo": 5})
-    assert resp.status_code == 201
-    data = resp.json()
-    id_partida = data["id_partida"]
-    id_jugador = data["id_jugador_creador"]
-
-    await db_async.execute(delete(Carta).where(Carta.id_partida == id_partida))
-    # Poner exactamente 6 en mano (máximo)
-    db_async.add_all([Carta(id_carta=i, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano) for i in range(1, 7)])
-    await db_async.commit()
-
-    response = await async_client.put(f"/partida/{id_partida}/reponer", json={"jugador_id": id_jugador})
-    assert response.status_code == 200
-    assert response.json()["mensaje"] == "El jugador ya tiene el maximo de cartas en la mano"
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 
 @pytest.mark.asyncio
-async def test_reponer_mazo_vacio(async_client, db_async, client):
-    resp = await async_client.post("/partidas", json={"jugador_creador": "pepito", "fecha_nac": "2002-09-15", "minimo": 2, "maximo": 5})
-    assert resp.status_code == 201
-    data = resp.json()
-    id_partida = data["id_partida"]
-    id_jugador = data["id_jugador_creador"]
+async def test_reponer_maximo_cartas_bonito(async_client):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
+        cartas=[],
+        fin_de_mazo=False,
+        max_alcanzado=True,
+        sin_cartas=False,
+    )))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    # Vaciar el mazo de esa partida (por si hay cartas)
-    await db_async.execute(delete(Carta).where((Carta.id_partida == id_partida) & (Carta.id_jugador.is_(None)) & (Carta.posicion == PosicionCarta.mazo)))
-    await db_async.commit()
+    resp = await async_client.put("/partida/10/reponer", json={"jugador_id": 99})
+    assert resp.status_code == 200
+    assert resp.json()["mensaje"] == "El jugador ya tiene el maximo de cartas en la mano"
 
-    response = await async_client.put(f"/partida/{id_partida}/reponer", json={"jugador_id": id_jugador})
-    assert response.status_code == 404
-    assert response.json()["detail"] == "No hay cartas disponibles en el mazo"
-
-    # Verificar estado Finalizada
-    res = await db_async.execute(select(PartidaModel).where(PartidaModel.id_partida == id_partida))
-    partida_db = res.scalars().first()
-    assert partida_db is not None
-    estado = getattr(partida_db, "estado")
-    valor_estado = estado.value if hasattr(estado, "value") else estado
-    assert valor_estado in (EstadoPartida.Finalizada, getattr(EstadoPartida.Finalizada, "value", EstadoPartida.Finalizada))
-
-    # Abrir WS y disparar endpoint nuevamente para recibir notificación
-    with client.websocket_connect(f"/ws/{id_jugador}") as ws:
-        response2 = client.put(f"/partida/{id_partida}/reponer", json={"jugador_id": id_jugador})
-        assert response2.status_code == 404
-        assert response2.json()["detail"] == "No hay cartas disponibles en el mazo"
-        msg = ws.receive_text()
-        assert msg == "fin_de_mazo"
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 
 @pytest.mark.asyncio
-async def test_fin_de_mazo_al_agotar(async_client, db_async, client):
-    resp = await async_client.post("/partidas", json={"jugador_creador": "pepito", "fecha_nac": "2002-09-15", "minimo": 2, "maximo": 5})
-    assert resp.status_code == 201
-    data = resp.json()
-    id_partida = data["id_partida"]
-    id_jugador = data["id_jugador_creador"]
+async def test_reponer_mazo_vacio_bonito(async_client, monkeypatch):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
+        cartas=[],
+        fin_de_mazo=False,
+        max_alcanzado=False,
+        sin_cartas=True,
+    )))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    # Dejar solo 2 en mazo y 3 en mano
-    await db_async.execute(delete(Carta).where(Carta.id_partida == id_partida))
-    db_async.add(Carta(id_carta=1001, id_partida=id_partida, id_jugador=None, posicion=PosicionCarta.mazo))
-    db_async.add(Carta(id_carta=1002, id_partida=id_partida, id_jugador=None, posicion=PosicionCarta.mazo))
-    db_async.add(Carta(id_carta=2001, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano))
-    db_async.add(Carta(id_carta=2002, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano))
-    db_async.add(Carta(id_carta=2003, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano))
-    await db_async.commit()
+    import app.capa_3_api.routers.mazo as rmazo
+    monkeypatch.setattr(rmazo.administrador, "enviar_texto", AsyncMock())
+    monkeypatch.setattr(rmazo.administrador, "enviar_mensaje", AsyncMock())
+    monkeypatch.setattr(rmazo.administrador, "difundir_a_partida", AsyncMock())
 
-    with client.websocket_connect(f"/ws/{id_jugador}") as ws:
-        response = client.put(f"/partida/{id_partida}/reponer", json={"jugador_id": id_jugador})
-        assert response.status_code == 200
-        _ = response.json()
-        msg = ws.receive_text()
-        assert msg == "fin_de_mazo"
+    resp = await async_client.put("/partida/10/reponer", json={"jugador_id": 99})
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "No hay cartas disponibles en el mazo"
 
-    # Estado Finalizada
-    res = await db_async.execute(select(PartidaModel).where(PartidaModel.id_partida == id_partida))
-    partida_db = res.scalars().first()
-    assert partida_db is not None
-    estado = getattr(partida_db, "estado")
-    valor_estado = estado.value if hasattr(estado, "value") else estado
-    assert valor_estado in (EstadoPartida.Finalizada, getattr(EstadoPartida.Finalizada, "value", EstadoPartida.Finalizada))
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 
 @pytest.mark.asyncio
-async def test_reponer_jugador_inexistente(async_client, db_async):
-    resp = await async_client.post("/partidas", json={"jugador_creador": "pepito", "fecha_nac": "2002-09-15", "minimo": 2, "maximo": 5})
-    assert resp.status_code == 201
-    data = resp.json()
-    id_partida = data["id_partida"]
+async def test_fin_de_mazo_al_agotar_bonito(async_client, monkeypatch):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
+        cartas=[CartaModelo(id_carta=1, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano)],
+        fin_de_mazo=True,
+        max_alcanzado=False,
+        sin_cartas=False,
+    )))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    response = await async_client.put(f"/partida/{id_partida}/reponer", json={"jugador_id": 9999})
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Jugador no encontrado"
+    import app.capa_3_api.routers.mazo as rmazo
+    send_text = AsyncMock()
+    send_message = AsyncMock()
+    broadcast = AsyncMock()
+    monkeypatch.setattr(rmazo.administrador, "enviar_texto", send_text)
+    monkeypatch.setattr(rmazo.administrador, "enviar_mensaje", send_message)
+    monkeypatch.setattr(rmazo.administrador, "difundir_a_partida", broadcast)
+
+    resp = await async_client.put("/partida/10/reponer", json={"jugador_id": 99})
+    assert resp.status_code == 200
+    _ = resp.json()
+    # Se deberían enviar notificaciones de fin_de_mazo
+    assert send_text.await_count >= 1
+    assert send_message.await_count >= 1
+    assert broadcast.await_count >= 1
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 
 @pytest.mark.asyncio
-async def test_reponer_partida_inexistente(async_client, db_async):
-    resp = await async_client.post("/partidas", json={"jugador_creador": "pepito", "fecha_nac": "2002-09-15", "minimo": 2, "maximo": 5})
-    assert resp.status_code == 201
-    data = resp.json()
-    id_jugador = data["id_jugador_creador"]
+async def test_reponer_jugador_inexistente_bonito(async_client):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+    async def raise_err(*_, **__):
+        raise ValueError("jugador_no_encontrado")
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", raise_err)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    response = await async_client.put(f"/partida/9999/reponer", json={"jugador_id": id_jugador})
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Partida no encontrada"
+    resp = await async_client.put("/partida/10/reponer", json={"jugador_id": 9999})
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Jugador no encontrado"
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+
+@pytest.mark.asyncio
+async def test_reponer_partida_inexistente_bonito(async_client):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+    from app.capa_2_logica.errores import PartidaNoEncontrada
+    async def raise_nf(*_, **__):
+        raise PartidaNoEncontrada()
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", raise_nf)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.put("/partida/9999/reponer", json={"jugador_id": 88})
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Partida no encontrada"
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

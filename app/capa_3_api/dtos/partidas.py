@@ -1,12 +1,12 @@
 from pydantic import BaseModel, ConfigDict
-from datetime import datetime
+from datetime import datetime, date
 from typing import List
 
 
 class Jugador(BaseModel):
     id_jugador: int
     nombre: str
-    fecha_nacimiento: datetime
+    fecha_nacimiento: date | datetime
     id_avatar: int | None = None
     orden_turno: int | None = None
     model_config = ConfigDict(from_attributes=True)

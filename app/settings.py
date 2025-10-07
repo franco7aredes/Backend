@@ -6,8 +6,7 @@ class Settings:
     """Configuración de la aplicación Centralizada.
     """
 
-    # URL de la base de datos
-    DATABASE_URL_SYNC: str = os.getenv("DATABASE_URL_SYNC", "sqlite:///./db.sqlite")
+    # URL de la base de datos (async)
     DATABASE_URL_ASYNC: str = os.getenv(
         "DATABASE_URL_ASYNC", "sqlite+aiosqlite:///./db.sqlite"
     )
@@ -18,7 +17,7 @@ class Settings:
         os.getenv("CORS_ORIGIN_2", "http://localhost:5174"),
         os.getenv("CORS_ORIGIN_3", "http://127.0.0.1:8000"),
         os.getenv("CORS_ORIGIN_4", "http://localhost:3000"),
-        os.getenv("CORS_ORIGIN_4", "http://localhost:3001"),
+        os.getenv("CORS_ORIGIN_5", "http://localhost:3001"),
     ]
 
 

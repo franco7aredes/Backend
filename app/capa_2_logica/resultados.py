@@ -1,0 +1,61 @@
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import List, Dict
+
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo
+from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo
+from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
+
+
+@dataclass(slots=True)
+class ReponerResultado:
+    cartas: List[CartaModelo]
+    fin_de_mazo: bool
+    max_alcanzado: bool
+    sin_cartas: bool
+
+
+@dataclass(slots=True)
+class TurnoResultado:
+    turno_nuevo: int
+
+
+@dataclass(slots=True)
+class CrearPartidaResultado:
+    partida: PartidaModelo
+    jugador: JugadorModelo
+
+
+@dataclass(slots=True)
+class RepartirCartasResultado:
+    repartidas: Dict[int, List[CartaModelo]]
+    mazo: List[CartaModelo]
+
+
+@dataclass(slots=True)
+class IniciarYPrepararResultado:
+    partida: PartidaModelo
+    repartidas: Dict[int, List[CartaModelo]]
+    mazo: List[CartaModelo]
+    jugadores: List[JugadorModelo]
+
+
+@dataclass(slots=True)
+class DescartarResultado:
+    carta_id: int | None
+
+
+@dataclass(slots=True)
+class CantidadManoResultado:
+    cantidad: int
+
+
+@dataclass(slots=True)
+class UnirsePartidaResultado:
+    partida: PartidaModelo
+    jugador: JugadorModelo
+
+
+@dataclass(slots=True)
+class IniciarPartidaResultado:
+    partida: PartidaModelo

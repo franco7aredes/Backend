@@ -10,13 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.capa_3_api.api import api_router
 from app.capa_3_api.websockets.ApiWS import ws_router
+from app.settings import settings
 
 from app.capa_0_definicion_bd.base_datos_sqlalchemy import Base, async_engine
 # Importa los modelos reales (capa 0) para registrar las tablas en el metadata
 from app.capa_0_definicion_bd.models import (
-    partidas_models,  # noqa: F401
-    jugadores_models,  # noqa: F401
-    cartas_models,  # noqa: F401
+    partidas_modelos,  # noqa: F401
+    jugadores_modelos,  # noqa: F401
+    cartas_modelos,  # noqa: F401
 )
 
 
@@ -30,28 +31,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-origins = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:8000",
-    "http://localhost:3000",
-    "http://localhost:3001",
-]
+# Orígenes permitidos para CORS, centralizados en settings
+origins = settings.CORS_ORIGINS
 
 
 # Incluir routers HTTP y WebSocket
 app.include_router(api_router)
 app.include_router(ws_router)
-
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
 
 
 app.add_middleware(

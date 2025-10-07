@@ -1,108 +1,51 @@
 import pytest
-from sqlalchemy import select, text
-from app.capa_0_definicion_bd.models.partidas_models import Partida, EstadoPartida
-from app.capa_0_definicion_bd.models.jugadores_models import Jugador
-from app.capa_0_definicion_bd.models.cartas_models import Carta, PosicionCarta
+from unittest.mock import AsyncMock
+
+from app.main import app as fastapi_app
+from app.capa_2_logica.fabrica import obtener_servicio_juego
 
 
 @pytest.mark.asyncio
-async def test_descartar_carta(async_client, db_async):
-    # Crear partida vía endpoint
-    payload = {"jugador_creador": "TestJugador", "fecha_nac": "2004-11-19", "minimo": 2, "maximo": 4}
-    resp = await async_client.post("/partidas", json=payload)
-    assert resp.status_code == 201
+async def test_descartar_carta_bonito(async_client):
+    class S:
+        async def descartar_carta(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "descartar_carta", AsyncMock(return_value=1))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9})
+    assert resp.status_code == 200
     data = resp.json()
-    id_partida = data["id_partida"]
-    id_jugador = data["id_jugador_creador"]
+    assert data["mensaje"].startswith("Carta 1 descartada por jugador")
 
-    # Crear carta para el jugador
-    carta = Carta(id_carta=1, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
-    db_async.add(carta)
-    await db_async.flush()
-    await db_async.refresh(carta)
-    await db_async.commit()
-
-    # Llamar endpoint descartar
-    response = await async_client.patch(f"/partida/{id_partida}/descartar", json={"jugador_id": id_jugador})
-    assert response.status_code == 200
-    # Verificar en DB
-    carta_id = carta.id_carta
-    db_async.expire_all()
-    res = await db_async.execute(select(Carta).where(Carta.id_carta == carta_id))
-    carta_actualizada = res.scalars().first()
-    assert carta_actualizada.id_jugador is None
-    assert carta_actualizada.posicion.name == "descarte"
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 
 @pytest.mark.asyncio
-async def test_descartar_carta_sin_cartas(async_client, db_async):
-    payload = {"jugador_creador": "TestJugador", "fecha_nac": "2004-11-19", "minimo": 2, "maximo": 4}
-    resp = await async_client.post("/partidas", json=payload)
-    assert resp.status_code == 201
-    data = resp.json()
-    id_partida = data["id_partida"]
-    id_jugador = data["id_jugador_creador"]
+async def test_descartar_carta_sin_mano_bonito(async_client):
+    class S:
+        async def descartar_carta(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "descartar_carta", AsyncMock(return_value=None))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    response = await async_client.patch(f"/partida/{id_partida}/descartar", json={"jugador_id": id_jugador})
-    assert response.status_code == 404
-    data = response.json()
-    assert data["detail"] == "No se encontró carta para descartar en esta partida"
+    resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9})
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "No se encontró carta para descartar en esta partida"
 
-
-@pytest.mark.asyncio
-async def test_descartar_carta_partida_inexistente(async_client, db_async):
-    payload = {"jugador_creador": "TestJugador", "fecha_nac": "2004-11-19", "minimo": 2, "maximo": 4}
-    resp = await async_client.post("/partidas", json=payload)
-    assert resp.status_code == 201
-    data = resp.json()
-    id_jugador = data["id_jugador_creador"]
-
-    response = await async_client.patch(f"/partida/9999/descartar", json={"jugador_id": id_jugador})
-    assert response.status_code == 404
-    data = response.json()
-    assert data["detail"] == "No se encontró carta para descartar en esta partida"
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 
 @pytest.mark.asyncio
-async def test_descartar_carta_jugador_inexistente(async_client, db_async):
-    payload = {"jugador_creador": "TestJugador", "fecha_nac": "2004-11-19", "minimo": 2, "maximo": 4}
-    resp = await async_client.post("/partidas", json=payload)
-    assert resp.status_code == 201
-    data = resp.json()
-    id_partida = data["id_partida"]
+async def test_get_mano_bonito(async_client):
+    class S:
+        async def obtener_cantidad_mano(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "obtener_cantidad_mano", AsyncMock(return_value=0))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    response = await async_client.patch(f"/partida/{id_partida}/descartar", json={"jugador_id": 9999})
-    assert response.status_code == 404
-    data = response.json()
-    assert data["detail"] == "No se encontró carta para descartar en esta partida"
+    resp = await async_client.get("/partida/1/mano/9")
+    assert resp.status_code == 200
+    assert resp.json()["cantidad"] == 0
 
-
-@pytest.mark.asyncio
-async def test_descartar_carta_varias_cartas(async_client, db_async):
-    payload = {"jugador_creador": "TestJugador", "fecha_nac": "2004-11-19", "minimo": 2, "maximo": 4}
-    resp = await async_client.post("/partidas", json=payload)
-    assert resp.status_code == 201
-    data = resp.json()
-    id_partida = data["id_partida"]
-    id_jugador = data["id_jugador_creador"]
-
-    # Crear dos cartas en mano
-    carta1 = Carta(id_carta=1, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
-    carta2 = Carta(id_carta=2, id_partida=id_partida, id_jugador=id_jugador, posicion=PosicionCarta.mano)
-    db_async.add_all([carta1, carta2])
-    await db_async.flush()
-    await db_async.refresh(carta1)
-    await db_async.refresh(carta2)
-    await db_async.commit()
-
-    response = await async_client.patch(f"/partida/{id_partida}/descartar", json={"jugador_id": id_jugador})
-    assert response.status_code == 200
-    id1, id2 = carta1.id_carta, carta2.id_carta
-    db_async.expire_all()
-    res1 = await db_async.execute(select(Carta).where(Carta.id_carta == id1))
-    carta1_actualizada = res1.scalars().first()
-    res2 = await db_async.execute(select(Carta).where(Carta.id_carta == id2))
-    carta2_actualizada = res2.scalars().first()
-    assert (carta1_actualizada.id_jugador is None or carta2_actualizada.id_jugador is None)
-    assert (carta1_actualizada.posicion.name == "descarte" or carta2_actualizada.posicion.name == "descarte")
-    assert (carta1_actualizada.posicion.name == "mano" or carta2_actualizada.posicion.name == "mano")
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

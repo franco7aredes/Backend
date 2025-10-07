@@ -7,7 +7,8 @@ Punto de entrada HTTP/WebSockets. Contiene los routers de FastAPI y los DTOs (es
 - `dtos/partidas.py`: DTOs de dominio (Jugador, JugadorCrear, Partida, PartidaCrear). Son la fuente de verdad.
 - `routers/partidas.py`: Endpoints REST relacionados a partidas, jugadores y turnos.
 - `routers/mazo.py`: Endpoints para reponer cartas, descartar y consultar mano.
-- `websockets/ApiWS.py`: Manager para enviar mensajes a jugadores/salas (texto y JSON).
+- `mapeadores.py`: funciones que mapean dicts de la capa 2 a DTOs de capa 3. La API no importa modelos ORM.
+- `websockets/ApiWS.py`: Administrador de conexiones para enviar mensajes a jugadores/salas (texto y JSON).
 
 ## Inyección de dependencias
 
@@ -26,8 +27,8 @@ Las excepciones de dominio de la capa 2 se traducen a HTTP:
 
 - Se notifica a canales individuales (por id de jugador) y/o a la sala de una partida.
 - Eventos típicos:
-  - `nueva_partida` (broadcast global)
-  - `partida_iniciada` (broadcast a sala)
+  - `nueva_partida` (difusión global)
+  - `partida_iniciada` (difusión a sala)
   - `jugadores_actualizados` y `jugador_unido` (privados + sala)
   - `fin_de_mazo` (privado en texto plano y JSON; también a sala)
 
@@ -51,3 +52,12 @@ Los DTOs se definen en `dtos/partidas.py` y se usan directamente desde los route
 
 - Los routers contienen orquestación mínima: delegan la lógica al servicio y se ocupan del mapeo HTTP y WS.
 - Se preservan los contratos de respuesta que consumen el frontend y que validan los tests.
+- Capa 3 consume dicts de consultas desde capa 2 y dataclasses simples en comandos; se mapean a DTOs/payloads sin exponer ORM.
+
+## Patrón de endpoints “bonitos”
+
+- try/except en capa 3 para traducir errores de dominio a HTTP (404/400) y disparar notificaciones WS mínimas.
+- La lógica y orquestación quedan en el servicio (capa 2). Ejemplo: para iniciar una partida se usa
+  `ServicioJuego.iniciar_y_preparar_partida(partida_id, cartas_por_mano)` que internamente:
+  1) valida e inicia, 2) reparte cartas, 3) asigna turnos. El router solo devuelve
+  `{mensaje, estado}` y notifica `partida_iniciada`.

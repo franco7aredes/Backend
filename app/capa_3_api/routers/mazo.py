@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Depends, HTTPException
-from app.capa_3_api.websockets.ApiWS import manager
+from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import PartidaNoEncontrada
@@ -32,29 +32,29 @@ async def reponer_mazo(partida_id: int, data: ReponerRequest, service: ServicioJ
 			raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
 		raise
 
-	if resultado["max_alcanzado"]:
+	if resultado.max_alcanzado:
 		return ReponerResponse(mensaje="El jugador ya tiene el maximo de cartas en la mano")
 
-	if resultado["sin_cartas"]:
+	if resultado.sin_cartas:
 		# notificar fin de mazo
 		try:
-			await manager.send_text(jugador_id, "fin_de_mazo")
-			await manager.send_message({"evento": "fin_de_mazo", "partida_id": partida_id}, jugador_id)
-			await manager.broadcast_to_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id})
+			await administrador.enviar_texto(jugador_id, "fin_de_mazo")
+			await administrador.enviar_mensaje({"evento": "fin_de_mazo", "partida_id": partida_id}, jugador_id)
+			await administrador.difundir_a_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id})
 		except Exception:
 			pass
 		# No hay cartas para reponer: devolver 404
 		raise HTTPException(status_code=404, detail="No hay cartas disponibles en el mazo")
 
-	if resultado["fin_de_mazo"]:
+	if resultado.fin_de_mazo:
 		try:
-			await manager.send_text(jugador_id, "fin_de_mazo")
-			await manager.send_message({"evento": "fin_de_mazo", "partida_id": partida_id}, jugador_id)
-			await manager.broadcast_to_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id})
+				await administrador.enviar_texto(jugador_id, "fin_de_mazo")
+				await administrador.enviar_mensaje({"evento": "fin_de_mazo", "partida_id": partida_id}, jugador_id)
+				await administrador.difundir_a_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id})
 		except Exception:
 			pass
 
-	cartas = resultado["cartas"]
+	cartas = resultado.cartas
 	return ReponerResponse(
 		mensaje=f"Se repusieron {len(cartas)} cartas",
 		cartas=[{"id": c.id_carta, "posicion": c.posicion.value} for c in cartas],
@@ -66,12 +66,14 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarRequest, s
 	# Patrón bonito: try/except, delegar al servicio y devolver lo mínimo
 	jugador_id = data.jugador_id
 	try:
-		carta_id = await service.descartar_carta(partida_id, jugador_id)
+		res = await service.descartar_carta(partida_id, jugador_id)
 	except Exception:
 		# Por compatibilidad con los tests actuales, cualquier condición inválida
 		# responde como "no hay carta para descartar" en esta partida
 		raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
 
+	# Compatibilidad: puede ser dataclass o int/None de mocks
+	carta_id = getattr(res, "carta_id", res)
 	if carta_id is None:
 		raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
 
@@ -81,5 +83,9 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarRequest, s
 @mazo_router.get("/partida/{partida_id}/mano/{jugador_id}", response_model=ManoResponse, status_code=status.HTTP_200_OK)
 async def obtener_mano_jugador(partida_id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	"""Devuelve la cantidad de cartas en mano del jugador en la partida."""
-	cantidad = await service.obtener_cantidad_mano(partida_id, jugador_id)
-	return ManoResponse(cantidad=cantidad)
+	res2 = await service.obtener_cantidad_mano(partida_id, jugador_id)
+	if hasattr(res2, "cantidad"):
+		cantidad_val: int = getattr(res2, "cantidad")  # type: ignore[assignment]
+	else:
+		cantidad_val = int(res2)  # type: ignore[arg-type]
+	return ManoResponse(cantidad=cantidad_val)

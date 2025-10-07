@@ -3,11 +3,10 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModelo, EstadoPartida
-from .partida_contrato import IRepositorioPartida
+from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 
 
-class RepositorioPartidaSQLAlchemy(IRepositorioPartida):
+class RepositorioPartidaSQLAlchemy:
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -28,3 +27,9 @@ class RepositorioPartidaSQLAlchemy(IRepositorioPartida):
     async def guardar(self, partida: PartidaModelo) -> None:
         self.db.add(partida)
         await self.db.flush()
+
+    async def confirmar(self) -> None:
+        try:
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()

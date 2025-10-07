@@ -1,14 +1,21 @@
-from typing import List
+from typing import List, cast, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.capa_3_api.dtos.partidas import (
 	PartidaCrear as PartidaCreada,
-	Jugador as JugadorSchema,
-	Partida as PartidaSchema,
+	Jugador as JugadorDTO,
+	Partida as PartidaDTO,
 	JugadorCrear as JugadorCreate,
 )
-from app.capa_3_api.websockets.ApiWS import manager
+from app.capa_3_api.websockets.ApiWS import administrador
 import app.capa_2_logica.constantes as C
-from app.capa_3_api.core_async_utils import _notify_players_async
+from app.capa_3_api.utilidades_asincronas import _notificar_jugadores_async
+# Alias de compatibilidad para tests existentes que parchan este nombre
+_notify_players_async = _notificar_jugadores_async
+from app.capa_3_api.mapeadores import (
+	mapear_partidas_a_dto,
+	mapear_partida_a_dto,
+	mapear_jugadores_a_dto,
+)
 
 # Nuevo: servicio de juego (capa 2) con repos async 
 from app.capa_2_logica.servicio_juego import ServicioJuego
@@ -17,78 +24,64 @@ from app.capa_2_logica.errores import PartidaNoEncontrada, PartidaYaEnJuego, Min
 
 partida_router = APIRouter()
 
-@partida_router.get("/partidas", response_model=List[PartidaSchema])
+@partida_router.get("/partidas", response_model=List[PartidaDTO])
 async def listar_partidas(service: ServicioJuego = Depends(obtener_servicio_juego)):
-	partidas_db = await service.listar_en_espera()
-	return [
-		PartidaSchema(
-			id_partida=p.id_partida,
-			minimo=p.minimo,
-			maximo=p.maximo,
-			id_jugador_creador=p.id_jugador_creador,
-			estado=p.estado.value if hasattr(p.estado, 'value') else p.estado,
-			cantidad_jugadores=p.cantidad_jugadores,
-			turno_actual=p.turno_actual,
-			jugadores=[],
-		)
-		for p in partidas_db
-	]
+	try:
+		partidas_db = await service.listar_en_espera()
+		return mapear_partidas_a_dto(partidas_db)
+	except Exception:
+		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
-@partida_router.get("/partidas/{partida_id}", response_model=PartidaSchema)
+@partida_router.get("/partidas/{partida_id}", response_model=PartidaDTO)
 async def obtener_partida(partida_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
-	partida = await service.obtener_por_id(partida_id)
-	if not partida:
-		raise HTTPException(status_code=404, detail="Partida no encontrada")
-	# Construimos el esquema incluyendo campos principales
-	return PartidaSchema(
-		id_partida=partida.id_partida,
-		minimo=partida.minimo,
-		maximo=partida.maximo,
-		id_jugador_creador=partida.id_jugador_creador,
-		estado=partida.estado.value if hasattr(partida.estado, 'value') else partida.estado,
-		cantidad_jugadores=partida.cantidad_jugadores,
-		turno_actual=partida.turno_actual,
-		jugadores=[]
-	)
+	try:
+		partida = await service.obtener_por_id(partida_id)
+		if not partida:
+			raise HTTPException(status_code=404, detail="Partida no encontrada")
+		return mapear_partida_a_dto(partida)
+	except HTTPException:
+		raise
+	except Exception:
+		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-@partida_router.get("/partidas/{partida_id}/jugadores", response_model=List[JugadorSchema])
+@partida_router.get("/partidas/{partida_id}/jugadores", response_model=List[JugadorDTO])
 async def listar_jugadores_partida(partida_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
-	partida = await service.obtener_por_id(partida_id)
-	if not partida:
-		raise HTTPException(status_code=404, detail="Partida no encontrada")
-	jugadores = await service.listar_jugadores(partida_id)
-	return [
-		JugadorSchema(
-			id_jugador=j.id_jugador,
-			nombre=j.nombre,
-			fecha_nacimiento=j.fecha_nacimiento,
-			id_avatar=j.id_avatar,
-			orden_turno=j.orden_turno,
-		)
-		for j in jugadores
-	]
+	try:
+		partida = await service.obtener_por_id(partida_id)
+		if not partida:
+			raise HTTPException(status_code=404, detail="Partida no encontrada")
+		jugadores = await service.listar_jugadores(partida_id)
+		return mapear_jugadores_a_dto(jugadores)
+	except HTTPException:
+		raise
+	except Exception:
+		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
 async def crear_partida(partida: PartidaCreada, service: ServicioJuego = Depends(obtener_servicio_juego)):
-	# Usamos el servicio (async + repos async) para crear partida y jugador
-	nueva_partida, jugador = await service.crear_partida(
-		jugador_creador=partida.jugador_creador,
-		fecha_nac=partida.fecha_nac,
-		minimo=partida.minimo,
-		maximo=partida.maximo,
-	)
+	try:
+		# Usamos el servicio (async + repos async) para crear partida y jugador
+		res = await service.crear_partida(
+			jugador_creador=partida.jugador_creador,
+			fecha_nac=partida.fecha_nac,
+			minimo=partida.minimo,
+			maximo=partida.maximo,
+		)
+		nueva_partida, jugador = res.partida, res.jugador
 
-	# Broadcast por WebSocket para que el frontend se actualice
-	await manager.broadcast("nueva_partida")
+		# Difusión por WebSocket para que el frontend se actualice
+		await administrador.difundir("nueva_partida")
 
-	return {
-		"mensaje": "partida creada con exito",
-		"id_partida": nueva_partida.id_partida,
-		"id_jugador_creador": jugador.id_jugador,
-		"estado": nueva_partida.estado.value if hasattr(nueva_partida.estado, 'value') else nueva_partida.estado,
-	}
+		return {
+			"mensaje": "partida creada con exito",
+			"id_partida": nueva_partida.id_partida,
+			"id_jugador_creador": jugador.id_jugador,
+			"estado": nueva_partida.estado.value if hasattr(nueva_partida.estado, 'value') else nueva_partida.estado,
+		}
+	except Exception:
+		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
 @partida_router.patch("/partidas/{partida_id}/iniciar", response_model=None , status_code=status.HTTP_200_OK)
@@ -102,12 +95,17 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
 		raise HTTPException(status_code=400, detail="La partida no tiene la cantidad mínima de jugadores para iniciar")
 	except PartidaYaEnJuego:
 		raise HTTPException(status_code=400, detail="La partida ya esta en juego")
+	except Exception:
+		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 	# Notificaciones mínimas (capa 3)
-	repartidas = resultado.get("repartidas", {})
+	# Soportamos tanto dataclass (nuevo) como dict (tests que mockean)
+	repartidas = getattr(resultado, "repartidas", None)
+	if repartidas is None and isinstance(resultado, dict):
+		repartidas = resultado.get("repartidas", {})
 	if repartidas:
 		await _notify_players_async(repartidas)
-	await manager.broadcast_to_partida(partida_id, {"evento": "partida_iniciada", "partida_id": partida_id, "estado": "En Juego"})
+	await administrador.difundir_a_partida(partida_id, {"evento": "partida_iniciada", "partida_id": partida_id, "estado": "En Juego"})
 
 	return {"mensaje": "La partida comenzo", "estado": "En Juego"}
 
@@ -115,16 +113,23 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
 @partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
 async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	try:
-		partida, nuevo_jugador = await service.unirse_a_partida(
+		res_unirse = await service.unirse_a_partida(
 			partida_id=partida_id,
 			nombre=jugador.nombre,
 			fecha_nacimiento=jugador.fecha_nacimiento,
 			id_avatar=jugador.id_avatar,
 		)
+		# Compatibilidad: puede ser dataclass o tuple
+		if hasattr(res_unirse, "partida"):
+			partida, nuevo_jugador = res_unirse.partida, res_unirse.jugador
+		else:
+			partida, nuevo_jugador = res_unirse  # type: ignore[misc]
 	except PartidaNoEncontrada:
 		raise HTTPException(status_code=404, detail="Partida no encontrada")
 	except MaximoJugadoresAlcanzado:
 		raise HTTPException(status_code=400, detail="La partida ya tiene el máximo de jugadores")
+	except Exception:
+		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 	# obtener jugadores para notificar
 	jugadores_en_partida = await service.listar_jugadores(partida_id)
@@ -141,8 +146,8 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, service: Ser
 		"jugador": {"id_jugador": nuevo_jugador.id_jugador, "nombre": nuevo_jugador.nombre, "id_avatar": nuevo_jugador.id_avatar}
 	}
 	for j in jugadores_en_partida:
-		await manager.send_message(mensaje_lista, j.id_jugador)
-	await manager.broadcast_to_partida(partida_id, mensaje_uno)
+		await administrador.enviar_mensaje(mensaje_lista, cast(int, j.id_jugador))
+	await administrador.difundir_a_partida(partida_id, mensaje_uno)
     
 	return {
 		"mensaje":"jugador agregado",
@@ -157,7 +162,7 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, service: Ser
 @partida_router.patch("/partidas/{partida_id}/terminar_turno", response_model=None, status_code=status.HTTP_200_OK)
 async def terminar_turno(partida_id: int, id_enviada: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	try:
-		turno_nuevo = await service.terminar_turno(partida_id, id_enviada)
+		turno = await service.terminar_turno(partida_id, id_enviada)
 	except PartidaNoEncontrada:
 		raise HTTPException(status_code=404, detail="Partida no encontrada")
 	except PermissionError:
@@ -166,9 +171,11 @@ async def terminar_turno(partida_id: int, id_enviada: int, service: ServicioJueg
 		if str(e) == "partida_no_en_juego":
 			raise HTTPException(status_code=400, detail="La partida no está en juego")
 		raise HTTPException(status_code=404, detail="Jugador no encontrado")
+	except Exception:
+		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 	jugadores_en_partida = await service.listar_jugadores(partida_id)
-	mensaje = {"turno_nuevo": turno_nuevo}
+	mensaje = {"turno_nuevo": turno.turno_nuevo}
 	for j in jugadores_en_partida:
-		await manager.send_message(mensaje, j.id_jugador)
+		await administrador.enviar_mensaje(mensaje, cast(int, j.id_jugador))
 	return mensaje

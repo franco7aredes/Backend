@@ -17,12 +17,7 @@ Infraestructura de SQLAlchemy asíncrona compartida por todo el backend.
 
 ## Modelos ORM
 
-Los modelos viven en `app/db/models/*` y deben heredar de la `Base` compartida para que el esquema sea consistente entre sync y async.
-
-## Testing
-
-- En tests, la DB async se sobreescribe para apuntar al mismo archivo SQLite que la sync, asegurando que `create_all`/`drop_all` apliquen a ambos flujos.
-- Esto evita errores de "no such table" cuando se mezclan endpoints sync y async.
+Los modelos viven en `app/db/models/*` y deben heredar de la `Base` compartida para que el esquema sea consistente.
 
 ## Notas
 

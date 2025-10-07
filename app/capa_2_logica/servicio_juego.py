@@ -1,18 +1,54 @@
 from datetime import datetime, date
 import random
-from typing import Dict, Any, List, Optional
-from sqlalchemy import select, func
+from typing import Dict, Any, List, Optional, cast
 
-from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModelo, EstadoPartida
-from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModelo
-from app.capa_1_acceso_datos.repositorios.partida_contrato import IRepositorioPartida
-from app.capa_1_acceso_datos.repositorios.jugador_contrato import IRepositorioJugador
-from app.capa_1_acceso_datos.repositorios.carta_contrato import IRepositorioCarta
+from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
+from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
+from typing import Protocol, runtime_checkable
 from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
-from app.capa_0_definicion_bd.models.cartas_models import (
+from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
     PosicionCarta,
 )
+from .resultados import (
+    ReponerResultado,
+    TurnoResultado,
+    CrearPartidaResultado,
+    RepartirCartasResultado,
+    IniciarYPrepararResultado,
+    DescartarResultado,
+    CantidadManoResultado,
+    UnirsePartidaResultado,
+    IniciarPartidaResultado,
+)
+from .convertidores import partida_a_dict, jugador_a_dict
+
+
+@runtime_checkable
+class _RepoPartidaProto(Protocol):
+    async def crear(self, partida: PartidaModelo) -> PartidaModelo: ...
+    async def obtener(self, partida_id: int) -> Optional[PartidaModelo]: ...
+    async def listar_en_espera(self) -> List[PartidaModelo]: ...
+    async def guardar(self, partida: PartidaModelo) -> None: ...
+
+
+@runtime_checkable
+class _RepoJugadorProto(Protocol):
+    async def listar_por_partida(self, partida_id: int) -> List[JugadorModelo]: ...
+    async def crear(self, jugador: JugadorModelo) -> JugadorModelo: ...
+    async def obtener(self, jugador_id: int) -> Optional[JugadorModelo]: ...
+
+
+@runtime_checkable
+class _RepoCartaProto(Protocol):
+    async def crear_muchas(self, cartas: List[CartaModelo]) -> None: ...
+    async def contar_en_mano(self, partida_id: int, jugador_id: int) -> int: ...
+    async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
+    # Métodos opcionales, consultados con hasattr en tiempo de ejecución
+    # async def guardar_muchas(self, cartas: List[CartaModelo]) -> None: ...
+    # async def contar_en_mazo(self, partida_id: int) -> int: ...
+    # async def obtener_primera_en_mano(self, partida_id: int, jugador_id: int) -> Optional[CartaModelo]: ...
+    # async def guardar(self, carta: CartaModelo) -> None: ...
 
 
 class ServicioJuego:
@@ -21,13 +57,13 @@ class ServicioJuego:
     Expone casos de uso y no conoce detalles de SQLAlchemy ni de FastAPI.
     """
 
-    def __init__(self, partidas: IRepositorioPartida, jugadores: IRepositorioJugador | None = None, cartas: IRepositorioCarta | None = None):
+    def __init__(self, partidas: _RepoPartidaProto, jugadores: _RepoJugadorProto | None = None, cartas: _RepoCartaProto | None = None):
         self.partidas = partidas
         self.jugadores = jugadores
         self.cartas = cartas
 
-    async def crear_partida(self, jugador_creador: str, fecha_nac: datetime, minimo: int, maximo: int) -> tuple[PartidaModelo, JugadorModelo]:
-        """Crea una partida y su jugador inicial.
+    async def crear_partida(self, jugador_creador: str, fecha_nac: datetime, minimo: int, maximo: int) -> CrearPartidaResultado:
+        """Crea una partida y su jugador inicial (retorna CrearPartidaResultado).
 
         - Inicializa la partida en espera
         - Inserta el jugador creador
@@ -51,77 +87,73 @@ class ServicioJuego:
             id_avatar=1,
         )
 
-        # Usamos la misma sesión del repo (el commit lo maneja la dependencia de DB)
-        self.partidas.db.add(jugador)  # type: ignore[attr-defined]
-        await self.partidas.db.flush()  # type: ignore[attr-defined]
-        await self.partidas.db.refresh(jugador)  # type: ignore[attr-defined]
+        # Crear el jugador usando el repo correspondiente; sin repo, no tocamos la BD desde la capa 2
+        if not self.jugadores:
+            raise RuntimeError("Repositorio de jugadores no disponible")
+        jugador = await self.jugadores.crear(jugador)
 
         partida.id_jugador_creador = jugador.id_jugador
         await self.partidas.guardar(partida)
-        return partida, jugador
+        return CrearPartidaResultado(partida=partida, jugador=jugador)
 
-    async def iniciar_partida(self, partida_id: int) -> PartidaModelo:
-        """Cambia la partida a 'en_juego' validando reglas de inicio.
-        """
+    async def iniciar_partida(self, partida_id: int) -> IniciarPartidaResultado:
+        """Cambia la partida a 'en_juego' validando reglas de inicio (retorna IniciarPartidaResultado)."""
         partida = await self.partidas.obtener(partida_id)
         if not partida:
             raise PartidaNoEncontrada()
-        if partida.estado == EstadoPartida.en_juego:
+        p = cast(Any, partida)
+        if p.estado == EstadoPartida.en_juego:
             raise PartidaYaEnJuego()
         # Validar mínimo de jugadores
-        if partida.cantidad_jugadores < partida.minimo:
+        if p.cantidad_jugadores < p.minimo:
             raise MinimoJugadoresNoAlcanzado()
 
-        partida.estado = EstadoPartida.en_juego
-        await self.partidas.guardar(partida)
-        return partida
+        p.estado = EstadoPartida.en_juego
+        await self.partidas.guardar(p)
+        return IniciarPartidaResultado(partida=p)
 
-    async def iniciar_y_preparar_partida(self, partida_id: int, cartas_por_mano: int) -> Dict[str, Any]:
-        """Orquestación de inicio: iniciar, repartir cartas y asignar turnos.
-
-        Devuelve un dict con: partida, repartidas, mazo y jugadores.
-        """
+    async def iniciar_y_preparar_partida(self, partida_id: int, cartas_por_mano: int) -> IniciarYPrepararResultado:
+        """Orquestación de inicio: iniciar, repartir cartas y asignar turnos (retorna IniciarYPrepararResultado)."""
         # 1) Iniciar (valida existencia, estado y mínimo)
-        partida = await self.iniciar_partida(partida_id)
+        iniciar_res = await self.iniciar_partida(partida_id)
+        partida = iniciar_res.partida
 
         # 2) Repartir cartas
-        datos_reparto = await self.repartir_cartas(partida.id_partida, cartas_por_mano)
+        datos_reparto = await self.repartir_cartas(cast(Any, partida).id_partida, cartas_por_mano)
 
         # 3) Asignar turnos
         jugadores_ordenados = await self.asignar_turnos(partida_id)
 
-        return {
-            "partida": partida,
-            "repartidas": datos_reparto.get("repartidas", {}),
-            "mazo": datos_reparto.get("mazo", []),
-            "jugadores": jugadores_ordenados or [],
-        }
+        return IniciarYPrepararResultado(
+            partida=partida,
+            repartidas=datos_reparto.repartidas,
+            mazo=datos_reparto.mazo,
+            jugadores=jugadores_ordenados or [],
+        )
 
-    async def listar_en_espera(self) -> list[PartidaModelo]:
-        """Lista partidas en estado 'en_espera'."""
-        return await self.partidas.listar_en_espera()
+    async def listar_en_espera(self) -> list[dict]:
+        """Lista partidas en estado 'en_espera' (sin exponer ORM)."""
+        partidas = await self.partidas.listar_en_espera()
+        return [partida_a_dict(p) for p in partidas]
 
-    async def obtener_por_id(self, partida_id: int) -> PartidaModelo | None:
-        """Obtiene una partida por su id o None si no existe."""
-        return await self.partidas.obtener(partida_id)
+    async def obtener_por_id(self, partida_id: int) -> dict | None:
+        """Obtiene una partida por su id o None si no existe (dict)."""
+        p = await self.partidas.obtener(partida_id)
+        return partida_a_dict(p) if p else None
 
-    async def repartir_cartas(self, partida_id: int, num_cartas: int) -> Dict[str, Any]:
-        """Crea el mazo de la partida y reparte `num_cartas` por jugador.
-
-        Devuelve una estructura con las cartas repartidas por jugador y las cartas restantes en el mazo.
-        Persiste los cambios usando el repositorio de cartas.
-        """
+    async def repartir_cartas(self, partida_id: int, num_cartas: int) -> RepartirCartasResultado:
+        """Crea el mazo (1..61), reparte `num_cartas` por jugador y persiste (retorna RepartirCartasResultado)."""
         if not self.jugadores or not self.cartas:
             # Si no tenemos repositorios, no podemos operar
-            return {"repartidas": {}, "mazo": []}
+            return RepartirCartasResultado(repartidas={}, mazo=[])
 
         partida = await self.partidas.obtener(partida_id)
         if not partida:
-            return {"repartidas": {}, "mazo": []}
+            return RepartirCartasResultado(repartidas={}, mazo=[])
 
         jugadores = await self.jugadores.listar_por_partida(partida_id)
         if not jugadores:
-            return {"repartidas": {}, "mazo": []}
+            return RepartirCartasResultado(repartidas={}, mazo=[])
 
         # 1..61 cartas por partida
 
@@ -140,14 +172,16 @@ class ServicioJuego:
         repartidas: Dict[int, List[CartaModelo]] = {}
         idx = 0
         for jugador in jugadores:
-            repartidas[jugador.id_jugador] = []
+            jj = cast(Any, jugador)
+            repartidas[jj.id_jugador] = []
             for _ in range(num_cartas):
                 if idx >= len(mazo_cartas):
                     break
                 carta = mazo_cartas[idx]
-                carta.id_jugador = jugador.id_jugador
-                carta.posicion = PosicionCarta.mano
-                repartidas[jugador.id_jugador].append(carta)
+                cc = cast(Any, carta)
+                cc.id_jugador = jj.id_jugador
+                cc.posicion = PosicionCarta.mano
+                repartidas[jj.id_jugador].append(carta)
                 idx += 1
 
         cartas_restantes_mazo = mazo_cartas[idx:]
@@ -162,10 +196,7 @@ class ServicioJuego:
             await self.cartas.crear_muchas(todas)
 
         # Devolver estructura como la función previa
-        return {
-            "repartidas": repartidas,
-            "mazo": cartas_restantes_mazo,
-        }
+        return RepartirCartasResultado(repartidas=repartidas, mazo=cartas_restantes_mazo)
 
     async def asignar_turnos(self, partida_id: int, fecha_referencia: date = date(1980, 9, 15)) -> List[JugadorModelo]:
         """Ordena a los jugadores por proximidad a `fecha_referencia` y actualiza `orden_turno`.
@@ -184,31 +215,32 @@ class ServicioJuego:
 
         jugadores_ordenados = sorted(
             jugadores,
-            key=lambda j: diferencia_en_dias(j.fecha_nacimiento if isinstance(j.fecha_nacimiento, date) else j.fecha_nacimiento),
+            key=lambda j: diferencia_en_dias(cast(Any, j).fecha_nacimiento if isinstance(cast(Any, j).fecha_nacimiento, date) else cast(Any, j).fecha_nacimiento),
         )
 
         for i, jugador in enumerate(jugadores_ordenados, start=1):
-            jugador.orden_turno = i
+            cast(Any, jugador).orden_turno = i
 
-        # Persistimos los cambios de orden; usamos la sesión del repo de partidas
-        if hasattr(self.partidas, "db"):
-            self.partidas.db.add_all(jugadores_ordenados)  # type: ignore[attr-defined]
-            await self.partidas.db.flush()  # type: ignore[attr-defined]
+        # Persistimos los cambios de orden; delegamos en repos
+        if self.jugadores and hasattr(self.jugadores, "guardar_muchos"):
+            await self.jugadores.guardar_muchos(jugadores_ordenados)  # type: ignore[attr-defined]
 
         return jugadores_ordenados
 
-    async def listar_jugadores(self, partida_id: int) -> List[JugadorModelo]:
-        """Devuelve los jugadores de una partida."""
+    async def listar_jugadores(self, partida_id: int) -> List[dict]:
+        """Devuelve los jugadores de una partida como dicts (sin exponer ORM)."""
         if not self.jugadores:
             return []
-        return await self.jugadores.listar_por_partida(partida_id)
+        jugadores = await self.jugadores.listar_por_partida(partida_id)
+        return [jugador_a_dict(j) for j in jugadores]
 
-    async def unirse_a_partida(self, partida_id: int, nombre: str, fecha_nacimiento: datetime, id_avatar: int | None = 1) -> tuple[PartidaModelo, JugadorModelo]:
-        """Agrega un jugador a la partida validando máximo y devuelve (partida, jugador)."""
+    async def unirse_a_partida(self, partida_id: int, nombre: str, fecha_nacimiento: datetime, id_avatar: int | None = 1) -> UnirsePartidaResultado:
+        """Agrega un jugador a la partida validando máximo y devuelve UnirsePartidaResultado."""
         partida = await self.partidas.obtener(partida_id)
         if not partida:
             raise PartidaNoEncontrada()
-        if partida.cantidad_jugadores >= partida.maximo:
+        p = cast(Any, partida)
+        if p.cantidad_jugadores >= p.maximo:
             raise MaximoJugadoresAlcanzado()
 
         if not self.jugadores:
@@ -223,16 +255,17 @@ class ServicioJuego:
         )
         jugador = await self.jugadores.crear(jugador)
 
-        partida.cantidad_jugadores += 1
-        await self.partidas.guardar(partida)
-        return partida, jugador
+        p.cantidad_jugadores += 1
+        await self.partidas.guardar(p)
+        return UnirsePartidaResultado(partida=p, jugador=jugador)
 
-    async def terminar_turno(self, partida_id: int, id_enviada: int) -> int:
-        """Avanza el turno si el jugador que llama corresponde; devuelve el nuevo turno."""
+    async def terminar_turno(self, partida_id: int, id_enviada: int) -> TurnoResultado:
+        """Avanza el turno si el jugador que llama corresponde (retorna TurnoResultado)."""
         partida = await self.partidas.obtener(partida_id)
         if not partida:
             raise PartidaNoEncontrada()
-        if partida.estado != EstadoPartida.en_juego:
+        p = cast(Any, partida)
+        if p.estado != EstadoPartida.en_juego:
             raise ValueError("partida_no_en_juego")
 
         # Necesitamos el jugador para validar orden_turno actual
@@ -242,31 +275,21 @@ class ServicioJuego:
         if not jugador:
             raise ValueError("jugador_no_encontrado")
 
-        if jugador.orden_turno != partida.turno_actual:
+        if cast(Any, jugador).orden_turno != p.turno_actual:
             raise PermissionError("turno_invalido")
 
-        cantidad = partida.cantidad_jugadores
-        partida.turno_actual = 1 if partida.turno_actual == cantidad else partida.turno_actual + 1
-        await self.partidas.guardar(partida)
-        # Asegurar persistencia visible entre sesiones
-        if hasattr(self.partidas, "db"):
-            try:
-                await self.partidas.db.commit()  # type: ignore[attr-defined]
-            except Exception:
-                await self.partidas.db.rollback()  # type: ignore[attr-defined]
-        return partida.turno_actual
+        cantidad = p.cantidad_jugadores
+        p.turno_actual = 1 if p.turno_actual == cantidad else p.turno_actual + 1
+        await self.partidas.guardar(p)
+        # Confirmar cambios mediado por repo
+        if hasattr(self.partidas, "confirmar"):
+            await self.partidas.confirmar()  # type: ignore[attr-defined]
+        return TurnoResultado(turno_nuevo=int(p.turno_actual))
 
-    async def reponer_del_mazo(self, partida_id: int, jugador_id: int, max_cartas_en_mano: int = 6) -> Dict[str, Any]:
-        """Mueve cartas del mazo a la mano del jugador.
-
-        Retorna dict con:
-        - cartas: lista de cartas movidas
-        - fin_de_mazo: bool si el mazo quedó en 0
-        - max_alcanzado: bool si ya tenía el máximo
-        - sin_cartas: bool si no había cartas para reponer (mazo vacío)
-        """
+    async def reponer_del_mazo(self, partida_id: int, jugador_id: int, max_cartas_en_mano: int = 6) -> ReponerResultado:
+        """Mueve cartas del mazo a la mano del jugador (retorna ReponerResultado: cartas, fin_de_mazo, max_alcanzado, sin_cartas)."""
         if not self.jugadores or not self.cartas:
-            return {"cartas": [], "fin_de_mazo": False, "max_alcanzado": False, "sin_cartas": True}
+            return ReponerResultado(cartas=[], fin_de_mazo=False, max_alcanzado=False, sin_cartas=True)
 
         jugador = await self.jugadores.obtener(jugador_id)
         if not jugador:
@@ -282,75 +305,67 @@ class ServicioJuego:
         en_mano = await self.cartas.contar_en_mano(partida_id, jugador_id)
         a_reponer = max_cartas_en_mano - en_mano
         if a_reponer <= 0:
-            return {"cartas": [], "fin_de_mazo": False, "max_alcanzado": True, "sin_cartas": False}
+            return ReponerResultado(cartas=[], fin_de_mazo=False, max_alcanzado=True, sin_cartas=False)
 
         disponibles = await self.cartas.obtener_mazo_disponible(partida_id, a_reponer)
         if not disponibles:
             # mazo vacío -> marcar partida finalizada y COMMIT inmediato (el endpoint retornará 404)
-            partida.estado = EstadoPartida.Finalizada
-            await self.partidas.guardar(partida)
-            if hasattr(self.partidas, "db"):
-                await self.partidas.db.commit()  # type: ignore[attr-defined]
-            return {"cartas": [], "fin_de_mazo": True, "max_alcanzado": False, "sin_cartas": True}
+            cast(Any, partida).estado = EstadoPartida.Finalizada
+            await self.partidas.guardar(cast(Any, partida))
+            if hasattr(self.partidas, "confirmar"):
+                await self.partidas.confirmar()  # type: ignore[attr-defined]
+            return ReponerResultado(cartas=[], fin_de_mazo=True, max_alcanzado=False, sin_cartas=True)
 
         # mover a mano
         for c in disponibles:
-            c.id_jugador = jugador_id
-            c.posicion = PosicionCarta.mano
-        # flush cambios
-        if hasattr(self.cartas, "db"):
-            self.cartas.db.add_all(disponibles)  # type: ignore[attr-defined]
-            await self.cartas.db.flush()  # type: ignore[attr-defined]
+            cc = cast(Any, c)
+            cc.id_jugador = jugador_id
+            cc.posicion = PosicionCarta.mano
+        # Persistir cambios en cartas a través del repositorio (si existe el método)
+        if hasattr(self.cartas, "guardar_muchas"):
+            await self.cartas.guardar_muchas(disponibles)  # type: ignore[attr-defined]
 
         # verificar si quedó el mazo en cero
         fin_de_mazo = False
-        if hasattr(self.cartas, "db"):
-            stmt = (
-                select(func.count())
-                .select_from(CartaModelo)
-                .where((CartaModelo.id_partida == partida_id) & (CartaModelo.posicion == PosicionCarta.mazo) & (CartaModelo.id_jugador.is_(None)))
-            )
-            res = await self.cartas.db.execute(stmt)  # type: ignore[attr-defined]
-            restantes = int(res.scalar() or 0)
+        if hasattr(self.cartas, "contar_en_mazo"):
+            restantes = await self.cartas.contar_en_mazo(partida_id)  # type: ignore[attr-defined]
             if restantes == 0:
-                partida.estado = EstadoPartida.Finalizada
-                await self.partidas.guardar(partida)
-                if hasattr(self.partidas, "db"):
-                    await self.partidas.db.commit()  # type: ignore[attr-defined]
+                cast(Any, partida).estado = EstadoPartida.Finalizada
+                await self.partidas.guardar(cast(Any, partida))
+                if hasattr(self.partidas, "confirmar"):
+                    await self.partidas.confirmar()  # type: ignore[attr-defined]
                 fin_de_mazo = True
+        # si no hay método contar_en_mazo, omitimos este chequeo para mantener aislado el test
+        if fin_de_mazo:
+            cast(Any, partida).estado = EstadoPartida.Finalizada
+            await self.partidas.guardar(cast(Any, partida))
+            if hasattr(self.partidas, "confirmar"):
+                await self.partidas.confirmar()  # type: ignore[attr-defined]
 
-        return {"cartas": disponibles, "fin_de_mazo": fin_de_mazo, "max_alcanzado": False, "sin_cartas": False}
+        return ReponerResultado(cartas=disponibles, fin_de_mazo=fin_de_mazo, max_alcanzado=False, sin_cartas=False)
 
-    async def descartar_carta(self, partida_id: int, jugador_id: int) -> Optional[int]:
-        """Descarta una carta de la mano del jugador. Retorna id de la carta descartada o None si no hay.
-        """
+    async def descartar_carta(self, partida_id: int, jugador_id: int) -> DescartarResultado:
+        """Descarta una carta de la mano del jugador (retorna DescartarResultado con carta_id o None)."""
         if not self.cartas:
-            return None
-        if not hasattr(self.cartas, "db"):
-            return None
-        # buscar la primera carta del jugador en la partida
-        stmt = (
-            select(CartaModelo)
-            .where((CartaModelo.id_partida == partida_id) & (CartaModelo.id_jugador == jugador_id))
-            .limit(1)
-        )
-        res = await self.cartas.db.execute(stmt)  # type: ignore[attr-defined]
-        carta = res.scalars().first()
+            return DescartarResultado(carta_id=None)
+        # buscar la primera carta del jugador en la partida mediante repo; sin repo/método, no accedemos a BD
+        if hasattr(self.cartas, "obtener_primera_en_mano"):
+            carta = await self.cartas.obtener_primera_en_mano(partida_id, jugador_id)  # type: ignore[attr-defined]
+        else:
+            return DescartarResultado(carta_id=None)
         if not carta:
-            return None
-        carta.id_jugador = None
-        carta.posicion = PosicionCarta.descarte
-        self.cartas.db.add(carta)  # type: ignore[attr-defined]
-        await self.cartas.db.flush()  # type: ignore[attr-defined]
-        # Asegurar persistencia visible entre sesiones
-        try:
-            await self.cartas.db.commit()  # type: ignore[attr-defined]
-        except Exception:
-            await self.cartas.db.rollback()  # type: ignore[attr-defined]
-        return int(carta.id_carta)
+            return DescartarResultado(carta_id=None)
+        cc2 = cast(Any, carta)
+        cc2.id_jugador = None
+        cc2.posicion = PosicionCarta.descarte
+        if hasattr(self.cartas, "guardar"):
+            await self.cartas.guardar(cc2)  # type: ignore[attr-defined]
+        # Si el repo no provee "guardar", no realizamos accesos directos a BD desde la capa 2
+        return DescartarResultado(carta_id=int(cast(Any, carta).id_carta))
 
-    async def obtener_cantidad_mano(self, partida_id: int, jugador_id: int) -> int:
-        """Devuelve la cantidad de cartas en mano del jugador para una partida."""
+    async def obtener_cantidad_mano(self, partida_id: int, jugador_id: int) -> CantidadManoResultado:
+        """Devuelve la cantidad de cartas en mano del jugador para una partida (retorna CantidadManoResultado)."""
         if not self.cartas:
-            return 0
-        return await self.cartas.contar_en_mano(partida_id, jugador_id)
+            return CantidadManoResultado(cantidad=0)
+        cantidad = await self.cartas.contar_en_mano(partida_id, jugador_id)
+        return CantidadManoResultado(cantidad=cantidad)

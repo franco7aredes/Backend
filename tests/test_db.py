@@ -1,9 +1,9 @@
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
-from app.capa_0_definicion_bd.models.jugadores_models import Jugador
-from app.capa_0_definicion_bd.models.partidas_models import Partida, EstadoPartida
-from app.capa_0_definicion_bd.models.cartas_models import Carta
+from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador
+from app.capa_0_definicion_bd.models.partidas_modelos import Partida, EstadoPartida
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta
 from datetime import date
 
 

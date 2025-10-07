@@ -1,50 +1,42 @@
-from app.capa_0_definicion_bd.models.partidas_models import Partida as PartidaModel, EstadoPartida
-from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModel
-from datetime import date
-
 import pytest
+from unittest.mock import AsyncMock
+
+from app.main import app as fastapi_app
+from app.capa_2_logica.fabrica import obtener_servicio_juego
 
 
 @pytest.mark.asyncio
-async def test_obtener_partida_existente(async_client, db_async):
-    partida = PartidaModel(
-        estado=EstadoPartida.en_espera,
-        id_jugador_creador=0,
-        cantidad_jugadores=1,
-        turno_actual=1,
-        minimo=2,
-        maximo=4,
-    )
-    db_async.add(partida)
-    await db_async.flush()
-    await db_async.refresh(partida)
+async def test_obtener_partida_existente_bonito(async_client):
+    class P:
+        id_partida = 123
+        minimo = 2
+        maximo = 4
+        id_jugador_creador = 7
+        estado = "En espera"
+        cantidad_jugadores = 1
+        turno_actual = 1
 
-    jugador_creador = JugadorModel(
-        nombre="Gero",
-        id_avatar=0,
-        orden_turno=1,
-        fecha_nacimiento=date(2000, 1, 1),
-        id_partida=partida.id_partida,
-    )
-    db_async.add(jugador_creador)
-    await db_async.flush()
-    await db_async.refresh(jugador_creador)
+    class S:
+        async def obtener_por_id(self, partida_id: int): ...
+    mock_service = S()
+    setattr(mock_service, "obtener_por_id", AsyncMock(return_value=P()))
 
-    partida.id_jugador_creador = jugador_creador.id_jugador
-    db_async.add(partida)
-    await db_async.flush()
-    await db_async.refresh(partida)
-    # Asegurar visibilidad desde otras sesiones (commit antes de llamar al endpoint)
-    await db_async.commit()
+    def _dep():
+        return mock_service
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = _dep
 
-    response = await async_client.get(f"/partidas/{partida.id_partida}")
+    response = await async_client.get("/partidas/123")
     assert response.status_code == 200
     data = response.json()
+    assert data == {
+        "id_partida": 123,
+        "minimo": 2,
+        "maximo": 4,
+        "id_jugador_creador": 7,
+        "estado": "En espera",
+        "cantidad_jugadores": 1,
+        "turno_actual": 1,
+        "jugadores": [],
+    }
 
-    assert data["id_partida"] == partida.id_partida
-    assert data["minimo"] == 2
-    assert data["maximo"] == 4
-    assert data["estado"] == "En espera"
-    assert data["cantidad_jugadores"] == 1
-    assert data["turno_actual"] == 1
-    assert data["id_jugador_creador"] == jugador_creador.id_jugador
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

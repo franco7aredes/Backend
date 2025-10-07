@@ -3,11 +3,10 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.capa_0_definicion_bd.models.jugadores_models import Jugador as JugadorModelo
-from .jugador_contrato import IRepositorioJugador
+from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
 
 
-class RepositorioJugadorSQLAlchemy(IRepositorioJugador):
+class RepositorioJugadorSQLAlchemy:
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -24,3 +23,7 @@ class RepositorioJugadorSQLAlchemy(IRepositorioJugador):
 
     async def obtener(self, jugador_id: int) -> Optional[JugadorModelo]:
         return await self.db.get(JugadorModelo, jugador_id)
+
+    async def guardar_muchos(self, jugadores: List[JugadorModelo]) -> None:
+        self.db.add_all(jugadores)
+        await self.db.flush()
