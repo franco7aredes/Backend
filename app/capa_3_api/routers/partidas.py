@@ -93,9 +93,9 @@ async def crear_partida(partida: PartidaCreada, service: ServicioJuego = Depends
 
 @partida_router.patch("/partidas/{partida_id}/iniciar", response_model=None , status_code=status.HTTP_200_OK)
 async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = Depends(obtener_servicio_juego)):
-	# Cambiamos estado vía servicio (async + validaciones)
+	# Estilo "bonito": intentar, delegar al servicio y devolver lo que corresponda
 	try:
-		partida = await service.iniciar_partida(partida_id)
+		resultado = await service.iniciar_y_preparar_partida(partida_id, C.CARTAS_POR_MANO)
 	except PartidaNoEncontrada:
 		raise HTTPException(status_code=404, detail="Partida no encontrada")
 	except MinimoJugadoresNoAlcanzado:
@@ -103,22 +103,10 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
 	except PartidaYaEnJuego:
 		raise HTTPException(status_code=400, detail="La partida ya esta en juego")
 
-
-	# Repartir cartas vía servicio (persiste con repos async)
-	datos_reparto = await service.repartir_cartas(partida.id_partida, C.CARTAS_POR_MANO)
-	# esto de arriba es un Dict[str, Any]
-    
-	repartidas = datos_reparto.get("repartidas", {})
-	mazo = datos_reparto.get("mazo", [])
-
-	# Notificar a cada jugador (por canal individual)
+	# Notificaciones mínimas (capa 3)
+	repartidas = resultado.get("repartidas", {})
 	if repartidas:
 		await _notify_players_async(repartidas)
-
-	# Asignar turnos usando el servicio (persistencia async)
-	await service.asignar_turnos(partida_id)
-    
-	# Notificar por sala a todos los tableros conectados
 	await manager.broadcast_to_partida(partida_id, {"evento": "partida_iniciada", "partida_id": partida_id, "estado": "En Juego"})
 
 	return {"mensaje": "La partida comenzo", "estado": "En Juego"}

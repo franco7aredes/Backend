@@ -76,6 +76,27 @@ class ServicioJuego:
         await self.partidas.guardar(partida)
         return partida
 
+    async def iniciar_y_preparar_partida(self, partida_id: int, cartas_por_mano: int) -> Dict[str, Any]:
+        """Orquestación de inicio: iniciar, repartir cartas y asignar turnos.
+
+        Devuelve un dict con: partida, repartidas, mazo y jugadores.
+        """
+        # 1) Iniciar (valida existencia, estado y mínimo)
+        partida = await self.iniciar_partida(partida_id)
+
+        # 2) Repartir cartas
+        datos_reparto = await self.repartir_cartas(partida.id_partida, cartas_por_mano)
+
+        # 3) Asignar turnos
+        jugadores_ordenados = await self.asignar_turnos(partida_id)
+
+        return {
+            "partida": partida,
+            "repartidas": datos_reparto.get("repartidas", {}),
+            "mazo": datos_reparto.get("mazo", []),
+            "jugadores": jugadores_ordenados or [],
+        }
+
     async def listar_en_espera(self) -> list[PartidaModelo]:
         """Lista partidas en estado 'en_espera'."""
         return await self.partidas.listar_en_espera()
