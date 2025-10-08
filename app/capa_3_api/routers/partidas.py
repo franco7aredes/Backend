@@ -1,10 +1,10 @@
 from typing import List, cast, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.capa_3_api.dtos.partidas import (
-	PartidaCrear as PartidaCreada,
+	PartidaCrear,
 	Jugador as JugadorDTO,
 	Partida as PartidaDTO,
-	JugadorCrear as JugadorCreate,
+	JugadorCrear,
 )
 from app.capa_3_api.websockets.ApiWS import administrador
 import app.capa_2_logica.constantes as C
@@ -23,6 +23,7 @@ from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
 
 partida_router = APIRouter()
+
 
 @partida_router.get("/partidas", response_model=List[PartidaDTO])
 async def listar_partidas(service: ServicioJuego = Depends(obtener_servicio_juego)):
@@ -45,6 +46,7 @@ async def obtener_partida(partida_id: int, service: ServicioJuego = Depends(obte
 	except Exception:
 		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
+
 @partida_router.get("/partidas/{partida_id}/jugadores", response_model=List[JugadorDTO])
 async def listar_jugadores_partida(partida_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	try:
@@ -59,8 +61,9 @@ async def listar_jugadores_partida(partida_id: int, service: ServicioJuego = Dep
 		raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
+
 @partida_router.post(path="/partidas", status_code=status.HTTP_201_CREATED)
-async def crear_partida(partida: PartidaCreada, service: ServicioJuego = Depends(obtener_servicio_juego)):
+async def crear_partida(partida: PartidaCrear, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	try:
 		# Usamos el servicio (async + repos async) para crear partida y jugador
 		res = await service.crear_partida(
@@ -86,7 +89,6 @@ async def crear_partida(partida: PartidaCreada, service: ServicioJuego = Depends
 
 @partida_router.patch("/partidas/{partida_id}/iniciar", response_model=None , status_code=status.HTTP_200_OK)
 async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = Depends(obtener_servicio_juego)):
-	# Estilo "bonito": intentar, delegar al servicio y devolver lo que corresponda
 	try:
 		resultado = await service.iniciar_y_preparar_partida(partida_id, C.CARTAS_POR_MANO)
 	except PartidaNoEncontrada:
@@ -111,7 +113,7 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
 
 
 @partida_router.put("/partidas/{partida_id}/unirse", status_code= status.HTTP_201_CREATED)
-async def unirse_a_partida(partida_id: int, jugador: JugadorCreate, service: ServicioJuego = Depends(obtener_servicio_juego)):
+async def unirse_a_partida(partida_id: int, jugador: JugadorCrear, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	try:
 		res_unirse = await service.unirse_a_partida(
 			partida_id=partida_id,

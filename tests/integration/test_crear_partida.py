@@ -63,5 +63,3 @@ def test_crear_partida_error_invalidacion(client):
     response = client.post("/partidas", json=payload)
     assert response.status_code == 422
     assert "detail" in response.json()
-
-

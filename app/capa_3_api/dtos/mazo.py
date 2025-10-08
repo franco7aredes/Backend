@@ -1,23 +1,23 @@
 from pydantic import BaseModel, ConfigDict
 
 
-class ReponerRequest(BaseModel):
+class ReponerSolicitud(BaseModel):
     jugador_id: int
 
 
-class ReponerResponse(BaseModel):
+class ReponerRespuesta(BaseModel):
     mensaje: str
     cartas: list[dict] | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
-class DescartarRequest(BaseModel):
+class DescartarSolicitud(BaseModel):
     jugador_id: int
 
 
-class DescartarResponse(BaseModel):
+class DescartarRespuesta(BaseModel):
     mensaje: str
 
 
-class ManoResponse(BaseModel):
+class ManoRespuesta(BaseModel):
     cantidad: int

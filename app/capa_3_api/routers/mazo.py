@@ -4,18 +4,18 @@ from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.capa_3_api.dtos.mazo import (
-	ReponerRequest,
-	ReponerResponse,
-	DescartarRequest,
-	DescartarResponse,
-	ManoResponse,
+	ReponerSolicitud,
+	ReponerRespuesta,
+	DescartarSolicitud,
+	DescartarRespuesta,
+	ManoRespuesta,
 )
 
 mazo_router = APIRouter()
 
 
-@mazo_router.put("/partida/{partida_id}/reponer", response_model=ReponerResponse, status_code=status.HTTP_200_OK)
-async def reponer_mazo(partida_id: int, data: ReponerRequest, service: ServicioJuego = Depends(obtener_servicio_juego)):
+@mazo_router.put("/partida/{partida_id}/reponer", response_model=ReponerRespuesta, status_code=status.HTTP_200_OK)
+async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	MAX_CARTAS_EN_MANO = 6
 
 	jugador_id = data.jugador_id
@@ -33,7 +33,7 @@ async def reponer_mazo(partida_id: int, data: ReponerRequest, service: ServicioJ
 		raise
 
 	if resultado.max_alcanzado:
-		return ReponerResponse(mensaje="El jugador ya tiene el maximo de cartas en la mano")
+		return ReponerRespuesta(mensaje="El jugador ya tiene el maximo de cartas en la mano")
 
 	if resultado.sin_cartas:
 		# notificar fin de mazo
@@ -55,15 +55,14 @@ async def reponer_mazo(partida_id: int, data: ReponerRequest, service: ServicioJ
 			pass
 
 	cartas = resultado.cartas
-	return ReponerResponse(
+	return ReponerRespuesta(
 		mensaje=f"Se repusieron {len(cartas)} cartas",
 		cartas=[{"id": c.id_carta, "posicion": c.posicion.value} for c in cartas],
 	)
 
 
-@mazo_router.patch("/partida/{partida_id}/descartar", response_model=DescartarResponse, status_code=status.HTTP_200_OK)
-async def descartar_carta_por_jugador(partida_id: int, data: DescartarRequest, service: ServicioJuego = Depends(obtener_servicio_juego)):
-	# Patrón bonito: try/except, delegar al servicio y devolver lo mínimo
+@mazo_router.patch("/partida/{partida_id}/descartar", response_model=DescartarRespuesta, status_code=status.HTTP_200_OK)
+async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	jugador_id = data.jugador_id
 	try:
 		res = await service.descartar_carta(partida_id, jugador_id)
@@ -77,10 +76,10 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarRequest, s
 	if carta_id is None:
 		raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
 
-	return DescartarResponse(mensaje=f"Carta {carta_id} descartada por jugador {jugador_id} en partida {partida_id}")
+	return DescartarRespuesta(mensaje=f"Carta {carta_id} descartada por jugador {jugador_id} en partida {partida_id}")
 
 
-@mazo_router.get("/partida/{partida_id}/mano/{jugador_id}", response_model=ManoResponse, status_code=status.HTTP_200_OK)
+@mazo_router.get("/partida/{partida_id}/mano/{jugador_id}", response_model=ManoRespuesta, status_code=status.HTTP_200_OK)
 async def obtener_mano_jugador(partida_id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	"""Devuelve la cantidad de cartas en mano del jugador en la partida."""
 	res2 = await service.obtener_cantidad_mano(partida_id, jugador_id)
@@ -88,4 +87,4 @@ async def obtener_mano_jugador(partida_id: int, jugador_id: int, service: Servic
 		cantidad_val: int = getattr(res2, "cantidad")  # type: ignore[assignment]
 	else:
 		cantidad_val = int(res2)  # type: ignore[arg-type]
-	return ManoResponse(cantidad=cantidad_val)
+	return ManoRespuesta(cantidad=cantidad_val)

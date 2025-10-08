@@ -74,4 +74,3 @@ async def async_client():
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
 
-# Sin puente sincrónico: todas las pruebas usan AsyncSession y async_client

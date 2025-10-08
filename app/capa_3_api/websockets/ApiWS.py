@@ -1,5 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import Dict, Any, List
+import json
 
 # Router para agrupar las rutas WebSocket (Capa 3 - API)
 ws_router = APIRouter()
@@ -109,10 +110,21 @@ async def websocket_partida_endpoint(websocket: WebSocket, partida_id: int):
 	administrador.unir_sala(partida_id, websocket)
 	try:
 		while True:
-			# Podemos leer mensajes entrantes si los usamos; por ahora, ignoramos o logueamos
+			# Leemos mensajes entrantes y permitimos pedir un broadcast explícito
 			data = await websocket.receive_text()
 			print(f"WS sala {partida_id} recibió: {data}")
-			# No reenviamos nada por defecto
+			# Si es JSON con {"evento":"broadcast","mensaje": ...} difundimos a toda la sala
+			try:
+				payload = json.loads(data)
+			except json.JSONDecodeError:
+				payload = None
+			if isinstance(payload, dict) and payload.get("evento") == "broadcast":
+				mensaje = payload.get("mensaje")
+				await administrador.difundir_a_partida(partida_id, {
+					"evento": "broadcast",
+					"sala": partida_id,
+					"mensaje": mensaje,
+				})
 	except WebSocketDisconnect:
 		administrador.salir_sala(partida_id, websocket)
 

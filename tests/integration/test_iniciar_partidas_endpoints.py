@@ -129,4 +129,3 @@ async def test_unirse_a_partida_no_encontrada_bonito(async_client):
     assert resp.json()["detail"] == "Partida no encontrada"
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
-
