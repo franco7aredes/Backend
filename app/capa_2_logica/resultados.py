@@ -39,6 +39,7 @@ class IniciarYPrepararResultado:
     repartidas: Dict[int, List[CartaModelo]]
     mazo: List[CartaModelo]
     jugadores: List[JugadorModelo]
+    secretos: Dict[int, List[SecretoDB]]
 
 
 @dataclass(slots=True)

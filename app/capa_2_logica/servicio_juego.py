@@ -123,6 +123,9 @@ class ServicioJuego:
         # 2) Repartir cartas
         datos_reparto = await self.repartir_cartas(cast(Any, partida).id_partida, cartas_por_mano)
 
+        # tambien se reparten secretos
+
+        secretos_repartidos = await self.repartir_secretos(partida_id)
         # 3) Asignar turnos
         jugadores_ordenados = await self.asignar_turnos(partida_id)
 
@@ -131,6 +134,7 @@ class ServicioJuego:
             repartidas=datos_reparto.repartidas,
             mazo=datos_reparto.mazo,
             jugadores=jugadores_ordenados or [],
+            secretos=secretos_repartidos.secretos_repartidos,
         )
 
     async def listar_en_espera(self) -> list[dict]:
