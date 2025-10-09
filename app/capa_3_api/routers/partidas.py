@@ -6,6 +6,7 @@ from app.capa_3_api.dtos.partidas import (
 	Partida as PartidaDTO,
 	JugadorCrear,
 )
+from app.capa_3_api.dtos.juego import SecretoDTO
 from app.capa_3_api.websockets.ApiWS import administrador
 import app.capa_2_logica.constantes as C
 from app.capa_3_api.utilidades_asincronas import _notificar_jugadores_async
@@ -103,10 +104,22 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
 	# Notificaciones mínimas (capa 3)
 	# Soportamos tanto dataclass (nuevo) como dict (tests que mockean)
 	repartidas = getattr(resultado, "repartidas", None)
+
 	if repartidas is None and isinstance(resultado, dict):
 		repartidas = resultado.get("repartidas", {})
 	if repartidas:
 		await _notify_players_async(repartidas)
+
+    # Ahora mando los secretos
+    secretos_repartidos = getattr(resultado, "secretos", None)
+    if secretos_repartidos is None and isinstance(resultado, dict):
+        secretos_repartidos = resultado.get("secretos", {})
+    if secretos_repartidos:
+        for jugador_id, secretos in secretos_repartidos.items():
+            secretos_data =[SecretoDTO.from_orm(s).dict() for s in secretos]
+            mensaje = {"evento": "partida_iniciada", "data": {"secretos": secretos_data}}
+            await administrador.enviar_mensaje(mensaje, jugador_id)
+
 	await administrador.difundir_a_partida(partida_id, {"evento": "partida_iniciada", "partida_id": partida_id, "estado": "En Juego"})
 
 	return {"mensaje": "La partida comenzo", "estado": "En Juego"}
