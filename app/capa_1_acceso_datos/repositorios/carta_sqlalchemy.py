@@ -1,0 +1,73 @@
+from typing import List, Optional
+
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
+
+
+class RepositorioCartaSQLAlchemy:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def crear_muchas(self, cartas: List[CartaModelo]) -> None:
+        self.db.add_all(cartas)
+        await self.db.flush()
+
+    async def guardar_muchas(self, cartas: List[CartaModelo]) -> None:
+        """Inserta o actualiza muchas cartas y hace flush."""
+        self.db.add_all(cartas)
+        await self.db.flush()
+
+    async def contar_en_mano(self, partida_id: int, jugador_id: int) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.id_jugador == jugador_id)
+                & (CartaModelo.posicion == PosicionCarta.mano)
+            )
+        )
+        res = await self.db.execute(stmt)
+        return int(res.scalar() or 0)
+
+    async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]:
+        stmt = (
+            select(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.posicion == PosicionCarta.mazo)
+                & (CartaModelo.id_jugador.is_(None))
+            )
+            .limit(limite)
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def contar_en_mazo(self, partida_id: int) -> int:
+        """Cuenta cuántas cartas quedan en el mazo de la partida."""
+        stmt = (
+            select(func.count())
+            .select_from(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.posicion == PosicionCarta.mazo)
+                & (CartaModelo.id_jugador.is_(None))
+            )
+        )
+        res = await self.db.execute(stmt)
+        return int(res.scalar() or 0)
+
+    async def obtener_primera_en_mano(self, partida_id: int, jugador_id: int) -> Optional[CartaModelo]:
+        stmt = (
+            select(CartaModelo)
+            .where((CartaModelo.id_partida == partida_id) & (CartaModelo.id_jugador == jugador_id))
+            .limit(1)
+        )
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
+
+    async def guardar(self, carta: CartaModelo) -> None:
+        self.db.add(carta)
+        await self.db.flush()
