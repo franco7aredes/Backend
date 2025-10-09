@@ -18,6 +18,7 @@ from app.capa_0_definicion_bd.models import (
     partidas_modelos,  # noqa: F401
     jugadores_modelos,  # noqa: F401
     cartas_modelos,  # noqa: F401
+    secretos_modelos,  # noqa: F401
 )
 
 
