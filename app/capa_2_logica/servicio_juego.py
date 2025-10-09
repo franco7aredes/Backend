@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional, cast
 
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
+from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, TipoSecreto
 from typing import Protocol, runtime_checkable
 from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
 from app.capa_0_definicion_bd.models.cartas_modelos import (
@@ -20,6 +21,7 @@ from .resultados import (
     CantidadManoResultado,
     UnirsePartidaResultado,
     IniciarPartidaResultado,
+    RepartirSecretosResultado,
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 
@@ -46,16 +48,21 @@ class _RepoCartaProto(Protocol):
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
 
 
+@runtime_checkable
+class _RepoSecretoProto(Protocol):
+    async def crear_muchos(self, secretos: List[SecretoDB]) -> None: ...
+
 class ServicioJuego:
     """Servicio de reglas de negocio del juego.
 
     Expone casos de uso y no conoce detalles de SQLAlchemy ni de FastAPI.
     """
 
-    def __init__(self, partidas: _RepoPartidaProto, jugadores: _RepoJugadorProto | None = None, cartas: _RepoCartaProto | None = None):
+    def __init__(self, partidas: _RepoPartidaProto, jugadores: _RepoJugadorProto | None = None, cartas: _RepoCartaProto | None = None, secretos: _RepoSecretoProto | None = None):
         self.partidas = partidas
         self.jugadores = jugadores
         self.cartas = cartas
+        self.secretos = secretos
 
     async def crear_partida(self, jugador_creador: str, fecha_nac: datetime, minimo: int, maximo: int) -> CrearPartidaResultado:
         """Crea una partida y su jugador inicial (retorna CrearPartidaResultado).
@@ -364,3 +371,59 @@ class ServicioJuego:
             return CantidadManoResultado(cantidad=0)
         cantidad = await self.cartas.contar_en_mano(partida_id, jugador_id)
         return CantidadManoResultado(cantidad=cantidad)
+
+    async def repartir_secretos(self, partida_id: int) -> RepartirSecretosResultado:
+        """ Crea los secretos de acuerdo a la cantidad de jugadores, reparte 3 a cada
+        uno, y persiste (retorna RetartirSecretosResultado)"""
+
+        if not self.jugadores or not self.cartas:
+            return RepartirSecretosResultado(secretos_repartidos={})
+        
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            return RepartirSecretosResultado(secretos_repartidos={})
+
+        jugadores = await self.jugadores.listar_por_partida(partida_id)
+        if not jugadores:
+            return RepartirSecretosResultado(secretos_repartidos={})
+
+        mazo_secretos: List[SecretoDB] = []
+        cantidad = partida.cantidad_jugadores * 3 + 1
+        for i in range (1, cantidad):
+            secreto = SecretoDB(
+                id_secreto = i,
+                id_partida = partida_id,
+                id_jugador = 0,     # Necesito pasarle algo, despues lo asigno a todos
+                tipo = TipoSecreto.otro,
+            )
+            if (i == 1):
+                secreto.tipo = TipoSecreto.asesino
+            if (i == 15): # Cuando hay 5 jugadores o mas, tiene que haber complice
+                secreto.tipo = TipoSecreto.complice
+            mazo_secretos.append(secreto)
+
+        random.shuffle(mazo_secretos)
+
+        repartidos: Dict[int, List[SecretoDB] = {}
+        idx = 0
+        for jugador in jugadores:
+            jj = cast(Any, jugador)
+            repartidos[jj.id_jugador] = []
+            for _ in range(3):
+                if idx >= len(mazo_secretos):
+                    break
+                secreto = mazo_secretos[idx]
+                ss = cast(Any, secreto)
+                ss.id_jugador = jj.id_jugador
+                repartidos[jj.id_jugador].append(secreto)
+                idx += 1
+
+        # ahora tengo que hacer la persistencia
+        todos: List[SecretoDB] = []
+        for lst in repartidos.values():
+            todos.extend(lst)
+
+        if todos:
+            await self.secretos.crear_muchos(todos)
+
+        return RepartirSecretosResultado(secretos_repartidos=repartidos)
