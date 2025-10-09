@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.capa_0_definicion_bd.base_datos_sqlalchemy import Base, get_async_db as get_async_db_es
 # Importar modelos reales para registrar tablas en el metadata antes de create_all
-from app.capa_0_definicion_bd.models import partidas_modelos, jugadores_modelos, cartas_modelos  # noqa: F401
+from app.capa_0_definicion_bd.models import partidas_modelos, jugadores_modelos, cartas_modelos, secretos_modelos  # noqa: F401
 from app.main import app as fastapi_app
 from fastapi.testclient import TestClient
 from httpx import AsyncClient, ASGITransport
@@ -28,7 +28,7 @@ async def override_get_async_db():
             await session.rollback()
             raise
 
-# Nuevo: fixture opcional para tests que quieran usar la sesión asíncrona directamente
+
 @pytest_asyncio.fixture
 async def db_async():
     async with AsyncTestingSessionLocal() as session:
