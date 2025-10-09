@@ -27,3 +27,24 @@ Reglas prácticas
 - Cambios de lógica pura → unit.
 - Cambios en DTOs/mapeos/routers/ORM o wiring → integration.
 - Cambios en contrato público o flujos completos → e2e.
+
+Ejemplo de Uso de los Repos mocks:
+
+from tests.mocks.repos_mocks import (
+    crear_repo_partida_mock,
+    crear_repo_jugador_mock,
+    crear_repo_carta_mock,
+    crear_partida_en_juego,
+    crear_jugador,
+)
+
+repo_p = crear_repo_partida_mock()
+repo_j = crear_repo_jugador_mock()
+
+repo_p.obtener.return_value = crear_partida_en_juego(turno_actual=1)
+repo_j.obtener.return_value = crear_jugador(id_jugador=10, orden_turno=1, id_partida=1)
+
+# También podés simular errores
+from app.capa_2_logica.errores import PartidaNoEncontrada
+repo_p.obtener.side_effect = lambda *_: (_ for _ in ()).throw(PartidaNoEncontrada())
+
