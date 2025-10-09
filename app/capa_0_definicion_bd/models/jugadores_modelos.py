@@ -16,3 +16,5 @@ class Jugador(Base):
 	partida = relationship("Partida", back_populates="jugadores", foreign_keys=[id_partida])
 
 	cartas = relationship("Carta", back_populates="jugador")
+
+    secretos = relationship("SecretoDB", back_populates="jugador")

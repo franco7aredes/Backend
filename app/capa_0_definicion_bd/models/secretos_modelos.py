@@ -26,5 +26,5 @@ class SecretoDB(Base):
 	estado = Column(Enum(EstadoSecreto), nullable=False, default=EstadoSecreto.oculto)
 
 	# Relaciones simples (sin back_populates para no exigir atributos en el otro lado)
-	partida = relationship("Partida")
-	jugador = relationship("Jugador")
+	partida = relationship("Partida", back_populates="secretos")
+	jugador = relationship("Jugador", back_populates="secretos")
