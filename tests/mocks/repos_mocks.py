@@ -14,16 +14,27 @@ from unittest.mock import AsyncMock, MagicMock
 # Enums y modelos (solo para tipos/valores por defecto)
 try:
     from app.capa_0_definicion_bd.models.partidas_modelos import EstadoPartida
+    from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, Tiposecreto
     from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
 except Exception:  # pragma: no cover - los tests pueden no necesitar estos imports
     EstadoPartida = SimpleNamespace(en_juego="En Juego", en_espera="En Espera", finalizada="Finalizada")  # type: ignore
     PosicionCarta = SimpleNamespace(mazo="mazo", mano="mano", descarte="descarte")  # type: ignore
+    EstadoSecreto = SimpleNamespace(oculto="oculto", revelado="revelado")
+    TipoSecreto = SimpleNamespace(asesino="asesino", complice="complice", otro="otro")
     class CartaModelo:  # type: ignore
         def __init__(self, id_carta: int, id_partida: int, id_jugador: Optional[int], posicion: Any):
             self.id_carta = id_carta
             self.id_partida = id_partida
             self.id_jugador = id_jugador
             self.posicion = posicion
+        
+    class SecretoDB:
+        def __init__(self, id_secreto: int, id_partida: int, id_jugador: int, tipo: Any, estado: Any):
+            self.id_secreto = id_secreto
+            self.id_partida = id_partida
+            self.id_jugador = id_jugador
+            self.tipo = tipo
+            self.estado = estado
 
 
 # --------- Fábricas de Repos Mockeados (Async) ---------
@@ -89,6 +100,15 @@ def crear_repo_carta_mock(
     repo.contar_en_mazo = _async_method(contar_en_mazo_return if contar_en_mazo_return is not None else 0)
     return repo
 
+    
+def crear_repo_secreto_mock(
+    *,
+    crear_muchos_return: Any | None = None,
+) -> MagicMock:
+    repo = MagicMock()
+    repo.db = object()
+    repo.crear_muchos = _async_method(crear_muchos_return)
+    return repo
 
 # --------- Constructores mínimos de entidades ---------
 
@@ -172,3 +192,8 @@ def crear_carta(
     if posicion is None:
         posicion = getattr(PosicionCarta, "mazo", "mazo")
     return CartaModelo(id_carta=id_carta, id_partida=id_partida, id_jugador=id_jugador, posicion=posicion)
+
+def crear_secreto(
+    *, id_secreto: int = 1, id_partida: int = 1, id_jugador: int = 1, tipo: Any  = TipoSecreto.otro, estado: Any = EstadoSecreto.oculto
+ ) -> SecretoDB:
+    return SecretoDB(id_secreto=id_secreto, id_partida=id_partida, id_jugador=id_jugador, tipo=tipo, estado=estado)
