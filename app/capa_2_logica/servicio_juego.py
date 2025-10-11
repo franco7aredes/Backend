@@ -23,6 +23,7 @@ from .resultados import (
     UnirsePartidaResultado,
     IniciarPartidaResultado,
     RepartirSecretosResultado,
+    ObtenerSecretosResultado,
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 
@@ -52,6 +53,7 @@ class _RepoCartaProto(Protocol):
 @runtime_checkable
 class _RepoSecretoProto(Protocol):
     async def crear_muchos(self, secretos: List[SecretoDB]) -> None: ...
+    async def obtener_secretos(self, partida_id: int, jugador_id: int) -> List[SecretoDB]: ...
 
 class ServicioJuego:
     """Servicio de reglas de negocio del juego.
@@ -481,3 +483,18 @@ class ServicioJuego:
             await self.secretos.crear_muchos(todos)
 
         return RepartirSecretosResultado(secretos_repartidos=repartidos)
+
+    async def obtener_secretos_propios(self, partida_id: int, jugador_id: int) -> ObtenerSecretosResultado:
+
+        """ obtengo los secretos del jugador que me interesa """
+        
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador,"id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")

@@ -65,3 +65,7 @@ class IniciarPartidaResultado:
 @dataclass(slots=True)
 class RepartirSecretosResultado:
     secretos_repartidos: Dict[int, List[SecretoDB]]
+
+@dataclass(slots=True)
+class ObtenerSecretosResultado:
+    secretos: List[SecretoDB]
