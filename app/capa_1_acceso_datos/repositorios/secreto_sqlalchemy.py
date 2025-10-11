@@ -13,3 +13,13 @@ class RepositorioSecretoSQLAlchemy:
         # Inserta o actualiza muchos secretos y hace flush
         self.db.add_all(secretos)
         await self.db.flush()
+
+    async def obtener_secretos(self, partida_id: int, jugador_id: int) -> List[SecretoDB]:
+        """ Obtengo los secretos del jugador """
+        stmt = (
+            select(SecretoDB)
+            .where((SecretoDB.id_partida == partida_id) & (SecretoDB.id_jugador == jugador_id))
+            )
+        
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())

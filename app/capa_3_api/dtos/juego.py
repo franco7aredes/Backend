@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, List
 
 from app.capa_0_definicion_bd.models.cartas_modelos import PosicionCarta
 from app.capa_0_definicion_bd.models.secretos_modelos import EstadoSecreto, TipoSecreto
@@ -32,3 +32,8 @@ class SecretoDTO(BaseModel):
         use_enum_values=True,
     )
 
+
+class ObtenerSecretoRespuesta(BaseModel):
+    mensaje: str
+    secretos: List[SecretoDTO]
+    model_config = ConfigDict(from_attributes=True)

@@ -2,6 +2,7 @@ from typing import List, cast, Dict, Any
 from datetime import date
 from app.capa_3_api.dtos.partidas import Partida as PartidaDTO, Jugador as JugadorDTO
 from app.capa_3_api.dtos.juego import Carta as CartaDTO
+from app.capa_3_api.dtos.juego import SecretoDTO
 
 
 def _estado_a_str(estado) -> str:
@@ -100,3 +101,11 @@ def mapear_carta_a_dto(carta: Any) -> CartaDTO:
 
 def mapear_cartas_a_dto(cartas: List[Any]) -> List[CartaDTO]:
     return [mapear_carta_a_dto(c) for c in cartas]
+
+# Secretos
+
+def mapear_secreto_a_dto(secreto: Any) -> SecretoDTO:
+    return SecretoDTO.model_validate(secreto)
+
+def mapear_secretos_a_dto(secretos: List[Any]) -> List[SecretoDTO]:
+    return [mapear_secreto_a_dto(s) for s in secretos]
