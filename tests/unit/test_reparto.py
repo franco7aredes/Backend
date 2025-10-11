@@ -58,6 +58,8 @@ async def test_repartir_secretos_bonito():
 
     assert hasattr(datos, 'secretos_repartidos')
     assert isinstance(datos.secretos_repartidos, dict)
+    for jid, secretos in datos.secretos_repartidos.items():
+        assert len(secretos) == 3
 
 @pytest.mark.asyncio
 async def test_repartir_secretos_sin_jugadores():
