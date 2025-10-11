@@ -27,7 +27,7 @@ async def test_obtener_secretos_bonito(async_client):
         )))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
     
-    resp = await async_client.get("/partidas/1/secretos", json={"jugador_id": 2})
+    resp = await async_client.get("/partidas/1/secretos", params={"jugador_id": 2})
     assert resp.status_code == 200
     body = resp.json()
     assert body["mensaje"].startswith("Tienes 3 secretos")
@@ -46,7 +46,7 @@ async def test_obtener_cero_secretos(async_client):
         AsyncMock(return_value=ObtenerSecretosResultado(secretos=[])))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
     
-    resp = await async_client.get("/partidas/1/secretos", json={"jugador_id": 2})
+    resp = await async_client.get("/partidas/1/secretos", params={"jugador_id": 2})
     assert resp.status_code == 200
     body = resp.json()
     assert body["mensaje"].startswith("Tienes 0 secretos")

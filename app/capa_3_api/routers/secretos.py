@@ -5,7 +5,6 @@ from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.capa_3_api.dtos.juego import (
-    ObtenerSecretoSolicitud,
     ObtenerSecretoRespuesta,
     SecretoDTO,
 )
@@ -15,9 +14,8 @@ secreto_router = APIRouter()
 
 
 @secreto_router.get("/partidas/{partida_id}/secretos", response_model=ObtenerSecretoRespuesta, status_code=status.HTTP_200_OK)
-async def obtener_secreto(partida_id: int, data: ObtenerSecretoSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
+async def obtener_secreto(partida_id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
 
-    jugador_id = data.jugador_id
 
     # uso el servicio
     try:

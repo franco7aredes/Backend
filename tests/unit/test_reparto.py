@@ -8,8 +8,10 @@ from tests.mocks.repos_mocks import (
     crear_repo_secreto_mock,
     crear_jugador,
     crear_partida_en_espera,
+    crear_partida_en_juego
 )
 from app.capa_0_definicion_bd.models.cartas_modelos import TipoCarta
+from app.capa_0_definicion_bd.models.partidas_modelos import EstadoPartida
 
 
 @pytest.mark.asyncio
@@ -50,6 +52,7 @@ async def test_repartir_secretos_bonito():
     repo_j = crear_repo_jugador_mock(
         listar_por_partida_return=[crear_jugador(id_jugador=1), crear_jugador(id_jugador=2)]
     )
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=1, estado=EstadoPartida.en_juego, cantidad_jugadores=2)
     repo_s = crear_repo_secreto_mock()
     repo_c = crear_repo_carta_mock(contar_en_mano_return=0, obtener_mazo_disponible_return=[])
 
@@ -67,6 +70,7 @@ async def test_repartir_secretos_sin_jugadores():
     repo_j = crear_repo_jugador_mock(listar_por_partida_return=[])
     repo_c = crear_repo_carta_mock(contar_en_mano_return=0, obtener_mazo_disponible_return=[])
 
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=1, estado=EstadoPartida.en_juego, cantidad_jugadores=0)
     repo_s = crear_repo_secreto_mock()
     s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
     datos = await s.repartir_secretos(1)

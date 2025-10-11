@@ -104,7 +104,7 @@ def crear_repo_carta_mock(
 def crear_repo_secreto_mock(
     *,
     crear_muchos_return: Any | None = None,
-    obtener_secretos_return Any | None = None,
+    obtener_secretos_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
