@@ -1,4 +1,6 @@
 from pydantic import BaseModel, ConfigDict
+from typing import Optional, List
+from app.capa_3_api.dtos.juego import Carta as CartaDTO
 
 
 class ReponerSolicitud(BaseModel):
@@ -7,7 +9,7 @@ class ReponerSolicitud(BaseModel):
 
 class ReponerRespuesta(BaseModel):
     mensaje: str
-    cartas: list[dict] | None = None
+    cartas: Optional[List[CartaDTO]] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -17,6 +19,7 @@ class DescartarSolicitud(BaseModel):
 
 class DescartarRespuesta(BaseModel):
     mensaje: str
+    carta: Optional[CartaDTO] = None
 
 
 class ManoRespuesta(BaseModel):

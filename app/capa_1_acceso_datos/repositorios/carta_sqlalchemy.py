@@ -11,11 +11,18 @@ class RepositorioCartaSQLAlchemy:
         self.db = db
 
     async def crear_muchas(self, cartas: List[CartaModelo]) -> None:
+        # Validar integridad mínima acorde al modelo: nombre y tipo no deben ser nulos
+        for c in cartas:
+            if getattr(c, "nombre", None) is None or getattr(c, "tipo", None) is None:
+                raise ValueError("Carta invalida: 'nombre' y 'tipo' son obligatorios")
         self.db.add_all(cartas)
         await self.db.flush()
 
     async def guardar_muchas(self, cartas: List[CartaModelo]) -> None:
         """Inserta o actualiza muchas cartas y hace flush."""
+        for c in cartas:
+            if getattr(c, "nombre", None) is None or getattr(c, "tipo", None) is None:
+                raise ValueError("Carta invalida: 'nombre' y 'tipo' son obligatorios")
         self.db.add_all(cartas)
         await self.db.flush()
 
@@ -69,5 +76,7 @@ class RepositorioCartaSQLAlchemy:
         return res.scalars().first()
 
     async def guardar(self, carta: CartaModelo) -> None:
+        if getattr(carta, "nombre", None) is None or getattr(carta, "tipo", None) is None:
+            raise ValueError("Carta invalida: 'nombre' y 'tipo' son obligatorios")
         self.db.add(carta)
         await self.db.flush()

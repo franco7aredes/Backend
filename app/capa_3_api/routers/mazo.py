@@ -7,9 +7,10 @@ from app.capa_3_api.dtos.mazo import (
 	ReponerSolicitud,
 	ReponerRespuesta,
 	DescartarSolicitud,
-	DescartarRespuesta,
 	ManoRespuesta,
 )
+from app.capa_3_api.mapeadores import mapear_cartas_a_dto, mapear_carta_a_dto
+from app.capa_3_api.dtos.juego import Carta as CartaDTO
 
 mazo_router = APIRouter()
 
@@ -55,13 +56,14 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
 			pass
 
 	cartas = resultado.cartas
+	cartas_dto = mapear_cartas_a_dto(cartas)
 	return ReponerRespuesta(
 		mensaje=f"Se repusieron {len(cartas)} cartas",
-		cartas=[{"id": c.id_carta, "posicion": c.posicion.value} for c in cartas],
+		cartas=cartas_dto,
 	)
 
 
-@mazo_router.patch("/partida/{partida_id}/descartar", response_model=DescartarRespuesta, status_code=status.HTTP_200_OK)
+@mazo_router.patch("/partida/{partida_id}/descartar", response_model=CartaDTO, status_code=status.HTTP_200_OK)
 async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	jugador_id = data.jugador_id
 	try:
@@ -71,12 +73,12 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud,
 		# responde como "no hay carta para descartar" en esta partida
 		raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
 
-	# Compatibilidad: puede ser dataclass o int/None de mocks
-	carta_id = getattr(res, "carta_id", res)
-	if carta_id is None:
+	# Nuevo contrato: devolver solo la carta (DTO)
+	carta_obj = getattr(res, "carta", None) if res is not None else None
+	if carta_obj is None:
 		raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
-
-	return DescartarRespuesta(mensaje=f"Carta {carta_id} descartada por jugador {jugador_id} en partida {partida_id}")
+	carta_dto = mapear_carta_a_dto(carta_obj)
+	return carta_dto
 
 
 @mazo_router.get("/partida/{partida_id}/mano/{jugador_id}", response_model=ManoRespuesta, status_code=status.HTTP_200_OK)

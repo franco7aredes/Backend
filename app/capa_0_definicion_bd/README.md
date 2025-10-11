@@ -23,3 +23,4 @@ Los modelos viven en `app/db/models/*` y deben heredar de la `Base` compartida p
 
 - Esta capa no importa FastAPI ni routers.
 - La URL de base de datos y otras opciones se encuentran en `app/settings.py`.
+- En `app/db/models/cartas_modelos` al declarar el Tipo, disgregamos la lógica de mantener el Backend en español, escribiendo esto en inglés, para mantenernos consistentes luego con el Frontend y las propias imágenes de las cartas; de semejante manera, esto sucede con los nombres de las mismas.

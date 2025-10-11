@@ -126,12 +126,12 @@ async def test_cartas_en_jugadores(db_async):
     facu_id = jugadores[1].id_jugador
     gero_id = jugadores[2].id_jugador
     cartas = [
-        Carta(id_carta=1, id_partida=partida.id_partida, id_jugador=joa_id, posicion="mano"),
-        Carta(id_carta=2, id_partida=partida.id_partida, id_jugador=facu_id, posicion="mano"),
-        Carta(id_carta=3, id_partida=partida.id_partida, id_jugador=gero_id, posicion="mano"),
-        Carta(id_carta=4, id_partida=partida.id_partida, posicion="mazo"),
-        Carta(id_carta=5, id_partida=partida.id_partida, posicion="descarte"),
-        Carta(id_carta=6, id_partida=partida.id_partida, posicion="mazo"),
+        Carta(id_carta=1, id_partida=partida.id_partida, id_jugador=joa_id, posicion="mano", nombre="Carta 1", tipo="detective"),
+        Carta(id_carta=2, id_partida=partida.id_partida, id_jugador=facu_id, posicion="mano", nombre="Carta 2", tipo="detective"),
+        Carta(id_carta=3, id_partida=partida.id_partida, id_jugador=gero_id, posicion="mano", nombre="Carta 3", tipo="detective"),
+        Carta(id_carta=4, id_partida=partida.id_partida, posicion="mazo", nombre="Carta 4", tipo="detective"),
+        Carta(id_carta=5, id_partida=partida.id_partida, posicion="descarte", nombre="Carta 5", tipo="detective"),
+        Carta(id_carta=6, id_partida=partida.id_partida, posicion="mazo", nombre="Carta 6", tipo="detective"),
     ]
     db_async.add_all(cartas)
     await db_async.flush()
@@ -139,18 +139,31 @@ async def test_cartas_en_jugadores(db_async):
     res = await db_async.execute(select(Carta).where(Carta.id_jugador == joa_id))
     mano_joa = res.scalars().all()
     assert len(mano_joa) == 1
+    # Verificar nuevos campos: nombre y tipo
+    assert mano_joa[0].nombre is not None and isinstance(mano_joa[0].nombre, str)
+    assert getattr(mano_joa[0].tipo, 'value', mano_joa[0].tipo) == 'detective'
     res = await db_async.execute(select(Carta).where(Carta.id_jugador == facu_id))
     mano_facu = res.scalars().all()
     assert len(mano_facu) == 1
+    assert mano_facu[0].nombre is not None and isinstance(mano_facu[0].nombre, str)
+    assert getattr(mano_facu[0].tipo, 'value', mano_facu[0].tipo) == 'detective'
     res = await db_async.execute(select(Carta).where(Carta.id_jugador == gero_id))
     mano_gero = res.scalars().all()
     assert len(mano_gero) == 1
+    assert mano_gero[0].nombre is not None and isinstance(mano_gero[0].nombre, str)
+    assert getattr(mano_gero[0].tipo, 'value', mano_gero[0].tipo) == 'detective'
     res = await db_async.execute(select(Carta).where(Carta.posicion == "mazo"))
     mazo = res.scalars().all()
     assert len(mazo) == 2
+    assert all(c.nombre is not None and isinstance(c.nombre, str) for c in mazo)
+    assert all(getattr(c.tipo, 'value', c.tipo) == 'detective' for c in mazo)
     res = await db_async.execute(select(Carta).where(Carta.posicion == "descarte"))
     descarte = res.scalars().all()
     assert len(descarte) == 1
+    assert descarte[0].nombre is not None and isinstance(descarte[0].nombre, str)
+    assert getattr(descarte[0].tipo, 'value', descarte[0].tipo) == 'detective'
     res = await db_async.execute(select(Carta).where(Carta.posicion == "mano"))
     mazo = res.scalars().all()
     assert len(mazo) == 3
+    assert all(c.nombre is not None and isinstance(c.nombre, str) for c in mazo)
+    assert all(getattr(c.tipo, 'value', c.tipo) == 'detective' for c in mazo)

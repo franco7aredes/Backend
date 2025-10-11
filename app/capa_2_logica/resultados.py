@@ -44,7 +44,7 @@ class IniciarYPrepararResultado:
 
 @dataclass(slots=True)
 class DescartarResultado:
-    carta_id: int | None
+    carta: CartaModelo | None
 
 
 @dataclass(slots=True)

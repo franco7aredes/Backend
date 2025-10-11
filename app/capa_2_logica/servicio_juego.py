@@ -10,6 +10,7 @@ from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlc
 from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
     PosicionCarta,
+    TipoCarta,
 )
 from .resultados import (
     ReponerResultado,
@@ -161,33 +162,82 @@ class ServicioJuego:
         if not jugadores:
             return RepartirCartasResultado(repartidas={}, mazo=[])
 
-        # 1..61 cartas por partida
+        definicion: list[tuple[TipoCarta, str, int]] = [
+            # Detectives (25)
+            (TipoCarta.detective, "Harley Quin Wildcard", 4),
+            (TipoCarta.detective, "Adriane Oliver", 3),
+            (TipoCarta.detective, "Miss Marple", 3),
+            (TipoCarta.detective, "Parker Pyne", 3),
+            (TipoCarta.detective, "Tommy Beresford", 2),
+            (TipoCarta.detective, "Lady Eileen \"Bundle\" Brent", 3),
+            (TipoCarta.detective, "Tuppence Beresford", 2),
+            (TipoCarta.detective, "Hercule Poirot", 3),
+            (TipoCarta.detective, "Mr Satterthwaite", 2),
+            # Instant (10)
+            (TipoCarta.instant, "Not so fast", 10),
+            # Devious (4)
+            (TipoCarta.devious, "Blackmailed", 1),
+            (TipoCarta.devious, "Social Faux Pas", 3),
+            # Events (22)
+            (TipoCarta.event, "Delay the murderer's espace!", 3),
+            (TipoCarta.event, "Point your suspicions", 3),
+            (TipoCarta.event, "Dead card folly", 3),
+            (TipoCarta.event, "Another Victim", 2),
+            (TipoCarta.event, "Look into the ashes", 3),
+            (TipoCarta.event, "Card trade", 3),
+            (TipoCarta.event, "And then there was one more...", 2),
+            (TipoCarta.event, "Early train to paddington", 2),
+            (TipoCarta.event, "Cards off the table", 1),
+        ]
 
         mazo_cartas: List[CartaModelo] = []
-        for i in range(1, 62):
-            carta = CartaModelo(
-                id_carta=i,
-                id_partida=partida_id,
-                posicion=PosicionCarta.mazo,
-                id_jugador=None,
-            )
-            mazo_cartas.append(carta)
+        next_id = 1
+        for tipo, nombre, cantidad in definicion:
+            for _ in range(cantidad):
+                mazo_cartas.append(
+                    CartaModelo(
+                        id_carta=next_id,
+                        id_partida=partida_id,
+                        posicion=PosicionCarta.mazo,
+                        id_jugador=None,
+                        nombre=nombre,
+                        tipo=tipo,
+                    )
+                )
+                next_id += 1
 
+        # Barajar el mazo global para el reparto aleatorio
         random.shuffle(mazo_cartas)
 
         repartidas: Dict[int, List[CartaModelo]] = {}
+        jugador_ids = [cast(Any, j).id_jugador for j in jugadores]
+        for jid in jugador_ids:
+            repartidas[jid] = []
+
+        # Regla: cada jugador debe recibir obligatoriamente una carta "Not so fast" (instant)
+        instants = [c for c in mazo_cartas if cast(Any, c).tipo == TipoCarta.instant]
+        # Asignar una por jugador
+        for jid in jugador_ids:
+            if not instants:
+                break  # por seguridad, aunque por definición hay 10
+            carta = instants.pop()
+            # remover del mazo principal
+            mazo_cartas.remove(carta)
+            cc = cast(Any, carta)
+            cc.id_jugador = jid
+            cc.posicion = PosicionCarta.mano
+            repartidas[jid].append(carta)
+
+        # Repartir el resto hasta completar num_cartas por jugador
         idx = 0
-        for jugador in jugadores:
-            jj = cast(Any, jugador)
-            repartidas[jj.id_jugador] = []
-            for _ in range(num_cartas):
-                if idx >= len(mazo_cartas):
-                    break
+        total = len(mazo_cartas)
+        for jid in jugador_ids:
+            while len(repartidas[jid]) < num_cartas and idx < total:
                 carta = mazo_cartas[idx]
                 cc = cast(Any, carta)
-                cc.id_jugador = jj.id_jugador
+                cc.id_jugador = jid
                 cc.posicion = PosicionCarta.mano
-                repartidas[jj.id_jugador].append(carta)
+                repartidas[jid].append(carta)
                 idx += 1
 
         cartas_restantes_mazo = mazo_cartas[idx:]
@@ -201,7 +251,7 @@ class ServicioJuego:
         if todas:
             await self.cartas.crear_muchas(todas)
 
-        # Devolver estructura como la función previa
+        # Devolver estructura
         return RepartirCartasResultado(repartidas=repartidas, mazo=cartas_restantes_mazo)
 
     async def asignar_turnos(self, partida_id: int, fecha_referencia: date = date(1980, 9, 15)) -> List[JugadorModelo]:
@@ -351,23 +401,23 @@ class ServicioJuego:
         return ReponerResultado(cartas=disponibles, fin_de_mazo=fin_de_mazo, max_alcanzado=False, sin_cartas=False)
 
     async def descartar_carta(self, partida_id: int, jugador_id: int) -> DescartarResultado:
-        """Descarta una carta de la mano del jugador (retorna DescartarResultado con carta_id o None)."""
+        """Descarta una carta de la mano del jugador y retorna DescartarResultado con la carta (o None si no hay)."""
         if not self.cartas:
-            return DescartarResultado(carta_id=None)
+            return DescartarResultado(carta=None)
         # buscar la primera carta del jugador en la partida mediante repo; sin repo/método, no accedemos a BD
         if hasattr(self.cartas, "obtener_primera_en_mano"):
             carta = await self.cartas.obtener_primera_en_mano(partida_id, jugador_id)  # type: ignore[attr-defined]
         else:
-            return DescartarResultado(carta_id=None)
+            return DescartarResultado(carta=None)
         if not carta:
-            return DescartarResultado(carta_id=None)
+            return DescartarResultado(carta=None)
         cc2 = cast(Any, carta)
         cc2.id_jugador = None
         cc2.posicion = PosicionCarta.descarte
         if hasattr(self.cartas, "guardar"):
             await self.cartas.guardar(cc2)  # type: ignore[attr-defined]
         # Si el repo no provee "guardar", no realizamos accesos directos a BD desde la capa 2
-        return DescartarResultado(carta_id=int(cast(Any, carta).id_carta))
+        return DescartarResultado(carta=carta)
 
     async def obtener_cantidad_mano(self, partida_id: int, jugador_id: int) -> CantidadManoResultado:
         """Devuelve la cantidad de cartas en mano del jugador para una partida (retorna CantidadManoResultado)."""
