@@ -39,7 +39,7 @@ Entradas y salidas principales. Todos los métodos son `async`. Usamos un criter
   - Incluye flags: `max_alcanzado`, `sin_cartas`, `fin_de_mazo` y `cartas`.
   - Si el mazo está vacío o queda en cero, marca la partida como `Finalizada` y puede `confirmar` (commit) inmediato vía repo.
 - `descartar_carta(partida_id: int, jugador_id: int) -> DescartarResultado`
-  - Mueve una carta de mano a descarte y retorna `carta_id` (o `None` si no hay cartas para descartar).
+  - Mueve una carta de mano a descarte y retorna la `carta` (o `None` si no hay cartas para descartar).
 
 - `iniciar_y_preparar_partida(partida_id: int, cartas_por_mano: int) -> IniciarYPrepararResultado`
   - Orquesta: iniciar, repartir cartas y asignar turnos. Devuelve `partida`, `repartidas`, `mazo`, `jugadores`.

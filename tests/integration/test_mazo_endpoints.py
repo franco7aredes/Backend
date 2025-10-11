@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock
 
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
+from app.capa_2_logica.resultados import DescartarResultado
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
 
 
 @pytest.mark.asyncio
@@ -10,13 +12,16 @@ async def test_descartar_carta_bonito(async_client):
     class S:
         async def descartar_carta(self, *args, **kwargs): ...
     mock_service = S()
-    setattr(mock_service, "descartar_carta", AsyncMock(return_value=1))
+    carta = CartaModelo(id_carta=1, id_partida=1, id_jugador=None, posicion=PosicionCarta.descarte, nombre="Carta X", tipo=TipoCarta.detective)
+    setattr(mock_service, "descartar_carta", AsyncMock(return_value=DescartarResultado(carta=carta)))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9})
     assert resp.status_code == 200
     data = resp.json()
-    assert data["mensaje"].startswith("Carta 1 descartada por jugador")
+    assert data["id_carta"] == 1
+    assert data["posicion"] == "descarte"
+    assert data["tipo"] == "detective"
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
