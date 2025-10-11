@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, Enum
+from sqlalchemy import Column, Integer, ForeignKey, Enum, String
 from sqlalchemy.orm import relationship
 from app.capa_0_definicion_bd.base_datos_sqlalchemy import Base
 import enum
@@ -10,6 +10,13 @@ class PosicionCarta(enum.Enum):
 	descarte = "descarte"  # Mazo de descarte
 
 
+class TipoCarta(enum.Enum):
+	detective = "detective"
+	instant = "instant"
+	event = "event"
+	devious = "devious"
+
+
 class Carta(Base):
 	__tablename__ = "cartas"
 
@@ -17,6 +24,8 @@ class Carta(Base):
 	id_partida = Column(Integer, ForeignKey("partidas.id_partida"), primary_key=True, nullable=False)
 	id_jugador = Column(Integer, ForeignKey("jugadores.id_jugador"), nullable=True)
 	posicion = Column(Enum(PosicionCarta), nullable=False, default=PosicionCarta.mazo)
+	nombre = Column(String(50), nullable=False)
+	tipo = Column(Enum(TipoCarta), nullable=False)
 
 	# Relaciones
 	partida = relationship("Partida", back_populates="cartas")

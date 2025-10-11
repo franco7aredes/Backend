@@ -1,6 +1,7 @@
 from typing import List, cast, Dict, Any
 from datetime import date
 from app.capa_3_api.dtos.partidas import Partida as PartidaDTO, Jugador as JugadorDTO
+from app.capa_3_api.dtos.juego import Carta as CartaDTO
 
 
 def _estado_a_str(estado) -> str:
@@ -89,3 +90,13 @@ def mapear_jugador_a_dto(j: Any) -> JugadorDTO:
 
 def mapear_jugadores_a_dto(jugadores: List[Any]) -> List[JugadorDTO]:
     return [mapear_jugador_a_dto(j) for j in jugadores]
+
+
+# Cartas
+def mapear_carta_a_dto(carta: Any) -> CartaDTO:
+    # Requiere from_attributes=True en model_config del DTO
+    return CartaDTO.model_validate(carta)
+
+
+def mapear_cartas_a_dto(cartas: List[Any]) -> List[CartaDTO]:
+    return [mapear_carta_a_dto(c) for c in cartas]

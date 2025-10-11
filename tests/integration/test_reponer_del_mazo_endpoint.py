@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.resultados import ReponerResultado
-from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
 
 
 @pytest.mark.asyncio
@@ -14,9 +14,9 @@ async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
     mock_service = S()
     setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
         cartas=[
-            CartaModelo(id_carta=1, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano),
-            CartaModelo(id_carta=2, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano),
-            CartaModelo(id_carta=3, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano),
+            CartaModelo(id_carta=1, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano, nombre="Carta 1", tipo=TipoCarta.detective),
+            CartaModelo(id_carta=2, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano, nombre="Carta 2", tipo=TipoCarta.detective),
+            CartaModelo(id_carta=3, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano, nombre="Carta 3", tipo=TipoCarta.detective),
         ],
         fin_de_mazo=False,
         max_alcanzado=False,
@@ -91,7 +91,7 @@ async def test_fin_de_mazo_al_agotar_bonito(async_client, monkeypatch):
         async def reponer_del_mazo(self, *args, **kwargs): ...
     mock_service = S()
     setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
-        cartas=[CartaModelo(id_carta=1, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano)],
+        cartas=[CartaModelo(id_carta=1, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano, nombre="Carta 1", tipo=TipoCarta.detective)],
         fin_de_mazo=True,
         max_alcanzado=False,
         sin_cartas=False,
