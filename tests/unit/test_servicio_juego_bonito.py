@@ -24,7 +24,7 @@ async def test_terminar_turno_avanza_bien():
     repo_partida = crear_repo_partida_mock()
     repo_jugador = crear_repo_jugador_mock()
 
-    repo_partida.obtener.return_value = crear_partida_en_juego(id_partida=1, turno_actual=1, cantidad_jugadores=3)
+    repo_partida.obtener.return_value = crear_partida_en_juego(id_partida=1, turno_actual=1,estado=EstadoPartida.en_juego, cantidad_jugadores=3)
     repo_jugador.obtener.return_value = crear_jugador(id_jugador=10, orden_turno=1, id_partida=1)
 
     s = ServicioJuego(repo_partida, jugadores=repo_jugador)
@@ -53,7 +53,7 @@ async def test_iniciar_partida_errores():
         await s.iniciar_partida(1)
 
     # ya en juego
-    repo_p0.obtener.return_value = crear_partida_en_juego(cantidad_jugadores=2, minimo=2)
+    repo_p0.obtener.return_value = crear_partida_en_juego(cantidad_jugadores=2, estado=EstadoPartida.en_juego, minimo=2)
     from app.capa_2_logica.errores import PartidaYaEnJuego
     with pytest.raises(PartidaYaEnJuego):
         await s.iniciar_partida(1)
@@ -153,7 +153,7 @@ async def test_terminar_turno_errores():
         await s.terminar_turno(1, 1)
 
     # jugador no encontrado
-    repo_p3.obtener.return_value = crear_partida_en_juego(cantidad_jugadores=2, turno_actual=1)
+    repo_p3.obtener.return_value = crear_partida_en_juego(cantidad_jugadores=2, estado = EstadoPartida.en_juego, turno_actual=1)
     repo_j3.obtener.return_value = None
     with pytest.raises(ValueError):
         await s.terminar_turno(1, 2)
