@@ -5,6 +5,7 @@ from typing import List, Dict
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
+from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB
 
 
 @dataclass(slots=True)
@@ -38,6 +39,7 @@ class IniciarYPrepararResultado:
     repartidas: Dict[int, List[CartaModelo]]
     mazo: List[CartaModelo]
     jugadores: List[JugadorModelo]
+    secretos: Dict[int, List[SecretoDB]]
 
 
 @dataclass(slots=True)
@@ -59,3 +61,7 @@ class UnirsePartidaResultado:
 @dataclass(slots=True)
 class IniciarPartidaResultado:
     partida: PartidaModelo
+
+@dataclass(slots=True)
+class RepartirSecretosResultado:
+    secretos_repartidos: Dict[int, List[SecretoDB]]
