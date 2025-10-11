@@ -8,6 +8,7 @@ class PosicionCarta(enum.Enum):
 	mazo = "mazo"  # Mazo normal
 	mano = "mano"  # Mano del jugador
 	descarte = "descarte"  # Mazo de descarte
+    draft = "draft" # Draft
 
 
 class TipoCarta(enum.Enum):

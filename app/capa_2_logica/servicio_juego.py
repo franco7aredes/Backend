@@ -24,6 +24,7 @@ from .resultados import (
     IniciarPartidaResultado,
     RepartirSecretosResultado,
     ObtenerSecretosResultado,
+    ObtenerDraftResultado
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 
@@ -48,6 +49,7 @@ class _RepoCartaProto(Protocol):
     async def crear_muchas(self, cartas: List[CartaModelo]) -> None: ...
     async def contar_en_mano(self, partida_id: int, jugador_id: int) -> int: ...
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
+    async def obtener_draft(self, partida_id: int) -> List[CartaModelo]: ...
 
 
 @runtime_checkable
@@ -244,6 +246,12 @@ class ServicioJuego:
 
         cartas_restantes_mazo = mazo_cartas[idx:]
 
+        # aca voy a sacar las 3 de draft
+        cartas_draft = cartas_restantes_mazo[:3]
+        for carta in cartas_draft:
+            carta.posicion = PosicionCarta.draft
+
+
         # Persistir todas las cartas
         todas: List[CartaModelo] = []
         for lst in repartidas.values():
@@ -254,7 +262,7 @@ class ServicioJuego:
             await self.cartas.crear_muchas(todas)
 
         # Devolver estructura
-        return RepartirCartasResultado(repartidas=repartidas, mazo=cartas_restantes_mazo)
+        return RepartirCartasResultado(repartidas=repartidas, mazo=cartas_restantes_mazo[3:])
 
     async def asignar_turnos(self, partida_id: int, fecha_referencia: date = date(1980, 9, 15)) -> List[JugadorModelo]:
         """Ordena a los jugadores por proximidad a `fecha_referencia` y actualiza `orden_turno`.

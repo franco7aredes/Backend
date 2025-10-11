@@ -80,3 +80,11 @@ class RepositorioCartaSQLAlchemy:
             raise ValueError("Carta invalida: 'nombre' y 'tipo' son obligatorios")
         self.db.add(carta)
         await self.db.flush()
+
+    async def obtener_draft(self, partida_id: int) -> List[CartaModelo]:
+        stmt = (
+            select(CartaModelo)
+            .where((CartaModelo.id_partida == partida_id) & (CartaModelo.posicion == PosicionCarta.draft))
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())

@@ -69,3 +69,7 @@ class RepartirSecretosResultado:
 @dataclass(slots=True)
 class ObtenerSecretosResultado:
     secretos: List[SecretoDB]
+
+@dataclass(slots=True)
+class ObtenerDraftResultado:
+    draft: List[CartaModelo]
