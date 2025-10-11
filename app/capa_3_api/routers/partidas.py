@@ -16,6 +16,7 @@ from app.capa_3_api.mapeadores import (
     mapear_partidas_a_dto,
     mapear_partida_a_dto,
     mapear_jugadores_a_dto,
+    mapear_secretos_a_dto,
 )
 
 # Nuevo: servicio de juego (capa 2) con repos async 
@@ -116,7 +117,7 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
         secretos_repartidos = resultado.get("secretos", {})
     if secretos_repartidos:
         for jugador_id, secretos in secretos_repartidos.items():
-            secretos_data =[SecretoDTO.from_orm(s).dict() for s in secretos]
+            secretos_data =[s.dict() for s in mapear_secretos_a_dto(secretos)]
             mensaje = {"evento": "partida_iniciada", "data": {"secretos": secretos_data}}
             await administrador.enviar_mensaje(mensaje, jugador_id)
 

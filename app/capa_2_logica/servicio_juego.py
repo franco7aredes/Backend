@@ -498,3 +498,7 @@ class ServicioJuego:
 
         if getattr(jugador,"id_partida", None) != partida_id:
             raise ValueError("jugador_no_en_partida")
+
+        sucios = await self.secretos.obtener_secretos(partida_id, jugador_id)
+
+        return ObtenerSecretosResultado(secretos=sucios)

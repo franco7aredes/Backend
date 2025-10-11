@@ -32,3 +32,10 @@ class SecretoDTO(BaseModel):
         use_enum_values=True,
     )
 
+class ObtenerSecretoSolicitud(BaseModel):
+    jugador_id: int
+
+class ObtenerSecretoRespuesta(BaseModel):
+    mensaje: str
+    secretos: List[SecretoDTO]
+    model_config = ConfigDict(from_attributes=True)
