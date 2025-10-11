@@ -54,7 +54,7 @@ async def test_repartir_secretos_bonito():
     datos = await s.repartir_secretos(1)
 
     assert hasattr(datos, 'secretos_repartidos')
-    assert isInstance(datos.secretos_repartidos, dict)
+    assert isinstance(datos.secretos_repartidos, dict)
 
 @pytest.mark.asyncio
 async def test_repartir_secretos_sin_jugadores():

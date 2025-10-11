@@ -408,7 +408,7 @@ class ServicioJuego:
 
         random.shuffle(mazo_secretos)
 
-        repartidos: Dict[int, List[SecretoDB] = {}
+        repartidos: Dict[int, List[SecretoDB]] = {}
         idx = 0
         for jugador in jugadores:
             jj = cast(Any, jugador)

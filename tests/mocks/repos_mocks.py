@@ -122,7 +122,7 @@ def crear_partida_en_juego(
     turno_actual: int = 1,
 ) -> Any:
     if estado is None:
-        estado = getattr(EstadoPartida, "en_juego", "en_juego")
+        estado = EstadoPartida.en_juego
     return type(
         "PartidaDummy",
         (),
