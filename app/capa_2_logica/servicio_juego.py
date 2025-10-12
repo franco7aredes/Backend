@@ -48,6 +48,7 @@ class _RepoCartaProto(Protocol):
     async def crear_muchas(self, cartas: List[CartaModelo]) -> None: ...
     async def contar_en_mano(self, partida_id: int, jugador_id: int) -> int: ...
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
+    async def obtener_carta(self, partida_id: int, carta_id: int) -> CartaModelo: ...
 
 
 @runtime_checkable
@@ -402,13 +403,13 @@ class ServicioJuego:
 
         return ReponerResultado(cartas=disponibles, fin_de_mazo=fin_de_mazo, max_alcanzado=False, sin_cartas=False)
 
-    async def descartar_carta(self, partida_id: int, jugador_id: int) -> DescartarResultado:
+    async def descartar_carta(self, partida_id: int, jugador_id: int, carta_id: int) -> DescartarResultado:
         """Descarta una carta de la mano del jugador y retorna DescartarResultado con la carta (o None si no hay)."""
         if not self.cartas:
             return DescartarResultado(carta=None)
-        # buscar la primera carta del jugador en la partida mediante repo; sin repo/método, no accedemos a BD
-        if hasattr(self.cartas, "obtener_primera_en_mano"):
-            carta = await self.cartas.obtener_primera_en_mano(partida_id, jugador_id)  # type: ignore[attr-defined]
+        # buscar la carta del jugador en la partida 
+        if hasattr(self.cartas, "obtener_carta"):
+            carta = await self.cartas.obtener_carta(partida_id, jugador_id, carta_id)  # type: ignore[attr-defined]
         else:
             return DescartarResultado(carta=None)
         if not carta:

@@ -66,8 +66,9 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
 @mazo_router.patch("/partida/{partida_id}/descartar", response_model=CartaDTO, status_code=status.HTTP_200_OK)
 async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
 	jugador_id = data.jugador_id
+    carta_id = data.carta_id
 	try:
-		res = await service.descartar_carta(partida_id, jugador_id)
+		res = await service.descartar_carta(partida_id, jugador_id, carta_id)
 	except Exception:
 		# Por compatibilidad con los tests actuales, cualquier condición inválida
 		# responde como "no hay carta para descartar" en esta partida

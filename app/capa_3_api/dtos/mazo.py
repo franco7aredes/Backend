@@ -15,6 +15,7 @@ class ReponerRespuesta(BaseModel):
 
 class DescartarSolicitud(BaseModel):
     jugador_id: int
+    carta_id: int
 
 
 class DescartarRespuesta(BaseModel):
