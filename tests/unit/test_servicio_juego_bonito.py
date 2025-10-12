@@ -162,3 +162,48 @@ async def test_terminar_turno_errores():
     repo_j3.obtener.return_value = crear_jugador(orden_turno=2)
     with pytest.raises(PermissionError):
         await s.terminar_turno(1, 2)
+
+
+@pytest.mark.asyncio
+async def test_obtener_cartas_propias():
+    from app.capa_0_definicion_bd.models.cartas_modelos import TipoCarta
+
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+    # jugador y partida válidos
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    # cartas en mano mock
+    c1 = crear_carta(id_carta=1, id_partida=77, id_jugador=10, posicion=PosicionCarta.mano)
+    c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
+    c2 = crear_carta(id_carta=2, id_partida=77, id_jugador=10, posicion=PosicionCarta.mano)
+    c2.nombre, c2.tipo = "Hercule Poirot", TipoCarta.detective
+
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2])
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+    res = await s.obtener_cartas_propias(77, 10)
+
+    assert len(res.cartas) == 2
+    assert [c.id_carta for c in res.cartas] == [1, 2]
+    assert all(c.posicion == PosicionCarta.mano for c in res.cartas)
+    assert all((getattr(c, "nombre", None) is not None and getattr(c, "tipo", None) is not None) for c in res.cartas)
+
+@pytest.mark.asyncio
+async def test_obtener_cartas_propias_errores():
+    # jugador no encontrado
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock(obtener_return=None)
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+    with pytest.raises(ValueError):
+        await s.obtener_cartas_propias(77, 10)
+
+
+    # jugador no pertenece a la partida
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=10, id_partida=99))
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego))
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+    with pytest.raises(ValueError):
+        await s.obtener_cartas_propias(77, 10)

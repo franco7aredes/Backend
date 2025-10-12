@@ -24,3 +24,9 @@ class DescartarRespuesta(BaseModel):
 
 class ManoRespuesta(BaseModel):
     cantidad: int
+
+
+class CartasEnManoRespuesta(BaseModel):
+    cantidad: int
+    cartas: List[CartaDTO]
+    model_config = ConfigDict(from_attributes=True)
