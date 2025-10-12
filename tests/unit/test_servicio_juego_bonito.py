@@ -6,15 +6,18 @@ from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
-from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta 
+from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, TipoSecreto, EstadoSecreto
 from tests.mocks.repos_mocks import (
     crear_repo_partida_mock,
     crear_repo_jugador_mock,
     crear_repo_carta_mock,
+    crear_repo_secreto_mock,
     crear_partida_en_juego,
     crear_partida_en_espera,
     crear_jugador,
     crear_carta,
+    crear_secreto
 )
 
 
@@ -162,3 +165,40 @@ async def test_terminar_turno_errores():
     repo_j3.obtener.return_value = crear_jugador(orden_turno=2)
     with pytest.raises(PermissionError):
         await s.terminar_turno(1, 2)
+
+@pytest.mark.asyncio
+async def test_obtener_secretos_propios():
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    # Secretos mock
+    s1 = crear_secreto(id_secreto=1, id_partida=77, id_jugador=10, tipo = TipoSecreto.otro)
+    s2 = crear_secreto(id_secreto=3, id_partida=77, id_jugador=10, tipo = TipoSecreto.otro)
+    s3 = crear_secreto(id_secreto=2, id_partida=77, id_jugador=10, tipo = TipoSecreto.otro)
+
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[s1, s2, s3])
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, secretos=repo_s)
+
+    res = await s.obtener_secretos_propios(77, 10)
+
+    assert len(res.secretos) == 3
+    assert [s.id_secreto for s in res.secretos] == [1, 3, 2]
+    assert all(s.tipo == TipoSecreto.otro for s in res.secretos)
+    assert all (s.id_jugador == 10 for s in res.secretos)
+
+@pytest.mark.asyncio
+async def test_obtener_secretos_propios_cero():
+
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_s = crear_repo_secreto_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, secretos=repo_s)
+
+    res = await s.obtener_secretos_propios(77, 10)
+    assert len(res.secretos) == 0
