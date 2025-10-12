@@ -98,10 +98,10 @@ async def obtener_draft(id: int, jugador_id: int,  service: ServicioJuego = Depe
     try:
         resultado = await service.ver_draft(id, jugador_id)
     except PartidaNoEncontrada:
-        raise HTTPException(status_code=404, detail=("Partida no encontrada")
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
     except ValueError as e:
         if str(e) == "jugador_no_encontrado":
-            raise HTTPException(status_code=404. detail="Jugador no encontrado")
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
         if str(e) == "jugador_no_en_partida":
             raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
         raise

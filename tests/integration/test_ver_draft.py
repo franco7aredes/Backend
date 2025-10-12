@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Asyncmock
+from unittest.mock import AsyncMock
 
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
@@ -24,7 +24,7 @@ async def test_obtener_draft_bonito(async_client):
                 CartaModelo(id_carta=3, id_partida=1, posicion=PosicionCarta.draft, nombre="Not so fast", tipo=TipoCarta.instant),
             ]
         )))
-    fastapi_app.dependency_overrides[ver_draft] = lambda: mock_service
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     resp = await async_client.get("/partida/1/draft", params={"jugador_id": 2})
     assert resp.status_code == 200
