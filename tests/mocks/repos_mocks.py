@@ -18,7 +18,7 @@ try:
     from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
 except Exception:  # pragma: no cover - los tests pueden no necesitar estos imports
     EstadoPartida = SimpleNamespace(en_juego="En Juego", en_espera="En Espera", finalizada="Finalizada")  # type: ignore
-    PosicionCarta = SimpleNamespace(mazo="mazo", mano="mano", descarte="descarte")  # type: ignore
+    PosicionCarta = SimpleNamespace(mazo="mazo", mano="mano", descarte="descarte", draft="draft")  # type: ignore
     EstadoSecreto = SimpleNamespace(oculto="oculto", revelado="revelado")
     TipoSecreto = SimpleNamespace(asesino="asesino", complice="complice", otro="otro")
     class CartaModelo:  # type: ignore
@@ -88,12 +88,14 @@ def crear_repo_carta_mock(
     contar_en_mano_return: Any | None = None,
     obtener_mazo_disponible_return: Any | None = None,
     contar_en_mazo_return: Any | None = None,
+    obtener_draft_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
     repo.crear_muchas = _async_method(crear_muchas_return)
     repo.contar_en_mano = _async_method(contar_en_mano_return)
     repo.obtener_mazo_disponible = _async_method(obtener_mazo_disponible_return)
+    repo.obtener_draft = _async_method(obtener_draft_return)
     # algunos servicios pueden intentar persistir en lote
     repo.guardar_muchas = _async_method()
     # y consultar restantes en el mazo

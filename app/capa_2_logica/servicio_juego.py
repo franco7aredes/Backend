@@ -262,7 +262,7 @@ class ServicioJuego:
             await self.cartas.crear_muchas(todas)
 
         # Devolver estructura
-        return RepartirCartasResultado(repartidas=repartidas, mazo=cartas_restantes_mazo[3:])
+        return RepartirCartasResultado(repartidas=repartidas, mazo=cartas_restantes_mazo)
 
     async def asignar_turnos(self, partida_id: int, fecha_referencia: date = date(1980, 9, 15)) -> List[JugadorModelo]:
         """Ordena a los jugadores por proximidad a `fecha_referencia` y actualiza `orden_turno`.

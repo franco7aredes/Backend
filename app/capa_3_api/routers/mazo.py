@@ -93,7 +93,7 @@ async def obtener_mano_jugador(partida_id: int, jugador_id: int, service: Servic
 	return ManoRespuesta(cantidad=cantidad_val)
 
 @mazo_router.get("/partida/{id}/draft", response_model=DraftRespuesta, status_code=status.HTTP_200_OK)
-async def obtener_draft(id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+async def obtener_draft(id: int, jugador_id: int,  service: ServicioJuego = Depends(obtener_servicio_juego)):
 
     try:
         resultado = await service.ver_draft(id, jugador_id)
