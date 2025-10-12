@@ -510,3 +510,20 @@ class ServicioJuego:
         sucios = await self.secretos.obtener_secretos(partida_id, jugador_id)
 
         return ObtenerSecretosResultado(secretos=sucios)
+
+    async def ver_draft(self, partida_id: int, jugador_id: int) -> ObtenerDraftResultado:
+
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise ValueError("jugador_no_encontrado")
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador,"id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        drafts = await self.cartas.obtener_draft(partida_id)
+
+        return ObtenerDraftResultado(draft=drafts)

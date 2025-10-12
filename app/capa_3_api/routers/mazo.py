@@ -8,6 +8,7 @@ from app.capa_3_api.dtos.mazo import (
 	ReponerRespuesta,
 	DescartarSolicitud,
 	ManoRespuesta,
+    DraftRespuesta
 )
 from app.capa_3_api.mapeadores import mapear_cartas_a_dto, mapear_carta_a_dto
 from app.capa_3_api.dtos.juego import Carta as CartaDTO
@@ -90,3 +91,25 @@ async def obtener_mano_jugador(partida_id: int, jugador_id: int, service: Servic
 	else:
 		cantidad_val = int(res2)  # type: ignore[arg-type]
 	return ManoRespuesta(cantidad=cantidad_val)
+
+@mazo_router.get("/partida/{id}/draft", response_model=DraftRespuesta, status_code=status.HTTP_200_OK)
+async def obtener_draft(id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+
+    try:
+        resultado = await service.ver_draft(id, jugador_id)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail=("Partida no encontrada")
+    except ValueError as e:
+        if str(e) == "jugador_no_encontrado":
+            raise HTTPException(status_code=404. detail="Jugador no encontrado")
+        if str(e) == "jugador_no_en_partida":
+            raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+        raise
+
+    draft = resultado.draft
+    draft_dto = mapear_cartas_a_dto(draft)
+        
+    return DraftRespuesta(
+        mensaje=f"Esto es el draft",
+        cartas=draft_dto,
+    )

@@ -24,3 +24,7 @@ class DescartarRespuesta(BaseModel):
 
 class ManoRespuesta(BaseModel):
     cantidad: int
+
+class DraftRespuesta(BaseModel):
+    mensaje: str
+    cartas: List[CartaDTO]
