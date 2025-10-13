@@ -79,6 +79,7 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
     return ReponerRespuesta(
         mensaje=f"Se repusieron {len(cartas)} cartas",
         cartas=cartas_dto,
+        mazo_restante=cantidad_restante
     )
 
 
