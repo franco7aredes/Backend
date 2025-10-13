@@ -96,3 +96,6 @@ class RepositorioCartaSQLAlchemy:
 
         res = await self.db.execute(stmt)
         return res.scalars().first()
+
+    async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]:
+        "" obtengo las ultimas cartas que fueron descartadas """
