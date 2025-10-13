@@ -17,6 +17,7 @@ from app.capa_3_api.mapeadores import (
     mapear_partida_a_dto,
     mapear_jugadores_a_dto,
     mapear_secretos_a_dto,
+    mapear_cartas_a_dto
 )
 
 # Nuevo: servicio de juego (capa 2) con repos async 
@@ -26,6 +27,9 @@ from app.capa_2_logica.errores import PartidaNoEncontrada, PartidaYaEnJuego, Min
 
 partida_router = APIRouter()
 
+# Helper para acceder tanto dicts como objetos con atributos (p.ej., clase J de los tests)
+def _jval(j, key: str):
+    return j[key] if isinstance(j, dict) else getattr(j, key)
 
 @partida_router.get("/partidas", response_model=List[PartidaDTO])
 async def listar_partidas(service: ServicioJuego = Depends(obtener_servicio_juego)):
@@ -149,8 +153,15 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCrear, service: Serv
 
     # obtener jugadores para notificar
     jugadores_en_partida = await service.listar_jugadores(partida_id)
-    jugadores_info = [{"id_jugador": j.id_jugador, "nombre": j.nombre, "id_avatar": j.id_avatar, "orden_turno": j.orden_turno} for j in jugadores_en_partida]
-
+    jugadores_info = [
+        {
+            "id_jugador": _jval(j, "id_jugador"),
+            "nombre": _jval(j, "nombre"),
+            "id_avatar": _jval(j, "id_avatar"),
+            "orden_turno": _jval(j, "orden_turno"),
+        }
+        for j in jugadores_en_partida
+    ]
     mensaje_lista = {
         "evento": "jugadores_actualizados",
         "partida_id": partida_id,
@@ -162,7 +173,7 @@ async def unirse_a_partida(partida_id: int, jugador: JugadorCrear, service: Serv
         "jugador": {"id_jugador": nuevo_jugador.id_jugador, "nombre": nuevo_jugador.nombre, "id_avatar": nuevo_jugador.id_avatar}
     }
     for j in jugadores_en_partida:
-        await administrador.enviar_mensaje(mensaje_lista, cast(int, j.id_jugador))
+        await administrador.enviar_mensaje(mensaje_lista, cast(int, _jval(j, "id_jugador")))
     await administrador.difundir_a_partida(partida_id, mensaje_uno)
     
     return {
@@ -193,5 +204,5 @@ async def terminar_turno(partida_id: int, id_enviada: int, service: ServicioJueg
     jugadores_en_partida = await service.listar_jugadores(partida_id)
     mensaje = {"turno_nuevo": turno.turno_nuevo}
     for j in jugadores_en_partida:
-        await administrador.enviar_mensaje(mensaje, cast(int, j.id_jugador))
+        await administrador.enviar_mensaje(mensaje, cast(int, _jval(j, "id_jugador")))
     return mensaje

@@ -4,10 +4,11 @@ from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.capa_3_api.dtos.mazo import (
-    ReponerSolicitud,
-    ReponerRespuesta,
-    DescartarSolicitud,
-    ManoRespuesta,
+	ReponerSolicitud,
+	ReponerRespuesta,
+	DescartarSolicitud,
+	ManoRespuesta,
+	CartasEnManoRespuesta,
 )
 from app.capa_3_api.mapeadores import mapear_cartas_a_dto, mapear_carta_a_dto
 from app.capa_3_api.dtos.juego import Carta as CartaDTO
@@ -84,10 +85,34 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud,
 
 @mazo_router.get("/partida/{partida_id}/mano/{jugador_id}", response_model=ManoRespuesta, status_code=status.HTTP_200_OK)
 async def obtener_mano_jugador(partida_id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
-    """Devuelve la cantidad de cartas en mano del jugador en la partida."""
-    res2 = await service.obtener_cantidad_mano(partida_id, jugador_id)
-    if hasattr(res2, "cantidad"):
-        cantidad_val: int = getattr(res2, "cantidad")  # type: ignore[assignment]
-    else:
-        cantidad_val = int(res2)  # type: ignore[arg-type]
-    return ManoRespuesta(cantidad=cantidad_val)
+	"""Devuelve la cantidad de cartas en mano del jugador en la partida."""
+	res2 = await service.obtener_cantidad_mano(partida_id, jugador_id)
+	if hasattr(res2, "cantidad"):
+		cantidad_val: int = getattr(res2, "cantidad")  # type: ignore[assignment]
+	else:
+		cantidad_val = int(res2)  # type: ignore[arg-type]
+	return ManoRespuesta(cantidad=cantidad_val)
+
+
+@mazo_router.get("/partida/{partida_id}/cartas/{jugador_id}", response_model=CartasEnManoRespuesta, status_code=status.HTTP_200_OK)
+async def obtener_cartas_jugador(partida_id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    """Devuelve las cartas (DTO) en mano del jugador en la partida y la cantidad."""
+    try:
+        res = await service.obtener_cartas_propias(partida_id, jugador_id)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except ValueError as e:
+        msg = str(e)
+        if msg == "jugador_no_encontrado":
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+        if msg == "jugador_no_en_partida":
+            raise HTTPException(status_code=400, detail="Jugador no pertenece a la partida")
+        raise HTTPException(status_code=400, detail="Solicitud inválida")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+    cartas_dto = mapear_cartas_a_dto(res.cartas)
+    return {
+        "cantidad": len(cartas_dto),
+        "cartas": cartas_dto,
+    }

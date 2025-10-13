@@ -13,6 +13,7 @@ from app.capa_0_definicion_bd.models.cartas_modelos import (
     TipoCarta,
 )
 from .resultados import (
+    ObtenerCartasResultado,
     ReponerResultado,
     TurnoResultado,
     CrearPartidaResultado,
@@ -48,6 +49,7 @@ class _RepoCartaProto(Protocol):
     async def crear_muchas(self, cartas: List[CartaModelo]) -> None: ...
     async def contar_en_mano(self, partida_id: int, jugador_id: int) -> int: ...
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
+    async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> List[CartaModelo]: ...
     async def obtener_carta(self, partida_id: int, carta_id: int) -> CartaModelo: ...
 
 
@@ -484,6 +486,7 @@ class ServicioJuego:
             await self.secretos.crear_muchos(todos)
 
         return RepartirSecretosResultado(secretos_repartidos=repartidos)
+    
 
     async def obtener_secretos_propios(self, partida_id: int, jugador_id: int) -> ObtenerSecretosResultado:
 
@@ -503,3 +506,23 @@ class ServicioJuego:
         sucios = await self.secretos.obtener_secretos(partida_id, jugador_id)
 
         return ObtenerSecretosResultado(secretos=sucios)
+    
+    
+    async def obtener_cartas_propias(self, partida_id: int, jugador_id: int) -> ObtenerCartasResultado:
+        """Obtiene las cartas en mano del jugador en esta partida."""
+        if not self.jugadores or not self.cartas:
+            return ObtenerCartasResultado(cartas=[])
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if jugador is None:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if partida is None:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        cartas = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
+        return ObtenerCartasResultado(cartas=cartas)

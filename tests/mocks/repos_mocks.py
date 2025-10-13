@@ -88,6 +88,7 @@ def crear_repo_carta_mock(
     contar_en_mano_return: Any | None = None,
     obtener_mazo_disponible_return: Any | None = None,
     contar_en_mazo_return: Any | None = None,
+    obtener_cartas_en_mano_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
@@ -98,6 +99,7 @@ def crear_repo_carta_mock(
     repo.guardar_muchas = _async_method()
     # y consultar restantes en el mazo
     repo.contar_en_mazo = _async_method(contar_en_mazo_return if contar_en_mazo_return is not None else 0)
+    repo.obtener_cartas_en_mano = _async_method(obtener_cartas_en_mano_return)
     return repo
 
     
