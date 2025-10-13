@@ -25,6 +25,7 @@ from .resultados import (
     IniciarPartidaResultado,
     RepartirSecretosResultado,
     ObtenerSecretosResultado,
+    VerDescarteResultado
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 
@@ -51,6 +52,7 @@ class _RepoCartaProto(Protocol):
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
     async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> List[CartaModelo]: ...
     async def obtener_carta(self, partida_id: int, carta_id: int) -> CartaModelo: ...
+    async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]: ...
 
 
 @runtime_checkable
@@ -526,3 +528,24 @@ class ServicioJuego:
 
         cartas = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
         return ObtenerCartasResultado(cartas=cartas)
+
+    async def ver_del_descarte(self, partida_id: int, jugador_id: int) => VerDescarteResultado:
+        """ obtiene las cartas que estan mas arriba del mazo de descarte,
+         las 5 (o menos) que esten mas arriba """
+         
+         if not self.jugadores or not self.cartas:
+            return VerDescarteResultado(descarte=[])
+         
+        jugador = await self.jugadores.obtener(jugador_id)
+        if jugador is None:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if partida is None:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        descartadas = await self.cartas.obtener_primeras_de_descarte(partida_id)
+        return VerDescarteResultado(descarte=descartadas)
