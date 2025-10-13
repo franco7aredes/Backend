@@ -259,7 +259,7 @@ class ServicioJuego:
         # Devolver estructura
         return RepartirCartasResultado(repartidas=repartidas, mazo=cartas_restantes_mazo)
 
-    async def asignar_turnos(self, partida_id: int, fecha_referencia: date = date(1980, 9, 15)) -> List[JugadorModelo]:
+    async def asignar_turnos(self, partida_id: int, fecha_referencia: date = date(1890, 9, 15)) -> List[JugadorModelo]:
         """Ordena a los jugadores por proximidad a `fecha_referencia` y actualiza `orden_turno`.
 
         Devuelve la lista de jugadores ya con su turno asignado.
@@ -272,7 +272,44 @@ class ServicioJuego:
             return []
 
         def diferencia_en_dias(fn: date) -> int:
-            return abs((fn - fecha_referencia).days)
+            """
+            Calcula una clave de ordenacion que representa la distancia del cumple a la fecha de
+            referencia en un ciclo de 365 dias.
+            La clave mas chica tiene mas prioridad
+            """
+            # creo la fecha de cumple en el mismo año que la de Agatha
+            cumple= date(
+                fecha_referencia.year,
+                fn.month,
+                fn.day
+            )
+
+            # Calculo las dos posibles distancias: la directa y la circular(del año siguiente, y el previo)
+            diff_directa = (cumple - fecha_referencia).days
+
+            cumple_circular = date(
+                fecha_referencia.year + 1,
+                fn.month,
+                fn.day
+            )
+            diff_circular = (cumple_circular - fecha_referencia).days
+
+            cumple_circular_previo = date(
+                fecha_referencia.year - 1,
+                fn.month,
+                fn.day
+            )
+
+            diff_circular_previa = (cumple_circular_previo - fecha_referencia).days
+
+            # Las juntamos, y tomamos el valor absoluto minimo
+
+            distancias = [abs(diff_directa), abs(diff_circular), abs(diff_circular_previa)]
+
+            dist_minima = min(distancias)
+
+            return dist_minima
+
 
         jugadores_ordenados = sorted(
             jugadores,
