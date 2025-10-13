@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock
 from typing import List, Optional
+from datetime import datetime, date
 
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.errores import PartidaNoEncontrada
@@ -207,3 +208,34 @@ async def test_obtener_cartas_propias_errores():
     s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
     with pytest.raises(ValueError):
         await s.obtener_cartas_propias(77, 10)
+
+@pytest.mark.asyncio
+async def test_ordenar_turnos_bonitos():
+    repo_partida = crear_repo_partida_mock()
+    repo_jugador = crear_repo_jugador_mock()
+
+    repo_partida.obtener.return_value = crear_partida_en_juego(id_partida=1, turno_actual=1,estado=EstadoPartida.en_juego, cantidad_jugadores=3)
+    repo_jugador.listar_por_partida.return_value = [
+        crear_jugador(id_jugador=10, orden_turno=1, id_partida=1, fecha_nacimiento=date(1995, 8, 10)),
+        crear_jugador(id_jugador=13, orden_turno=2, id_partida=1, fecha_nacimiento=date(1995, 10, 12)),
+        crear_jugador(id_jugador=15, orden_turno=3, id_partida=1, fecha_nacimiento=date(1993, 8, 2)),
+    ]
+
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador)
+
+    res = await s.asignar_turnos(1)
+
+    assert len(res) == 3
+    assert [j.id_jugador for j in res] == [13, 10, 15]
+
+    repo_jugador.listar_por_partida.return_value = [
+        crear_jugador(id_jugador=10, orden_turno=1, id_partida=1, fecha_nacimiento=date(1995, 9, 10)),
+        crear_jugador(id_jugador=13, orden_turno=2, id_partida=1, fecha_nacimiento=date(1996, 9, 21)),
+        crear_jugador(id_jugador=15, orden_turno=3, id_partida=1, fecha_nacimiento=date(1993, 9, 8)),
+    ]
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador)
+
+    res = await s.asignar_turnos(1)
+
+    assert len(res) == 3
+    assert [j.id_jugador for j in res] == [10, 13, 15]
