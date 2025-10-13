@@ -16,7 +16,7 @@ async def test_descartar_carta_bonito(async_client):
     setattr(mock_service, "descartar_carta", AsyncMock(return_value=DescartarResultado(carta=carta)))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9})
+    resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9, "carta_id": 1})
     assert resp.status_code == 200
     data = resp.json()
     assert data["id_carta"] == 1
@@ -34,7 +34,7 @@ async def test_descartar_carta_sin_mano_bonito(async_client):
     setattr(mock_service, "descartar_carta", AsyncMock(return_value=None))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9})
+    resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9, "carta_id": 1})
     assert resp.status_code == 404
     assert resp.json()["detail"] == "No se encontró carta para descartar en esta partida"
 
