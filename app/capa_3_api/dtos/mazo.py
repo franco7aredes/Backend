@@ -10,6 +10,7 @@ class ReponerSolicitud(BaseModel):
 class ReponerRespuesta(BaseModel):
     mensaje: str
     cartas: Optional[List[CartaDTO]] = None
+    mazo_restante: int
     model_config = ConfigDict(from_attributes=True)
 
 

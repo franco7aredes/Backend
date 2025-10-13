@@ -58,6 +58,24 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
 
     cartas = resultado.cartas
     cartas_dto = mapear_cartas_a_dto(cartas)
+
+    # Determinar el nuevo conteo del mazo: preferimos restar del conteo previo
+    try:
+        mazo_res = await service.obtener_cantidad_cartas_en_mazo(partida_id)
+        cantidad_restante = int(getattr(mazo_res, "cantidad", mazo_res))
+
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "mazo_restante",
+                "jugador_id": jugador_id,
+                "mazo_restante": cantidad_restante,
+            }
+        )
+    except Exception as e:
+        print(f"[WARN] Error al obtener o difundir mazo_restante: {e}")
+        cantidad_restante = 0
+
     return ReponerRespuesta(
         mensaje=f"Se repusieron {len(cartas)} cartas",
         cartas=cartas_dto,
@@ -80,6 +98,21 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud,
     if carta_obj is None:
         raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
     carta_dto = mapear_carta_a_dto(carta_obj)
+
+    # Difundir notificación a toda la partida (mensaje general)
+    try:
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "jugador_descarto",
+                "partida_id": partida_id,
+                "jugador_id": jugador_id,
+                "carta": carta_id,
+            }
+        )
+    except Exception:
+        pass
+
     return carta_dto
 
 

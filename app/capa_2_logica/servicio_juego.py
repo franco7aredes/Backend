@@ -21,6 +21,7 @@ from .resultados import (
     IniciarYPrepararResultado,
     DescartarResultado,
     CantidadManoResultado,
+    CantidadMazoResultado,
     UnirsePartidaResultado,
     IniciarPartidaResultado,
     RepartirSecretosResultado,
@@ -48,6 +49,7 @@ class _RepoJugadorProto(Protocol):
 class _RepoCartaProto(Protocol):
     async def crear_muchas(self, cartas: List[CartaModelo]) -> None: ...
     async def contar_en_mano(self, partida_id: int, jugador_id: int) -> int: ...
+    async def contar_en_mazo(self, partida_id: int) -> int: ...
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
     async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> List[CartaModelo]: ...
     async def obtener_carta(self, partida_id: int, carta_id: int) -> CartaModelo: ...
@@ -430,6 +432,11 @@ class ServicioJuego:
             return CantidadManoResultado(cantidad=0)
         cantidad = await self.cartas.contar_en_mano(partida_id, jugador_id)
         return CantidadManoResultado(cantidad=cantidad)
+
+    async def obtener_cantidad_cartas_en_mazo(self, partida_id: int) -> CantidadMazoResultado:
+        if hasattr(self.cartas, "contar_en_mazo"):
+            return await self.cartas.contar_en_mazo(partida_id)
+        raise ValueError("El repositorio de cartas no implementa contar_en_mazo")
 
     async def repartir_secretos(self, partida_id: int) -> RepartirSecretosResultado:
         """ Crea los secretos de acuerdo a la cantidad de jugadores, reparte 3 a cada
