@@ -116,3 +116,28 @@ async def obtener_cartas_jugador(partida_id: int, jugador_id: int, service: Serv
         "cantidad": len(cartas_dto),
         "cartas": cartas_dto,
     }
+
+@mazo_router.get("/partida/{id}/descarte", response_model=None, status_code=status.HTTP_200_OK)
+async def ver_primeras_del_descarte(id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    """ devuelve las ultimas 5 cartas que hayan sido descartadas en la partida, por websocket"""
+    try:
+        res = await service.ver_del_descarte(id, jugador_id)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except ValueError as e:
+        if str(e) == "jugador_no_encontrado":
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+        if str(e) == "jugador_no_en_partida":
+            raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+    
+
+    cartas_dto = mapear_cartas_a_dto(res.descarte)
+    mensaje = {"cantidad": len(cartas_dto),
+                "cartas": cartas_dto
+              }
+    await administrador.enviar_mensaje(mensaje, jugador_id)
+
+    return Response(status_code=status.HTTP_200_OK)
