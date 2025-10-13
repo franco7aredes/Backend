@@ -11,6 +11,9 @@ from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo,
 async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
     class S:
         async def reponer_del_mazo(self, *args, **kwargs): ...
+        async def obtener_cantidad_cartas_en_mazo(self, partida_id): ...
+    class J:
+        cantidad=10
     mock_service = S()
     setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
         cartas=[
@@ -22,6 +25,9 @@ async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
         max_alcanzado=False,
         sin_cartas=False,
     )))
+
+    setattr(mock_service, "obtener_cantidad_cartas_en_mazo", AsyncMock(return_value=J()))
+
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     # Evitar efectos de WS
@@ -36,6 +42,11 @@ async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
     assert body["mensaje"].startswith("Se repusieron 3 cartas")
     assert len(body["cartas"]) == 3
     assert all(c["posicion"] == "mano" for c in body["cartas"])
+    
+    assert rmazo.administrador.difundir_a_partida.await_count >= 1
+    args = rmazo.administrador.difundir_a_partida.await_args[0][1]
+    assert args["evento"] == "mazo_restante"
+    assert args["mazo_restante"] == 10
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
@@ -150,3 +161,4 @@ async def test_reponer_partida_inexistente_bonito(async_client):
     assert resp.json()["detail"] == "Partida no encontrada"
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+

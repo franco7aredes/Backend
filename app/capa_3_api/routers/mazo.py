@@ -59,7 +59,7 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
     cartas = resultado.cartas
     cartas_dto = mapear_cartas_a_dto(cartas)
 
-    # Determinar el nuevo conteo del mazo: preferimos restar del conteo previo
+    # determinamos la cantidad de cartas en el mazo
     try:
         mazo_res = await service.obtener_cantidad_cartas_en_mazo(partida_id)
         cantidad_restante = int(getattr(mazo_res, "cantidad", mazo_res))
@@ -78,8 +78,7 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
 
     return ReponerRespuesta(
         mensaje=f"Se repusieron {len(cartas)} cartas",
-        cartas=cartas_dto,
-        mazo_restante=cantidad_restante
+        cartas=cartas_dto
     )
 
 
