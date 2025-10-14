@@ -23,3 +23,16 @@ class RepositorioSecretoSQLAlchemy:
         
         res = await self.db.execute(stmt)
         return list(res.scalars().all())
+
+    async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int:
+        """Cuenta cuántos secretos tiene un jugador en una partida."""
+        stmt = (
+            select(func.count())
+            .select_from(SecretoDB)
+            .where(
+                (SecretoDB.id_partida == partida_id)
+                & (SecretoDB.id_jugador == jugador_id)
+            )
+        )
+        res = await self.db.execute(stmt)
+        return int(res.scalar() or 0)
