@@ -268,7 +268,7 @@ async def test_obtener_cantidad_cartas_en_error():
     assert res.cantidad == 0
 
 @pytest.mark.asyncio
-async def test_obtener_cantidad_manos_bonito():
+async def test_obtener_cantidad_manos():
     repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego))
     j1 = crear_jugador(id_jugador=10, id_partida=77)
     j2 = crear_jugador(id_jugador=11, id_partida=77)
@@ -282,6 +282,7 @@ async def test_obtener_cantidad_manos_bonito():
     res = await s.obtener_cantidad_manos(77)
     assert res.cartas_por_jugador == {10: 3, 11: 5}
 
+@pytest.mark.asyncio
 async def test_obtener_secretos_propios():
     repo_p = crear_repo_partida_mock()
     repo_j = crear_repo_jugador_mock()
