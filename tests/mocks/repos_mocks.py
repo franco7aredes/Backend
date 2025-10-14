@@ -22,11 +22,12 @@ except Exception:  # pragma: no cover - los tests pueden no necesitar estos impo
     EstadoSecreto = SimpleNamespace(oculto="oculto", revelado="revelado")
     TipoSecreto = SimpleNamespace(asesino="asesino", complice="complice", otro="otro")
     class CartaModelo:  # type: ignore
-        def __init__(self, id_carta: int, id_partida: int, id_jugador: Optional[int], posicion: Any):
+        def __init__(self, id_carta: int, id_partida: int, id_jugador: Optional[int], posicion: Any, orden_de_descarte: Optional[int]):
             self.id_carta = id_carta
             self.id_partida = id_partida
             self.id_jugador = id_jugador
             self.posicion = posicion
+            self.orden_de_descarte = orden_de_descarte
         
     class SecretoDB:
         def __init__(self, id_secreto: int, id_partida: int, id_jugador: int, tipo: Any, estado: Any):
@@ -59,8 +60,8 @@ def crear_repo_partida_mock(
     repo = MagicMock()
     repo.db = object()
     repo.crear = _async_method(crear_return)
-    repo.obtener = _async_method(obtener_return)
-    repo.listar_en_espera = _async_method(listar_en_espera_return)
+    repo.obtener = AsyncMock(return_value=obtener_return)
+    repo.listar_en_espera = _async_method(listar_en_espera_return if listar_en_espera_return is not None else [])
     repo.guardar = _async_method()
     repo.confirmar = _async_method(confirmar_return)
     return repo
@@ -75,7 +76,7 @@ def crear_repo_jugador_mock(
     repo = MagicMock()
     repo.db = object()
     repo.listar_por_partida = _async_method(listar_por_partida_return)
-    repo.crear = _async_method(crear_return)
+    repo.crear = AsyncMock(return_value=crear_return)
     repo.obtener = _async_method(obtener_return)
     # opcional: guardar_muchos si el servicio lo usa
     repo.guardar_muchos = _async_method()
@@ -89,6 +90,8 @@ def crear_repo_carta_mock(
     obtener_mazo_disponible_return: Any | None = None,
     contar_en_mazo_return: Any | None = None,
     obtener_cartas_en_mano_return: Any | None = None,
+    obtener_cantidad_descartadas_return: Any | None = None,
+    obtener_primeras_de_descarte_return: Any | None = None
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
@@ -100,6 +103,8 @@ def crear_repo_carta_mock(
     # y consultar restantes en el mazo
     repo.contar_en_mazo = _async_method(contar_en_mazo_return if contar_en_mazo_return is not None else 0)
     repo.obtener_cartas_en_mano = _async_method(obtener_cartas_en_mano_return)
+    repo.obtener_cantidad_descartadas = _async_method(obtener_cantidad_descartadas_return if obtener_cantidad_descartadas_return is not None else 0)
+    repo.obtener_primeras_de_descarte = _async_method(obtener_primeras_de_descarte_return)
     return repo
 
     
@@ -191,11 +196,11 @@ def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_par
 
 
 def crear_carta(
-    *, id_carta: int = 1, id_partida: int = 1, id_jugador: Optional[int] = None, posicion: Any | None = None
+    *, id_carta: int = 1, id_partida: int = 1, id_jugador: Optional[int] = None, posicion: Any | None = None, orden_de_descarte: Optional[int] = None
 ) -> CartaModelo:
     if posicion is None:
         posicion = getattr(PosicionCarta, "mazo", "mazo")
-    return CartaModelo(id_carta=id_carta, id_partida=id_partida, id_jugador=id_jugador, posicion=posicion)
+    return CartaModelo(id_carta=id_carta, id_partida=id_partida, id_jugador=id_jugador, posicion=posicion, orden_de_descarte = orden_de_descarte)
 
 def crear_secreto(
     *, id_secreto: int = 1, id_partida: int = 1, id_jugador: int = 1, tipo: Any  = TipoSecreto.otro, estado: Any = EstadoSecreto.oculto
