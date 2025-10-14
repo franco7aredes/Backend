@@ -52,6 +52,7 @@ class _RepoCartaProto(Protocol):
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
     async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> List[CartaModelo]: ...
     async def obtener_carta(self, partida_id: int, carta_id: int) -> CartaModelo: ...
+    async def obtener_cantidad_descartadas(self, partida_id: int) => int: ...
     async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]: ...
 
 
@@ -418,9 +419,13 @@ class ServicioJuego:
             return DescartarResultado(carta=None)
         if not carta:
             return DescartarResultado(carta=None)
-        cc2 = cast(Any, carta)
+        # Antes, necesito saber cuantas cartas hay en en el mazo de descarte
+        cantidad_descartadas = await self.cartas.obtener_cantidad_descartadas(partida_id)
+
+        cc2 = cast(Any, carta) 
         cc2.id_jugador = None
         cc2.posicion = PosicionCarta.descarte
+        cc2.orden_en_descarte = cantidad_descartadas + 1
         if hasattr(self.cartas, "guardar"):
             await self.cartas.guardar(cc2)  # type: ignore[attr-defined]
         # Si el repo no provee "guardar", no realizamos accesos directos a BD desde la capa 2
@@ -548,4 +553,8 @@ class ServicioJuego:
             raise ValueError("jugador_no_en_partida")
 
         descartadas = await self.cartas.obtener_primeras_de_descarte(partida_id)
+        # les limpio el campo de orden_en_descarte, no quiero romper cosas
+        for c in descartadas:
+            c.orden_en_descarte = None
+
         return VerDescarteResultado(descarte=descartadas)

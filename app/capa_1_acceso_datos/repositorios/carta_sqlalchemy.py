@@ -97,5 +97,29 @@ class RepositorioCartaSQLAlchemy:
         res = await self.db.execute(stmt)
         return res.scalars().first()
 
+    async def obtener_cantidad_descartadas(self, partida_id: int) -> int:
+        """ obtengo cuantas cartas hay en el mazo de descarte """
+        stmt = (
+            select(func.count())
+            .select_from(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.posicion == PosicionCarta.descarte)
+            )
+        )
+        res = await self.db.execute(stmt)
+        return int(res.scalar() or 0)
+
     async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]:
         "" obtengo las ultimas cartas que fueron descartadas """
+        stmt = (
+            select(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.posicion == PosicionCarta.descarte)
+            )
+            .order_by(desc(CartaModelo.orden_en_descarte))
+            .limit(5)
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
