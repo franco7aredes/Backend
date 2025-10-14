@@ -22,7 +22,7 @@ async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):
     c1.posicion = PosicionCarta.descarte
     c1.nombre = "Hercule Poirot"
     c1.tipo = TipoCarta.detective
-    c1.orden_del_descarte = 1
+    c1.orden_en_descarte = 1
 
     c2 = type ("C", (), {})()
     c2.id_carta = 3
@@ -31,7 +31,7 @@ async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):
     c2.posicion = PosicionCarta.descarte
     c2.nombre = "Hercule Poirot"
     c2.tipo = TipoCarta.detective
-    c2.orden_del_descarte = 2
+    c2.orden_en_descarte = 2
 
     c3 = type ("C", (), {})()
     c3.id_carta = 6
@@ -40,7 +40,7 @@ async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):
     c3.posicion = PosicionCarta.descarte
     c3.nombre = "Not so fast"
     c3.tipo = TipoCarta.instant
-    c3.orden_del_descarte = 3
+    c3.orden_en_descarte = 3
 
     c4 = type ("C", (), {})()
     c4.id_carta = 10
@@ -49,7 +49,7 @@ async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):
     c4.posicion = PosicionCarta.descarte
     c4.nombre = "Not so fast"
     c4.tipo = TipoCarta.instant
-    c4.orden_del_descarte = 4
+    c4.orden_en_descarte = 4
     
     c5 = type ("C", (), {})()
     c5.id_carta = 2
@@ -58,7 +58,7 @@ async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):
     c5.posicion = PosicionCarta.descarte
     c5.nombre = "Hercule Poirot"
     c5.tipo = TipoCarta.detective
-    c5.orden_del_descarte = 5
+    c5.orden_en_descarte = 5
 
     desc = [c1, c2, c3, c4, c5] 
     setattr(svc, "ver_del_descarte", AsyncMock(return_value=VerDescarteResultado(descarte=desc)))

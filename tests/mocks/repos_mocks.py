@@ -22,12 +22,12 @@ except Exception:  # pragma: no cover - los tests pueden no necesitar estos impo
     EstadoSecreto = SimpleNamespace(oculto="oculto", revelado="revelado")
     TipoSecreto = SimpleNamespace(asesino="asesino", complice="complice", otro="otro")
     class CartaModelo:  # type: ignore
-        def __init__(self, id_carta: int, id_partida: int, id_jugador: Optional[int], posicion: Any, orden_de_descarte: Optional[int]):
+        def __init__(self, id_carta: int, id_partida: int, id_jugador: Optional[int], posicion: Any, orden_en_descarte: Optional[int]):
             self.id_carta = id_carta
             self.id_partida = id_partida
             self.id_jugador = id_jugador
             self.posicion = posicion
-            self.orden_de_descarte = orden_de_descarte
+            self.orden_en_descarte = orden_en_descarte
         
     class SecretoDB:
         def __init__(self, id_secreto: int, id_partida: int, id_jugador: int, tipo: Any, estado: Any):
@@ -196,11 +196,11 @@ def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_par
 
 
 def crear_carta(
-    *, id_carta: int = 1, id_partida: int = 1, id_jugador: Optional[int] = None, posicion: Any | None = None, orden_de_descarte: Optional[int] = None
+    *, id_carta: int = 1, id_partida: int = 1, id_jugador: Optional[int] = None, posicion: Any | None = None, orden_en_descarte: Optional[int] = None
 ) -> CartaModelo:
     if posicion is None:
         posicion = getattr(PosicionCarta, "mazo", "mazo")
-    return CartaModelo(id_carta=id_carta, id_partida=id_partida, id_jugador=id_jugador, posicion=posicion, orden_de_descarte = orden_de_descarte)
+    return CartaModelo(id_carta=id_carta, id_partida=id_partida, id_jugador=id_jugador, posicion=posicion, orden_en_descarte = orden_en_descarte)
 
 def crear_secreto(
     *, id_secreto: int = 1, id_partida: int = 1, id_jugador: int = 1, tipo: Any  = TipoSecreto.otro, estado: Any = EstadoSecreto.oculto

@@ -207,3 +207,27 @@ async def test_obtener_cartas_propias_errores():
     s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
     with pytest.raises(ValueError):
         await s.obtener_cartas_propias(77, 10)
+
+@pytest.mark.asyncio
+async def test_descartar_cartas_bonito():
+    from app.capa_0_definicion_bd.models.cartas_modelos import TipoCarta
+
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    c1 = crear_carta(id_carta=1, id_partida=77, id_jugador=10, posicion=PosicionCarta.mano)
+    c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=c1,
+                            obtener_cantidad_descartadas_return=35)
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.descartar_carta(77, 10, 1)
+
+    assert hasattr(res, "descarte")
+    assert res.carta == c1
+    assert c1.orden_en_descarte == 36
