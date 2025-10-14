@@ -6,7 +6,7 @@ from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaM
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
 from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, TipoSecreto
 from typing import Protocol, runtime_checkable
-from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
+from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado, AsesinoNoEncontrado
 from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
     PosicionCarta,
@@ -27,7 +27,7 @@ from .resultados import (
     RepartirSecretosResultado,
     ObtenerSecretosResultado,
     CantidadManosResultado,
-
+    AsesinoResultado,
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 
@@ -618,4 +618,10 @@ class ServicioJuego:
             cantidades[jj.id_jugador] = cantidad
 
         return CantidadManosResultado(cartas_por_jugador=cantidades)
-    
+
+    async def obtener_asesino(self, partida_id: int) -> AsesinoResultado:
+        if not self.secretos:
+            raise AsesinoNoEncontrado()
+
+        secreto = await self.secretos.obtener_secreto_asesino(partida_id)
+        return AsesinoResultado(asesino=secreto.id_jugador)

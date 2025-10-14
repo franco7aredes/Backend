@@ -2,7 +2,7 @@ from fastapi import APIRouter, status, Depends, HTTPException
 from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
-from app.capa_2_logica.errores import PartidaNoEncontrada
+from app.capa_2_logica.errores import PartidaNoEncontrada, AsesinoNoEncontrado
 from app.capa_3_api.dtos.mazo import (
 	ReponerSolicitud,
 	ReponerRespuesta,
@@ -50,10 +50,15 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
 
     if resultado.fin_de_mazo:
         try:
+                asesino_res = await service.obtener_asesino(partida_id)
+                id_asesino = asesino_res.asesino
+
                 await administrador.enviar_texto(jugador_id, "fin_de_mazo")
-                await administrador.enviar_mensaje({"evento": "fin_de_mazo", "partida_id": partida_id}, jugador_id)
-                await administrador.difundir_a_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id})
+                await administrador.enviar_mensaje({"evento": "fin_de_mazo", "partida_id": partida_id, "asesino_id": id_asesino}, jugador_id)
+                await administrador.difundir_a_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id, "asesino_id": id_asesino})
         except Exception:
+            pass
+        except AsesinoNoEncontrado:
             pass
 
     cartas = resultado.cartas
