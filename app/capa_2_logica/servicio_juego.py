@@ -492,8 +492,8 @@ class ServicioJuego:
             return RepartirSecretosResultado(secretos_repartidos={})
 
         mazo_secretos: List[SecretoDB] = []
-        cantidad = partida.cantidad_jugadores * 3 + 1
-        for i in range (1, cantidad):
+        cantidad = partida.cantidad_jugadores * 3 
+        for i in range (1, 19):
             secreto = SecretoDB(
                 id_secreto = i,
                 id_partida = partida_id,
@@ -502,21 +502,44 @@ class ServicioJuego:
             )
             if (i == 1):
                 secreto.tipo = TipoSecreto.asesino
-            if (i == 15): # Cuando hay 5 jugadores o mas, tiene que haber complice
+            if (i == 15): 
                 secreto.tipo = TipoSecreto.complice
             mazo_secretos.append(secreto)
 
-        random.shuffle(mazo_secretos)
+        asesino = [s for s in mazo_secretos if s.tipo == TipoSecreto.asesino][0]
+        complice = [s for s in mazo_secretos if s.tipo == TipoSecreto.complice][0]
+        otros = [s for s in mazo_secretos if s.tipo == TipoSecreto.otro]
 
+        secretos_a_repartir: List[SecretoDB] = []
+        secretos_a_repartir.append(asesino)
+
+        if partida.cantidad_jugadores >= 5: # Cuando hay 5 jugadores o mas, tiene que haber complice
+
+            secretos_a_repartir.append(complice)
+
+        # Calculo cuantos secretos de los otros tengo que agregar
+        necesarios_otros = cantidad - len(secretos_a_repartir)
+
+        random.shuffle(otros)
+
+        # Por seguridad, no tomamos mas secretos de los que hay
+        necesarios_otros = min(necesarios_otros, len(otros))
+
+        secretos_a_repartir.extend(otros[:necesarios_otros])
+
+        # Barajeo todos los secretos a repartir
+
+        random.shuffle(secretos_a_repartir)
+        
         repartidos: Dict[int, List[SecretoDB]] = {}
         idx = 0
         for jugador in jugadores:
             jj = cast(Any, jugador)
             repartidos[jj.id_jugador] = []
             for _ in range(3):
-                if idx >= len(mazo_secretos):
+                if idx >= len(secretos_a_repartir):
                     break
-                secreto = mazo_secretos[idx]
+                secreto = secretos_a_repartir[idx]
                 ss = cast(Any, secreto)
                 ss.id_jugador = jj.id_jugador
                 repartidos[jj.id_jugador].append(secreto)
