@@ -26,6 +26,8 @@ from .resultados import (
     IniciarPartidaResultado,
     RepartirSecretosResultado,
     ObtenerSecretosResultado,
+    CantidadManosResultado,
+
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 
@@ -594,3 +596,26 @@ class ServicioJuego:
 
         cartas = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
         return ObtenerCartasResultado(cartas=cartas)
+    
+
+    async def obtener_cantidad_manos(self, partida_id: int) -> CantidadManosResultado:
+        """Devuelve la cantidad de cartas en mano de cada jugador para una partida"""
+        if not self.cartas:
+            return CantidadManosResultado(cartas_por_jugador={})
+        
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+        
+        jugadores = await self.jugadores.listar_por_partida(partida_id)
+        if not jugadores:
+            return CantidadManosResultado(cartas_por_jugador={})
+        
+        cantidades: Dict[int, int] = {}
+        for jugador in jugadores:
+            jj = cast(Any, jugador)
+            cantidad = await self.cartas.contar_en_mano(partida_id, jj.id_jugador)
+            cantidades[jj.id_jugador] = cantidad
+
+        return CantidadManosResultado(cartas_por_jugador=cantidades)
+    

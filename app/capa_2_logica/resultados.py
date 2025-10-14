@@ -78,3 +78,7 @@ class ObtenerSecretosResultado:
 @dataclass(slots=True)
 class ObtenerCartasResultado:
     cartas: List[CartaModelo]
+
+@dataclass(slots=True)
+class CantidadManosResultado:
+    cartas_por_jugador: Dict[int, int]
