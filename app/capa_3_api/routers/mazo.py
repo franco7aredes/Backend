@@ -72,9 +72,26 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
                 "mazo_restante": cantidad_restante,
             }
         )
-    except Exception as e:
-        print(f"[WARN] Error al obtener o difundir mazo_restante: {e}")
-        cantidad_restante = 0
+    except Exception:
+        pass
+
+    # Notificamos al resto la cantidad de cartas en mano de cada jugador
+    try:
+        manos_res = await service.obtener_cantidad_manos(partida_id)
+        manos_list = [
+            {"id_jugador": jid, "cantidad": cant}
+            for jid, cant in manos_res.cartas_por_jugador.items()
+        ]
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "manos_actualizadas",
+                "partida_id": partida_id,
+                "manos": manos_list,
+            }
+        )
+    except Exception:
+        pass
 
     return ReponerRespuesta(
         mensaje=f"Se repusieron {len(cartas)} cartas",
@@ -93,7 +110,6 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud,
         # responde como "no hay carta para descartar" en esta partida
         raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
 
-    # Nuevo contrato: devolver solo la carta (DTO)
     carta_obj = getattr(res, "carta", None) if res is not None else None
     if carta_obj is None:
         raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
@@ -108,6 +124,24 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud,
                 "partida_id": partida_id,
                 "jugador_id": jugador_id,
                 "carta": carta_id,
+            }
+        )
+    except Exception:
+        pass
+
+    # Notificamos al resto la cantidad de cartas en mano de cada jugador
+    try:
+        manos_res = await service.obtener_cantidad_manos(partida_id)
+        manos_list = [
+            {"id_jugador": jid, "cantidad": cant}
+            for jid, cant in manos_res.cartas_por_jugador.items()
+        ]
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "manos_actualizadas",
+                "partida_id": partida_id,
+                "manos": manos_list,
             }
         )
     except Exception:
@@ -149,3 +183,4 @@ async def obtener_cartas_jugador(partida_id: int, jugador_id: int, service: Serv
         "cantidad": len(cartas_dto),
         "cartas": cartas_dto,
     }
+

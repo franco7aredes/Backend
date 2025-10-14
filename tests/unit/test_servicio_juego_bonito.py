@@ -240,7 +240,8 @@ async def test_ordenar_turnos_bonitos():
 
     assert len(res) == 3
     assert [j.id_jugador for j in res] == [10, 13, 15]
-
+    
+@pytest.mark.asyncio
 async def test_obtener_cantidad_cartas_en_mazo():
     repo_p = crear_repo_partida_mock()
     repo_c = crear_repo_carta_mock(contar_en_mazo_return=7)
@@ -263,3 +264,17 @@ async def test_obtener_cantidad_cartas_en_error():
     assert hasattr(res, "cantidad")
     assert res.cantidad == 0
 
+@pytest.mark.asyncio
+async def test_obtener_cantidad_manos_bonito():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego))
+    j1 = crear_jugador(id_jugador=10, id_partida=77)
+    j2 = crear_jugador(id_jugador=11, id_partida=77)
+    repo_jugador = crear_repo_jugador_mock(listar_por_partida_return=[j1, j2])
+
+    repo_carta = crear_repo_carta_mock()
+    # primero jugador 10 (3 cartas), luego jugador 11 (5 cartas)
+    repo_carta.contar_en_mano.side_effect = [3, 5]
+
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta)
+    res = await s.obtener_cantidad_manos(77)
+    assert res.cartas_por_jugador == {10: 3, 11: 5}
