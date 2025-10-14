@@ -177,7 +177,7 @@ def crear_partida_finalizada(*, id_partida: int = 1) -> Any:
     )()
 
 
-def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_partida: int = 1, nombre: str = "Jugador") -> Any:
+def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_partida: int = 1, nombre: str = "Jugador", fecha_nacimiento: Optional[Any] = None) -> Any:
     return type(
         "JugadorDummy",
         (),
@@ -186,6 +186,7 @@ def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_par
             "orden_turno": orden_turno,
             "id_partida": id_partida,
             "nombre": nombre,
+            "fecha_nacimiento": fecha_nacimiento
         },
     )()
 
