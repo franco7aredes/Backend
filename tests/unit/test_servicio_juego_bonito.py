@@ -207,3 +207,26 @@ async def test_obtener_cartas_propias_errores():
     s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
     with pytest.raises(ValueError):
         await s.obtener_cartas_propias(77, 10)
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_cartas_en_mazo():
+    repo_p = crear_repo_partida_mock()
+    repo_c = crear_repo_carta_mock(contar_en_mazo_return=7)
+
+    s = ServicioJuego(repo_p, cartas=repo_c)
+    res = await s.obtener_cantidad_cartas_en_mazo(30)
+
+    # Validaciones 
+    assert hasattr(res, "cantidad")
+    assert res.cantidad == 7
+    repo_c.contar_en_mazo.assert_awaited_once_with(30)
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_cartas_en_error():
+    repo_p = crear_repo_partida_mock()
+    s = ServicioJuego(repo_p)  # sin cartas
+
+    res = await s.obtener_cantidad_cartas_en_mazo(77)
+
+    assert hasattr(res, "cantidad")
+    assert res.cantidad == 0

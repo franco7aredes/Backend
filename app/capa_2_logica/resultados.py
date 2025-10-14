@@ -53,6 +53,11 @@ class CantidadManoResultado:
 
 
 @dataclass(slots=True)
+class CantidadMazoResultado:
+    cantidad: int
+
+
+@dataclass(slots=True)
 class UnirsePartidaResultado:
     partida: PartidaModelo
     jugador: JugadorModelo
