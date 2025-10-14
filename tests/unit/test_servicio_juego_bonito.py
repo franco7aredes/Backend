@@ -331,12 +331,41 @@ async def test_obtener_asesino():
     # Repositorio de secretos con el método mockeado correctamente
     repo_s = crear_repo_secreto_mock(obtener_secreto_asesino_return=secreto_asesino)
 
-    # Instanciar servicio
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
-    # Ejecutar
     resultado = await servicio.obtener_asesino(partida_id=77)
-
-    # Validar
     assert hasattr(resultado, "asesino")
     assert resultado.asesino == 5
+
+async def test_obtener_cantidad_secretos():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=99, estado=EstadoPartida.en_juego))
+    j1 = crear_jugador(id_jugador=3, id_partida=99)
+    j2 = crear_jugador(id_jugador=7, id_partida=99)
+    repo_jugador = crear_repo_jugador_mock(listar_por_partida_return=[j1, j2])
+
+    repo_secreto = crear_repo_secreto_mock()
+    # primero jugador 3 (2 secretos), luego jugador 7 (4 secretos)
+    repo_secreto.contar_secretos_jugador.side_effect = [2, 4]
+
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, secretos=repo_secreto)
+    res = await s.obtener_cantidad_secretos(99)
+    assert res.secretos_por_jugador == {3: 2, 7: 4}
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_secretos_partida_no_encontrada():
+    repo_partida = crear_repo_partida_mock(obtener_return=None)
+    repo_jugador = crear_repo_jugador_mock()
+    repo_secreto = crear_repo_secreto_mock()
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, secretos=repo_secreto)
+    with pytest.raises(PartidaNoEncontrada):
+        await s.obtener_cantidad_secretos(99)
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_secretos_sin_jugadores():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=99, estado=EstadoPartida.en_juego))
+    repo_jugador = crear_repo_jugador_mock(listar_por_partida_return=[])
+    repo_secreto = crear_repo_secreto_mock()
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, secretos=repo_secreto)
+    res = await s.obtener_cantidad_secretos(99)
+    assert res.secretos_por_jugador == {}
+
