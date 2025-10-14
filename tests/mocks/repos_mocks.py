@@ -107,11 +107,13 @@ def crear_repo_secreto_mock(
     *,
     crear_muchos_return: Any | None = None,
     obtener_secretos_return: Any | None = None,
+    obtener_secreto_asesino_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
     repo.crear_muchos = _async_method(crear_muchos_return)
     repo.obtener_secretos = _async_method(obtener_secretos_return)
+    repo.obtener_secreto_asesino = _async_method(obtener_secreto_asesino_return)
     return repo
 
 # --------- Constructores mínimos de entidades ---------

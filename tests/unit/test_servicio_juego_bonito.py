@@ -318,3 +318,25 @@ async def test_obtener_secretos_propios_cero():
 
     res = await s.obtener_secretos_propios(77, 10)
     assert len(res.secretos) == 0
+
+@pytest.mark.asyncio
+async def test_obtener_asesino():
+    # Setup repositorios mockeados
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    # Crear secreto de tipo asesino
+    secreto_asesino = crear_secreto(id_secreto=1, id_partida=77, id_jugador=5, tipo=TipoSecreto.asesino)
+
+    # Repositorio de secretos con el método mockeado correctamente
+    repo_s = crear_repo_secreto_mock(obtener_secreto_asesino_return=secreto_asesino)
+
+    # Instanciar servicio
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    # Ejecutar
+    resultado = await servicio.obtener_asesino(partida_id=77)
+
+    # Validar
+    assert hasattr(resultado, "asesino")
+    assert resultado.asesino == 5
