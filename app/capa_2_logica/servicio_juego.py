@@ -26,6 +26,7 @@ from .resultados import (
     IniciarPartidaResultado,
     RepartirSecretosResultado,
     ObtenerSecretosResultado,
+    VerDescarteResultado,
     ObtenerDraftResultado,
     CantidadManosResultado,
     AsesinoResultado,
@@ -58,6 +59,8 @@ class _RepoCartaProto(Protocol):
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
     async def obtener_draft(self, partida_id: int) -> List[CartaModelo]: ...
     async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> List[CartaModelo]: ...
+    async def obtener_cantidad_descartadas(self, partida_id: int) -> int: ...
+    async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]: ...
     async def obtener_carta(self, partida_id: int, jugador_id: int, carta_id: int) -> CartaModelo: ...
     async def obtener_draft_disponible(self, partida_id: int, carta_id: int) -> List[CartaModelo]: ...
     async def mover_primera_carta_mazo_a_draft(self, partida_id: int) -> Optional[CartaModelo]: ...
@@ -471,9 +474,13 @@ class ServicioJuego:
             return DescartarResultado(carta=None)
         if not carta:
             return DescartarResultado(carta=None)
-        cc2 = cast(Any, carta)
+        # Antes, necesito saber cuantas cartas hay en en el mazo de descarte
+        cantidad_descartadas = await self.cartas.obtener_cantidad_descartadas(partida_id)
+
+        cc2 = cast(Any, carta) 
         cc2.id_jugador = None
         cc2.posicion = PosicionCarta.descarte
+        cc2.orden_en_descarte = cantidad_descartadas + 1
         if hasattr(self.cartas, "guardar"):
             await self.cartas.guardar(cc2)  # type: ignore[attr-defined]
         # Si el repo no provee "guardar", no realizamos accesos directos a BD desde la capa 2
@@ -611,6 +618,31 @@ class ServicioJuego:
 
         cartas = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
         return ObtenerCartasResultado(cartas=cartas)
+
+    async def ver_del_descarte(self, partida_id: int, jugador_id: int) -> VerDescarteResultado:
+        """ obtiene las cartas que estan mas arriba del mazo de descarte,
+         las 5 (o menos) que esten mas arriba """
+         
+        if not self.jugadores or not self.cartas:
+            return VerDescarteResultado(descarte=[])
+         
+        jugador = await self.jugadores.obtener(jugador_id)
+        if jugador is None:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if partida is None:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        descartadas = await self.cartas.obtener_primeras_de_descarte(partida_id)
+        # les limpio el campo de orden_en_descarte, no quiero romper cosas
+        for c in descartadas:
+            c.orden_en_descarte = None
+
+        return VerDescarteResultado(descarte=descartadas)
     
 
     async def obtener_cantidad_manos(self, partida_id: int) -> CantidadManosResultado:

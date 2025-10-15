@@ -22,11 +22,12 @@ except Exception:  # pragma: no cover - los tests pueden no necesitar estos impo
     EstadoSecreto = SimpleNamespace(oculto="oculto", revelado="revelado")
     TipoSecreto = SimpleNamespace(asesino="asesino", complice="complice", otro="otro")
     class CartaModelo:  # type: ignore
-        def __init__(self, id_carta: int, id_partida: int, id_jugador: Optional[int], posicion: Any):
+        def __init__(self, id_carta: int, id_partida: int, id_jugador: Optional[int], posicion: Any, orden_en_descarte: Optional[int]):
             self.id_carta = id_carta
             self.id_partida = id_partida
             self.id_jugador = id_jugador
             self.posicion = posicion
+            self.orden_en_descarte = orden_en_descarte
         
     class SecretoDB:
         def __init__(self, id_secreto: int, id_partida: int, id_jugador: int, tipo: Any, estado: Any):
@@ -41,8 +42,7 @@ except Exception:  # pragma: no cover - los tests pueden no necesitar estos impo
 
 def _async_method(default_return: Any = None) -> AsyncMock:
     m = AsyncMock()
-    if default_return is not None:
-        m.return_value = default_return
+    m.return_value = default_return
     return m
 
 
@@ -91,6 +91,9 @@ def crear_repo_carta_mock(
     obtener_cartas_en_mano_return: Any | None = None,
     obtener_draft_disponible_return: Any | None = None,
     mover_primera_carta_mazo_a_draft_return: Any | None = None,
+    obtener_cantidad_descartadas_return: Any | None = None,
+    obtener_primeras_de_descarte_return: Any | None = None,
+    obtener_carta_return: Any | None = None,
 ) -> MagicMock:
     
     repo = MagicMock()
@@ -106,6 +109,13 @@ def crear_repo_carta_mock(
     repo.obtener_cartas_en_mano = _async_method(obtener_cartas_en_mano_return)
     repo.obtener_draft_disponible = _async_method(obtener_draft_disponible_return)
     repo.mover_primera_carta_mazo_a_draft = _async_method(mover_primera_carta_mazo_a_draft_return)
+    repo.obtener_cantidad_descartadas = _async_method(obtener_cantidad_descartadas_return if obtener_cantidad_descartadas_return is not None else 0)
+    repo.obtener_primeras_de_descarte = _async_method(obtener_primeras_de_descarte_return
+        if obtener_primeras_de_descarte_return is not None
+        else []
+    )
+    repo.obtener_carta = _async_method(obtener_carta_return)
+    repo.guardar = _async_method()
     return repo
 
     
@@ -202,11 +212,11 @@ def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_par
 
 
 def crear_carta(
-    *, id_carta: int = 1, id_partida: int = 1, id_jugador: Optional[int] = None, posicion: Any | None = None
+    *, id_carta: int = 1, id_partida: int = 1, id_jugador: Optional[int] = None, posicion: Any | None = None, orden_en_descarte: Optional[int] = None
 ) -> CartaModelo:
     if posicion is None:
         posicion = getattr(PosicionCarta, "mazo", "mazo")
-    return CartaModelo(id_carta=id_carta, id_partida=id_partida, id_jugador=id_jugador, posicion=posicion)
+    return CartaModelo(id_carta=id_carta, id_partida=id_partida, id_jugador=id_jugador, posicion=posicion, orden_en_descarte = orden_en_descarte)
 
 def crear_secreto(
     *, id_secreto: int = 1, id_partida: int = 1, id_jugador: int = 1, tipo: Any  = TipoSecreto.otro, estado: Any = EstadoSecreto.oculto

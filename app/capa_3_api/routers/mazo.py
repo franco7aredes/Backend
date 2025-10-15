@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi.responses import Response
 from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
@@ -210,14 +211,22 @@ async def obtener_cartas_jugador(partida_id: int, jugador_id: int, service: Serv
         "cartas": cartas_dto,
     }
 
-@mazo_router.put("/partida/{partida_id}/reponer_draft", response_model=ReponerRespuesta, status_code=status.HTTP_200_OK)
-async def reponer_draft(partida_id: int, carta_id: int, data: ReponerSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
-
-    jugador_id = data.jugador_id
-
-    # Usar servicio
+@mazo_router.get("/partida/{id}/descarte", response_model=None, status_code=status.HTTP_200_OK)
+async def ver_primeras_del_descarte(id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    """ devuelve las ultimas 5 cartas que hayan sido descartadas en la partida, por websocket"""
     try:
-        resultado = await service.reponer_del_draft(partida_id, jugador_id, carta_id)
+        res = await service.ver_del_descarte(id, jugador_id)
+        except Exception:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+    
+
+    cartas_dto = mapear_cartas_a_dto(res.descarte)
+    mensaje = {"cantidad": len(cartas_dto),
+                "cartas": cartas_dto
+              }
+    await administrador.enviar_mensaje(mensaje, jugador_id)
+
+    return Response(status_code=status.HTTP_200_OK)
     except PartidaNoEncontrada:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
     except ValueError as e:
@@ -227,6 +236,14 @@ async def reponer_draft(partida_id: int, carta_id: int, data: ReponerSolicitud, 
             raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
         raise
 
+@mazo_router.put("/partida/{partida_id}/reponer_draft", response_model=ReponerRespuesta, status_code=status.HTTP_200_OK)
+async def reponer_draft(partida_id: int, carta_id: int, data: ReponerSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
+
+    jugador_id = data.jugador_id
+
+    # Usar servicio
+    try:
+        resultado = await service.reponer_del_draft(partida_id, jugador_id, carta_id)
     if resultado.max_alcanzado:
         return ReponerRespuesta(mensaje="El jugador ya tiene el maximo de cartas en la mano")
 
