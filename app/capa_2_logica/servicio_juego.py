@@ -62,6 +62,7 @@ class _RepoCartaProto(Protocol):
 class _RepoSecretoProto(Protocol):
     async def crear_muchos(self, secretos: List[SecretoDB]) -> None: ...
     async def obtener_secretos(self, partida_id: int, jugador_id: int) -> List[SecretoDB]: ...
+    async def obtener_secreto_asesino(self, partida_id: int) -> SecretoDB: ...
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int: ...
 
 class ServicioJuego:
@@ -626,8 +627,15 @@ class ServicioJuego:
     async def obtener_asesino(self, partida_id: int) -> AsesinoResultado:
         if not self.secretos:
             raise AsesinoNoEncontrado()
+        
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
 
         secreto = await self.secretos.obtener_secreto_asesino(partida_id)
+        if not secreto:
+            raise AsesinoNoEncontrado()
+            
         return AsesinoResultado(asesino=secreto.id_jugador)
 
       

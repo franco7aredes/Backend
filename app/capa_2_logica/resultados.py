@@ -83,7 +83,7 @@ class ObtenerCartasResultado:
 class CantidadManosResultado:
     cartas_por_jugador: Dict[int, int]
 
-@dataclass
+@dataclass(slots=True)
 class AsesinoResultado:
     asesino: int
 
