@@ -89,10 +89,13 @@ def crear_repo_carta_mock(
     contar_en_mazo_return: Any | None = None,
     obtener_draft_return: Any | None = None,
     obtener_cartas_en_mano_return: Any | None = None,
+    obtener_draft_disponible_return: Any | None = None,
+    mover_primera_carta_mazo_a_draft_return: Any | None = None,
     obtener_cantidad_descartadas_return: Any | None = None,
     obtener_primeras_de_descarte_return: Any | None = None,
-    obtener_carta_return: Any | None = None
+    obtener_carta_return: Any | None = None,
 ) -> MagicMock:
+    
     repo = MagicMock()
     repo.db = object()
     repo.crear_muchas = _async_method(crear_muchas_return)
@@ -104,6 +107,8 @@ def crear_repo_carta_mock(
     # y consultar restantes en el mazo
     repo.contar_en_mazo = _async_method(contar_en_mazo_return if contar_en_mazo_return is not None else 0)
     repo.obtener_cartas_en_mano = _async_method(obtener_cartas_en_mano_return)
+    repo.obtener_draft_disponible = _async_method(obtener_draft_disponible_return)
+    repo.mover_primera_carta_mazo_a_draft = _async_method(mover_primera_carta_mazo_a_draft_return)
     repo.obtener_cantidad_descartadas = _async_method(obtener_cantidad_descartadas_return if obtener_cantidad_descartadas_return is not None else 0)
     repo.obtener_primeras_de_descarte = _async_method(obtener_primeras_de_descarte_return
         if obtener_primeras_de_descarte_return is not None

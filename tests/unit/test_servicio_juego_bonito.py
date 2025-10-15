@@ -540,3 +540,114 @@ async def test_obtener_cantidad_secretos_sin_jugadores():
     res = await s.obtener_cantidad_secretos(99)
     assert res.secretos_por_jugador == {}
 
+@pytest.mark.asyncio
+async def test_reponer_del_draft_errores():
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    # jugador no encontrado
+    repo_j.obtener.return_value = None
+    with pytest.raises(ValueError):
+        await s.reponer_del_draft(1, 99, carta_id=5)
+
+    # partida no encontrada
+    repo_j.obtener.return_value = crear_jugador(id_partida=1)
+    repo_p.obtener.return_value = None
+    with pytest.raises(PartidaNoEncontrada):
+        await s.reponer_del_draft(1, 1, carta_id=5)
+
+    # jugador no pertenece a la partida
+    repo_p.obtener.return_value = type("P", (), {"id_partida": 2})()
+    repo_j.obtener.return_value = crear_jugador(id_partida=2)
+    with pytest.raises(ValueError):
+        await s.reponer_del_draft(1, 1, carta_id=5)
+
+
+@pytest.mark.asyncio
+async def test_reponer_del_draft_max_alcanzado():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1, estado=EstadoPartida.en_juego))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=1))
+    repo_c = crear_repo_carta_mock(contar_en_mano_return=6)
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.reponer_del_draft(1, 1, carta_id=10)
+    assert res.cartas == []
+    assert res.max_alcanzado is True
+    assert res.fin_de_mazo is False
+    assert res.sin_cartas is False
+    repo_c.obtener_draft_disponible.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reponer_del_draft_repone_y_rellena():
+    # Setup partida/jugador válidos
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=10, id_partida=77))
+    # Draft tiene la carta pedida, mazo no queda vacío (contar_en_mazo > 0)
+    c_draft = crear_carta(id_carta=5, id_partida=77, id_jugador=None, posicion=PosicionCarta.draft)
+    repo_c = crear_repo_carta_mock(
+        contar_en_mano_return=2,
+        obtener_draft_disponible_return=[c_draft],
+        contar_en_mazo_return=3,
+        mover_primera_carta_mazo_a_draft_return=crear_carta(id_carta=100, id_partida=77, posicion=PosicionCarta.draft),
+    )
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.reponer_del_draft(77, 10, carta_id=5)
+
+    # Se movió a la mano
+    assert len(res.cartas) == 1
+    assert res.cartas[0].id_carta == 5
+    assert res.cartas[0].posicion == PosicionCarta.mano
+    assert res.cartas[0].id_jugador == 10
+    # Se repuso el draft desde el mazo
+    repo_c.guardar_muchas.assert_awaited_once()
+    repo_c.mover_primera_carta_mazo_a_draft.assert_awaited_once_with(77)
+    # No finaliza la partida
+    assert res.fin_de_mazo is False
+    assert res.max_alcanzado is False
+    assert res.sin_cartas is False
+    repo_p.guardar.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reponer_del_draft_sin_disponible_finaliza():
+    # Si no hay carta en draft, finaliza
+    partida = crear_partida_en_juego(id_partida=50, estado=EstadoPartida.en_juego)
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=50))
+    repo_c = crear_repo_carta_mock(contar_en_mano_return=0, obtener_draft_disponible_return=[])
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.reponer_del_draft(50, 1, carta_id=999)
+
+    assert res.cartas == []
+    assert res.fin_de_mazo is True
+    assert res.sin_cartas is True
+    repo_p.guardar.assert_awaited()
+    repo_p.confirmar.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reponer_del_draft_fin_de_mazo():
+    # Hay carta en draft, pero el mazo queda en cero -> finaliza partida
+    partida = crear_partida_en_juego(id_partida=60, estado=EstadoPartida.en_juego)
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=60, id_jugador=7))
+    c_draft = crear_carta(id_carta=3, id_partida=60, id_jugador=None, posicion=PosicionCarta.draft)
+    repo_c = crear_repo_carta_mock(
+        contar_en_mano_return=1,
+        obtener_draft_disponible_return=[c_draft],
+        contar_en_mazo_return=0,  # gatilla finalización
+        mover_primera_carta_mazo_a_draft_return=None,
+    )
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.reponer_del_draft(60, 7, carta_id=3)
+
+    assert len(res.cartas) == 1
+    assert res.fin_de_mazo is True
+    repo_p.guardar.assert_awaited()
+    repo_p.confirmar.assert_awaited()
