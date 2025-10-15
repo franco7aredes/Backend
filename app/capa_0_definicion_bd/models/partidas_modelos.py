@@ -36,3 +36,5 @@ class Partida(Base):
     cartas = relationship("Carta", back_populates="partida", cascade="all, delete")
 
     secretos = relationship("SecretoDB", back_populates="partida", cascade="all, delete")
+
+    sets = relationship("Set", back_populates="partida", cascade="all, delete")

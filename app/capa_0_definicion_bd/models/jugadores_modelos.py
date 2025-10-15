@@ -18,3 +18,5 @@ class Jugador(Base):
     cartas = relationship("Carta", back_populates="jugador")
 
     secretos = relationship("SecretoDB", back_populates="jugador")
+
+    sets = relationship("Set", back_populates="jugador")
