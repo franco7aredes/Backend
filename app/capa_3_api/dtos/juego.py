@@ -18,6 +18,8 @@ class Carta(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
         use_enum_values=True,
+        # Esto me va a permitir ignorar campos ocultos, que solo maneja el back
+        extra="ignore",
     )
 
 
