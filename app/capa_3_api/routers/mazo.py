@@ -216,7 +216,15 @@ async def ver_primeras_del_descarte(id: int, jugador_id: int, service: ServicioJ
     """ devuelve las ultimas 5 cartas que hayan sido descartadas en la partida, por websocket"""
     try:
         res = await service.ver_del_descarte(id, jugador_id)
-        except Exception:
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except ValueError as e:
+        if str(e) == "jugador_no_encontrado":
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+        if str(e) == "jugador_no_en_partida":
+            raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+        raise
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
     
 
@@ -227,14 +235,6 @@ async def ver_primeras_del_descarte(id: int, jugador_id: int, service: ServicioJ
     await administrador.enviar_mensaje(mensaje, jugador_id)
 
     return Response(status_code=status.HTTP_200_OK)
-    except PartidaNoEncontrada:
-        raise HTTPException(status_code=404, detail="Partida no encontrada")
-    except ValueError as e:
-        if str(e) == "jugador_no_encontrado":
-            raise HTTPException(status_code=404, detail="Jugador no encontrado")
-        if str(e) == "jugador_no_en_partida":
-            raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
-        raise
 
 @mazo_router.put("/partida/{partida_id}/reponer_draft", response_model=ReponerRespuesta, status_code=status.HTTP_200_OK)
 async def reponer_draft(partida_id: int, carta_id: int, data: ReponerSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
@@ -244,6 +244,15 @@ async def reponer_draft(partida_id: int, carta_id: int, data: ReponerSolicitud, 
     # Usar servicio
     try:
         resultado = await service.reponer_del_draft(partida_id, jugador_id, carta_id)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except ValueError as e:
+        if str(e) == "jugador_no_encontrado":
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+        if str(e) == "jugador_no_en_partida":
+            raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+        raise
+
     if resultado.max_alcanzado:
         return ReponerRespuesta(mensaje="El jugador ya tiene el maximo de cartas en la mano")
 

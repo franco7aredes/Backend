@@ -147,6 +147,10 @@ class RepositorioCartaSQLAlchemy:
     
     async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]:
         """ obtengo las ultimas cartas que fueron descartadas """
+        stmt = (
+            select(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
                 & (CartaModelo.posicion == PosicionCarta.descarte)
             )
             .order_by(desc(CartaModelo.orden_en_descarte))
