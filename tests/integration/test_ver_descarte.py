@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, ANY
 
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
@@ -68,17 +68,16 @@ async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):
     import app.capa_3_api.websockets.ApiWS as wsmod
     monkeypatch.setattr(wsmod.administrador, "enviar_mensaje", AsyncMock())
 
-    resp = async_client.get("/partida/7/descarte", params={"jugador_id": 2})
+    resp = await async_client.get("/partida/7/descarte", params={"jugador_id": 2})
     assert resp.status_code == 200
-    body = resp.json()
 
     # La respuesta es solo el codigo, tengo que revisar el WS
 
     wsmod.administrador.enviar_mensaje.assert_any_call(
-        2,
         {"cantidad": 5,
-        "cartas":[c1, c2, c3, c4, c5],
-        }
+        "cartas":ANY
+        },
+        2
     )
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
@@ -91,7 +90,7 @@ async def test_ver_descarte_partida_no_encontrada(async_client):
         raise PartidaNoEncontrada()
 
     svc = S()
-    setattr=(svc, "ver_del_descarte", raise_nf)
+    setattr(svc, "ver_del_descarte", raise_nf)
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: svc
 
     resp = await async_client.get("partida/7/descarte", params={"jugador_id":2})

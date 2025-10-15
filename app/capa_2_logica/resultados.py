@@ -74,6 +74,6 @@ class ObtenerSecretosResultado:
 class ObtenerCartasResultado:
     cartas: List[CartaModelo]
 
-Qdataclass(slots=True)
+@dataclass(slots=True)
 class VerDescarteResultado:
     descarte: List[CartaModelo]

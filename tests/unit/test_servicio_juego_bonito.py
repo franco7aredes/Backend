@@ -304,7 +304,7 @@ async def test_ver_de_descarte_error():
     repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
 
     repo_c = crear_repo_carta_mock(
-                            obtener_primeras_de_descarte_return=None,
+                            obtener_primeras_de_descarte_return=[],
                             )
 
     s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
@@ -325,4 +325,4 @@ async def test_ver_de_descarte_error():
 
     res = await s.ver_del_descarte(77, 10)
     assert hasattr(res, "descarte")
-    assert res.carta == []
+    assert res.descarte == []

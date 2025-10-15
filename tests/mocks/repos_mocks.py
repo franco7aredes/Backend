@@ -42,8 +42,7 @@ except Exception:  # pragma: no cover - los tests pueden no necesitar estos impo
 
 def _async_method(default_return: Any = None) -> AsyncMock:
     m = AsyncMock()
-    if default_return is not None:
-        m.return_value = default_return
+    m.return_value = default_return
     return m
 
 
@@ -91,7 +90,8 @@ def crear_repo_carta_mock(
     contar_en_mazo_return: Any | None = None,
     obtener_cartas_en_mano_return: Any | None = None,
     obtener_cantidad_descartadas_return: Any | None = None,
-    obtener_primeras_de_descarte_return: Any | None = None
+    obtener_primeras_de_descarte_return: Any | None = None,
+    obtener_carta_return: Any | None = None
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
@@ -104,7 +104,12 @@ def crear_repo_carta_mock(
     repo.contar_en_mazo = _async_method(contar_en_mazo_return if contar_en_mazo_return is not None else 0)
     repo.obtener_cartas_en_mano = _async_method(obtener_cartas_en_mano_return)
     repo.obtener_cantidad_descartadas = _async_method(obtener_cantidad_descartadas_return if obtener_cantidad_descartadas_return is not None else 0)
-    repo.obtener_primeras_de_descarte = _async_method(obtener_primeras_de_descarte_return)
+    repo.obtener_primeras_de_descarte = _async_method(obtener_primeras_de_descarte_return
+        if obtener_primeras_de_descarte_return is not None
+        else []
+    )
+    repo.obtener_carta = _async_method(obtener_carta_return)
+    repo.guardar = _async_method()
     return repo
 
     

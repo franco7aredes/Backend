@@ -52,7 +52,7 @@ class _RepoCartaProto(Protocol):
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
     async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> List[CartaModelo]: ...
     async def obtener_carta(self, partida_id: int, carta_id: int) -> CartaModelo: ...
-    async def obtener_cantidad_descartadas(self, partida_id: int) => int: ...
+    async def obtener_cantidad_descartadas(self, partida_id: int) -> int: ...
     async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]: ...
 
 
@@ -534,11 +534,11 @@ class ServicioJuego:
         cartas = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
         return ObtenerCartasResultado(cartas=cartas)
 
-    async def ver_del_descarte(self, partida_id: int, jugador_id: int) => VerDescarteResultado:
+    async def ver_del_descarte(self, partida_id: int, jugador_id: int) -> VerDescarteResultado:
         """ obtiene las cartas que estan mas arriba del mazo de descarte,
          las 5 (o menos) que esten mas arriba """
          
-         if not self.jugadores or not self.cartas:
+        if not self.jugadores or not self.cartas:
             return VerDescarteResultado(descarte=[])
          
         jugador = await self.jugadores.obtener(jugador_id)
