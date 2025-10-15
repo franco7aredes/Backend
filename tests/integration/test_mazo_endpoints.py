@@ -16,12 +16,30 @@ async def test_descartar_carta_bonito(async_client):
     setattr(mock_service, "descartar_carta", AsyncMock(return_value=DescartarResultado(carta=carta)))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
+    import app.capa_3_api.routers.mazo as rmazo
+    setattr(rmazo.administrador, "difundir_a_partida", AsyncMock())
+
+
     resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9, "carta_id": 1})
     assert resp.status_code == 200
     data = resp.json()
     assert data["id_carta"] == 1
     assert data["posicion"] == "descarte"
     assert data["tipo"] == "detective"
+
+    # Verificar que se llamo al menos una vez
+    assert rmazo.administrador.difundir_a_partida.await_count >= 1
+
+    # Verificar lo que se envio
+    args, kwargs = rmazo.administrador.difundir_a_partida.call_args
+    partida_id_enviado, mensaje_enviado = args
+    assert partida_id_enviado == 1
+    assert mensaje_enviado == {
+        "evento": "jugador_descarto",
+        "partida_id": 1,
+        "jugador_id": 9,
+        "carta": 1,
+    }
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 

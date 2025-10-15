@@ -19,3 +19,7 @@ class MinimoJugadoresNoAlcanzado(Exception):
 
 class MaximoJugadoresAlcanzado(Exception):
     pass
+
+
+class AsesinoNoEncontrado(Exception):
+    pass

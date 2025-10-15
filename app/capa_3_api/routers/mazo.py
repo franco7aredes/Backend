@@ -3,12 +3,13 @@ from fastapi.responses import Response
 from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
-from app.capa_2_logica.errores import PartidaNoEncontrada
+from app.capa_2_logica.errores import PartidaNoEncontrada, AsesinoNoEncontrado
 from app.capa_3_api.dtos.mazo import (
 	ReponerSolicitud,
 	ReponerRespuesta,
 	DescartarSolicitud,
 	ManoRespuesta,
+    DraftRespuesta,
 	CartasEnManoRespuesta,
 )
 from app.capa_3_api.mapeadores import mapear_cartas_a_dto, mapear_carta_a_dto
@@ -51,17 +52,57 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
 
     if resultado.fin_de_mazo:
         try:
+                asesino_res = await service.obtener_asesino(partida_id)
+                id_asesino = asesino_res.asesino
+
                 await administrador.enviar_texto(jugador_id, "fin_de_mazo")
-                await administrador.enviar_mensaje({"evento": "fin_de_mazo", "partida_id": partida_id}, jugador_id)
-                await administrador.difundir_a_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id})
+                await administrador.enviar_mensaje({"evento": "fin_de_mazo", "partida_id": partida_id, "asesino_id": id_asesino}, jugador_id)
+                await administrador.difundir_a_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id, "asesino_id": id_asesino})
         except Exception:
+            pass
+        except AsesinoNoEncontrado:
             pass
 
     cartas = resultado.cartas
     cartas_dto = mapear_cartas_a_dto(cartas)
+
+    # determinamos la cantidad de cartas en el mazo
+    try:
+        mazo_res = await service.obtener_cantidad_cartas_en_mazo(partida_id)
+        cantidad_restante = int(getattr(mazo_res, "cantidad", mazo_res))
+
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "mazo_restante",
+                "jugador_id": jugador_id,
+                "mazo_restante": cantidad_restante,
+            }
+        )
+    except Exception:
+        pass
+
+    # Notificamos al resto la cantidad de cartas en mano de cada jugador
+    try:
+        manos_res = await service.obtener_cantidad_manos(partida_id)
+        manos_list = [
+            {"id_jugador": jid, "cantidad": cant}
+            for jid, cant in manos_res.cartas_por_jugador.items()
+        ]
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "manos_actualizadas",
+                "partida_id": partida_id,
+                "manos": manos_list,
+            }
+        )
+    except Exception:
+        pass
+
     return ReponerRespuesta(
         mensaje=f"Se repusieron {len(cartas)} cartas",
-        cartas=cartas_dto,
+        cartas=cartas_dto
     )
 
 
@@ -76,11 +117,43 @@ async def descartar_carta_por_jugador(partida_id: int, data: DescartarSolicitud,
         # responde como "no hay carta para descartar" en esta partida
         raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
 
-    # Nuevo contrato: devolver solo la carta (DTO)
     carta_obj = getattr(res, "carta", None) if res is not None else None
     if carta_obj is None:
         raise HTTPException(status_code=404, detail="No se encontró carta para descartar en esta partida")
     carta_dto = mapear_carta_a_dto(carta_obj)
+
+    # Difundir notificación a toda la partida (mensaje general)
+    try:
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "jugador_descarto",
+                "partida_id": partida_id,
+                "jugador_id": jugador_id,
+                "carta": carta_id,
+            }
+        )
+    except Exception:
+        pass
+
+    # Notificamos al resto la cantidad de cartas en mano de cada jugador
+    try:
+        manos_res = await service.obtener_cantidad_manos(partida_id)
+        manos_list = [
+            {"id_jugador": jid, "cantidad": cant}
+            for jid, cant in manos_res.cartas_por_jugador.items()
+        ]
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "manos_actualizadas",
+                "partida_id": partida_id,
+                "manos": manos_list,
+            }
+        )
+    except Exception:
+        pass
+
     return carta_dto
 
 
@@ -94,6 +167,27 @@ async def obtener_mano_jugador(partida_id: int, jugador_id: int, service: Servic
 		cantidad_val = int(res2)  # type: ignore[arg-type]
 	return ManoRespuesta(cantidad=cantidad_val)
 
+@mazo_router.get("/partida/{id}/draft", response_model=DraftRespuesta, status_code=status.HTTP_200_OK)
+async def obtener_draft(id: int, jugador_id: int,  service: ServicioJuego = Depends(obtener_servicio_juego)):
+
+    try:
+        resultado = await service.ver_draft(id, jugador_id)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except ValueError as e:
+        if str(e) == "jugador_no_encontrado":
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+        if str(e) == "jugador_no_en_partida":
+            raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+        raise
+
+    draft = resultado.draft
+    draft_dto = mapear_cartas_a_dto(draft)
+        
+    return DraftRespuesta(
+        mensaje=f"Esto es el draft",
+        cartas=draft_dto,
+    )
 
 @mazo_router.get("/partida/{partida_id}/cartas/{jugador_id}", response_model=CartasEnManoRespuesta, status_code=status.HTTP_200_OK)
 async def obtener_cartas_jugador(partida_id: int, jugador_id: int, service: ServicioJuego = Depends(obtener_servicio_juego)):

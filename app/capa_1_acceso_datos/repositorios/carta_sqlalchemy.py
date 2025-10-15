@@ -72,6 +72,13 @@ class RepositorioCartaSQLAlchemy:
         self.db.add(carta)
         await self.db.flush()
 
+    async def obtener_draft(self, partida_id: int) -> List[CartaModelo]:
+        stmt = (
+            select(CartaModelo)
+            .where((CartaModelo.id_partida == partida_id) & (CartaModelo.posicion == PosicionCarta.draft))
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
     
     async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> list[CartaModelo]:
         """Obtiene las cartas en mano del jugador en la partida."""
@@ -87,11 +94,11 @@ class RepositorioCartaSQLAlchemy:
         res = await self.db.execute(stmt)
         return list(res.scalars().all())
         
-    async def obtener_carta(self, partida_id: int, carta_id: int) -> CartaModelo:
+    async def obtener_carta(self, partida_id: int, jugador_id: int, carta_id: int) -> CartaModelo:
         """ obtengo una carta en particular"""
         stmt = (
             select(CartaModelo)
-            .where((CartaModelo.id_partida == partida_id) & (CartaModelo.id_carta == carta_id))
+            .where((CartaModelo.id_partida == partida_id) & (CartaModelo.id_carta == carta_id) & (CartaModelo.id_jugador == jugador_id))
         )
 
         res = await self.db.execute(stmt)
