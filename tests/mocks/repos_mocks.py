@@ -54,13 +54,12 @@ def crear_repo_partida_mock(
     confirmar_return: Any | None = None,
 ) -> MagicMock:
     """Repo de partidas con métodos async mockeados.
-    Podés reconfigurar luego: repo.obtener.return_value = ...; repo.obtener.side_effect = ...
     """
     repo = MagicMock()
     repo.db = object()
     repo.crear = _async_method(crear_return)
-    repo.obtener = _async_method(obtener_return)
-    repo.listar_en_espera = _async_method(listar_en_espera_return)
+    repo.obtener = AsyncMock(return_value=obtener_return)
+    repo.listar_en_espera = _async_method(listar_en_espera_return if listar_en_espera_return is not None else [])
     repo.guardar = _async_method()
     repo.confirmar = _async_method(confirmar_return)
     return repo
@@ -76,7 +75,7 @@ def crear_repo_jugador_mock(
     repo.db = object()
     repo.listar_por_partida = _async_method(listar_por_partida_return)
     repo.crear = _async_method(crear_return)
-    repo.obtener = _async_method(obtener_return)
+    repo.obtener = AsyncMock(return_value=obtener_return)
     # opcional: guardar_muchos si el servicio lo usa
     repo.guardar_muchos = _async_method()
     return repo
@@ -89,6 +88,7 @@ def crear_repo_carta_mock(
     obtener_mazo_disponible_return: Any | None = None,
     contar_en_mazo_return: Any | None = None,
     obtener_draft_return: Any | None = None,
+    obtener_cartas_en_mano_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
@@ -100,6 +100,7 @@ def crear_repo_carta_mock(
     repo.guardar_muchas = _async_method()
     # y consultar restantes en el mazo
     repo.contar_en_mazo = _async_method(contar_en_mazo_return if contar_en_mazo_return is not None else 0)
+    repo.obtener_cartas_en_mano = _async_method(obtener_cartas_en_mano_return)
     return repo
 
     
@@ -107,11 +108,15 @@ def crear_repo_secreto_mock(
     *,
     crear_muchos_return: Any | None = None,
     obtener_secretos_return: Any | None = None,
+    obtener_secreto_asesino_return: Any | None = None,
+    contar_secretos_jugador_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
     repo.crear_muchos = _async_method(crear_muchos_return)
     repo.obtener_secretos = _async_method(obtener_secretos_return)
+    repo.obtener_secreto_asesino = _async_method(obtener_secreto_asesino_return)
+    repo.contar_secretos_jugador = _async_method(contar_secretos_jugador_return)
     return repo
 
 # --------- Constructores mínimos de entidades ---------
@@ -177,7 +182,7 @@ def crear_partida_finalizada(*, id_partida: int = 1) -> Any:
     )()
 
 
-def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_partida: int = 1, nombre: str = "Jugador") -> Any:
+def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_partida: int = 1, nombre: str = "Jugador", fecha_nacimiento: Optional[Any] = None) -> Any:
     return type(
         "JugadorDummy",
         (),
@@ -186,6 +191,7 @@ def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_par
             "orden_turno": orden_turno,
             "id_partida": id_partida,
             "nombre": nombre,
+            "fecha_nacimiento": fecha_nacimiento
         },
     )()
 

@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
-from app.capa_2_logica.resultados import ReponerResultado
+from app.capa_2_logica.resultados import ReponerResultado, AsesinoResultado
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
 
 
@@ -11,6 +11,9 @@ from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo,
 async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
     class S:
         async def reponer_del_mazo(self, *args, **kwargs): ...
+        async def obtener_cantidad_cartas_en_mazo(self, partida_id): ...
+    class J:
+        cantidad=10
     mock_service = S()
     setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
         cartas=[
@@ -22,6 +25,9 @@ async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
         max_alcanzado=False,
         sin_cartas=False,
     )))
+
+    setattr(mock_service, "obtener_cantidad_cartas_en_mazo", AsyncMock(return_value=J()))
+
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     # Evitar efectos de WS
@@ -36,6 +42,11 @@ async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
     assert body["mensaje"].startswith("Se repusieron 3 cartas")
     assert len(body["cartas"]) == 3
     assert all(c["posicion"] == "mano" for c in body["cartas"])
+    
+    assert rmazo.administrador.difundir_a_partida.await_count >= 1
+    args = rmazo.administrador.difundir_a_partida.await_args[0][1]
+    assert args["evento"] == "mazo_restante"
+    assert args["mazo_restante"] == 10
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
@@ -96,6 +107,7 @@ async def test_fin_de_mazo_al_agotar_bonito(async_client, monkeypatch):
         max_alcanzado=False,
         sin_cartas=False,
     )))
+    setattr(mock_service, "obtener_asesino", AsyncMock(return_value=AsesinoResultado(asesino=5)))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     import app.capa_3_api.routers.mazo as rmazo
@@ -113,6 +125,10 @@ async def test_fin_de_mazo_al_agotar_bonito(async_client, monkeypatch):
     assert send_text.await_count >= 1
     assert send_message.await_count >= 1
     assert broadcast.await_count >= 1
+
+    args = broadcast.await_args[0][1]
+    assert args["evento"] == "fin_de_mazo"
+    assert args["asesino_id"] == 5
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
@@ -150,3 +166,4 @@ async def test_reponer_partida_inexistente_bonito(async_client):
     assert resp.json()["detail"] == "Partida no encontrada"
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+

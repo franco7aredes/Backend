@@ -1,11 +1,13 @@
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida, EstadoPartida
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta
+from app.capa_0_definicion_bd.models.sets_modelos import Set
 from datetime import date
-
 
 @pytest.mark.asyncio
 async def test_insertar_jugador_y_partida(db_async):
@@ -167,3 +169,119 @@ async def test_cartas_en_jugadores(db_async):
     assert len(mazo) == 3
     assert all(c.nombre is not None and isinstance(c.nombre, str) for c in mazo)
     assert all(getattr(c.tipo, 'value', c.tipo) == 'detective' for c in mazo)
+
+
+@pytest.mark.asyncio
+async def test_crear_set_y_cartas_en_set(db_async):
+    # Partida y Jugador
+    partida = Partida(
+        estado=EstadoPartida.en_juego,
+        id_jugador_creador=1,
+        cantidad_jugadores=2,
+        turno_actual=1,
+        minimo=2,
+        maximo=4,
+    )
+    db_async.add(partida)
+    await db_async.flush()
+
+    jugador = Jugador(
+        nombre="Ana",
+        fecha_nacimiento=date(1999, 1, 1),
+        orden_turno=1,
+        id_avatar=1,
+        id_partida=partida.id_partida,
+    )
+    db_async.add(jugador)
+    await db_async.flush()
+
+    # Crear Set
+    s = Set(id_partida=partida.id_partida, id_jugador=jugador.id_jugador, nombre="Set A")
+    db_async.add(s)
+    await db_async.flush()
+
+    # Carta en el set (FK compuesta + posicion 'sets')
+    c = Carta(
+        id_carta=101,
+        id_partida=partida.id_partida,
+        id_jugador=jugador.id_jugador,
+        id_set=s.id_set,
+        posicion="set",
+        nombre="Carta Set A",
+        tipo="event"
+    )
+    db_async.add(c)
+    await db_async.flush()
+
+    # Verificaciones ORM
+    await db_async.refresh(s, attribute_names=["partida", "jugador", "cartas"])
+    assert s.partida.id_partida == partida.id_partida
+    assert s.jugador.id_jugador == jugador.id_jugador
+    assert len(s.cartas) == 1
+    assert s.cartas[0].id_carta == 101
+    assert s.cartas[0].posicion == "set"
+
+    # Desde Carta hacia Set
+    await db_async.refresh(c, attribute_names=["set"])
+    assert c.set.id_set == s.id_set
+    assert c.set.id_partida == partida.id_partida
+
+
+@pytest.mark.asyncio
+async def test_fk_compuesta_set_en_carta_restringe_partida(db_async):
+    await db_async.execute(text("PRAGMA foreign_keys=ON"))
+    # Dos partidas distintas
+    p1 = Partida(
+        estado=EstadoPartida.en_juego,
+        id_jugador_creador=1,
+        cantidad_jugadores=2,
+        turno_actual=1,
+        minimo=2,
+        maximo=4,
+    )
+    p2 = Partida(
+        estado=EstadoPartida.en_juego,
+        id_jugador_creador=1,
+        cantidad_jugadores=2,
+        turno_actual=1,
+        minimo=2,
+        maximo=4,
+    )
+    db_async.add_all([p1, p2])
+    await db_async.flush()
+
+    j1 = Jugador(
+        nombre="B",
+        fecha_nacimiento=date(2000, 1, 1),
+        orden_turno=1,
+        id_avatar=1,
+        id_partida=p1.id_partida,
+    )
+    j2 = Jugador(
+        nombre="C",
+        fecha_nacimiento=date(2000, 1, 2),
+        orden_turno=1,
+        id_avatar=1,
+        id_partida=p2.id_partida,
+    )
+    db_async.add_all([j1, j2])
+    await db_async.flush()
+
+    s2 = Set(id_partida=p2.id_partida, id_jugador=j2.id_jugador, nombre="Set P2")
+    db_async.add(s2)
+    await db_async.flush()
+
+    # Intentar poner una carta en p1 apuntando a id_set de p2, debería violar la FK compuesta
+    db_async.add(
+        Carta(
+            id_carta=202,
+            id_partida=p1.id_partida, # partida distinta a la del set
+            id_jugador=j1.id_jugador,
+            id_set=s2.id_set, # id_set válido pero de otra partida
+            posicion="set",
+            nombre="Carta inválida",
+            tipo="event",
+        )
+    )
+    with pytest.raises(IntegrityError):
+        await db_async.flush()

@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock
 from typing import List, Optional
+from datetime import datetime, date
 
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.errores import PartidaNoEncontrada
@@ -166,6 +167,120 @@ async def test_terminar_turno_errores():
     with pytest.raises(PermissionError):
         await s.terminar_turno(1, 2)
 
+
+@pytest.mark.asyncio
+async def test_obtener_cartas_propias():
+    from app.capa_0_definicion_bd.models.cartas_modelos import TipoCarta
+
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+    # jugador y partida válidos
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    # cartas en mano mock
+    c1 = crear_carta(id_carta=1, id_partida=77, id_jugador=10, posicion=PosicionCarta.mano)
+    c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
+    c2 = crear_carta(id_carta=2, id_partida=77, id_jugador=10, posicion=PosicionCarta.mano)
+    c2.nombre, c2.tipo = "Hercule Poirot", TipoCarta.detective
+
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2])
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+    res = await s.obtener_cartas_propias(77, 10)
+
+    assert len(res.cartas) == 2
+    assert [c.id_carta for c in res.cartas] == [1, 2]
+    assert all(c.posicion == PosicionCarta.mano for c in res.cartas)
+    assert all((getattr(c, "nombre", None) is not None and getattr(c, "tipo", None) is not None) for c in res.cartas)
+
+@pytest.mark.asyncio
+async def test_obtener_cartas_propias_errores():
+    # jugador no encontrado
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock(obtener_return=None)
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+    with pytest.raises(ValueError):
+        await s.obtener_cartas_propias(77, 10)
+
+
+    # jugador no pertenece a la partida
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=10, id_partida=99))
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego))
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+    with pytest.raises(ValueError):
+        await s.obtener_cartas_propias(77, 10)
+
+@pytest.mark.asyncio
+async def test_ordenar_turnos_bonitos():
+    repo_partida = crear_repo_partida_mock()
+    repo_jugador = crear_repo_jugador_mock()
+
+    repo_partida.obtener.return_value = crear_partida_en_juego(id_partida=1, turno_actual=1,estado=EstadoPartida.en_juego, cantidad_jugadores=3)
+    repo_jugador.listar_por_partida.return_value = [
+        crear_jugador(id_jugador=10, orden_turno=1, id_partida=1, fecha_nacimiento=date(1995, 8, 10)),
+        crear_jugador(id_jugador=13, orden_turno=2, id_partida=1, fecha_nacimiento=date(1995, 10, 12)),
+        crear_jugador(id_jugador=15, orden_turno=3, id_partida=1, fecha_nacimiento=date(1993, 8, 2)),
+    ]
+
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador)
+
+    res = await s.asignar_turnos(1)
+
+    assert len(res) == 3
+    assert [j.id_jugador for j in res] == [13, 10, 15]
+
+    repo_jugador.listar_por_partida.return_value = [
+        crear_jugador(id_jugador=10, orden_turno=1, id_partida=1, fecha_nacimiento=date(1995, 9, 10)),
+        crear_jugador(id_jugador=13, orden_turno=2, id_partida=1, fecha_nacimiento=date(1996, 9, 21)),
+        crear_jugador(id_jugador=15, orden_turno=3, id_partida=1, fecha_nacimiento=date(1993, 9, 8)),
+    ]
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador)
+
+    res = await s.asignar_turnos(1)
+
+    assert len(res) == 3
+    assert [j.id_jugador for j in res] == [10, 13, 15]
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_cartas_en_mazo():
+    repo_p = crear_repo_partida_mock()
+    repo_c = crear_repo_carta_mock(contar_en_mazo_return=7)
+
+    s = ServicioJuego(repo_p, cartas=repo_c)
+    res = await s.obtener_cantidad_cartas_en_mazo(30)
+
+    # Validaciones 
+    assert hasattr(res, "cantidad")
+    assert res.cantidad == 7
+    repo_c.contar_en_mazo.assert_awaited_once_with(30)
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_cartas_en_error():
+    repo_p = crear_repo_partida_mock()
+    s = ServicioJuego(repo_p)  # sin cartas
+
+    res = await s.obtener_cantidad_cartas_en_mazo(77)
+
+    assert hasattr(res, "cantidad")
+    assert res.cantidad == 0
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_manos():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego))
+    j1 = crear_jugador(id_jugador=10, id_partida=77)
+    j2 = crear_jugador(id_jugador=11, id_partida=77)
+    repo_jugador = crear_repo_jugador_mock(listar_por_partida_return=[j1, j2])
+
+    repo_carta = crear_repo_carta_mock()
+    # primero jugador 10 (3 cartas), luego jugador 11 (5 cartas)
+    repo_carta.contar_en_mano.side_effect = [3, 5]
+
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta)
+    res = await s.obtener_cantidad_manos(77)
+    assert res.cartas_por_jugador == {10: 3, 11: 5}
+
 @pytest.mark.asyncio
 async def test_obtener_secretos_propios():
     repo_p = crear_repo_partida_mock()
@@ -245,3 +360,69 @@ async def test_obtener_draft_errores():
     s= ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
     with pytest.raises(ValueError):
         await s.ver_draft(77, 10)
+        
+
+@pytest.mark.asyncio        
+async def test_obtener_asesino():
+    # Setup repositorios mockeados
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=3))
+    repo_j = crear_repo_jugador_mock()
+
+    # Crear secreto de tipo asesino
+    secreto_asesino = crear_secreto(id_secreto=1, id_partida=3, id_jugador=5, tipo=TipoSecreto.asesino)
+
+    # Repositorio de secretos con el método mockeado correctamente
+    repo_s = crear_repo_secreto_mock(obtener_secreto_asesino_return=secreto_asesino)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    resultado = await servicio.obtener_asesino(partida_id=3)
+    assert hasattr(resultado, "asesino")
+    assert resultado.asesino == 5
+
+@pytest.mark.asyncio
+async def test_obtener_asesino_sin_partida():
+    repo_p = crear_repo_partida_mock()
+    repo_p.obtener.return_value = None 
+
+    repo_j = crear_repo_jugador_mock()
+    repo_s = crear_repo_secreto_mock()
+
+    servicio = ServicioJuego(partidas=repo_p,jugadores=repo_j, secretos=repo_s)
+
+    with pytest.raises(PartidaNoEncontrada):
+        await servicio.obtener_asesino(partida_id=5)
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_secretos():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=99, estado=EstadoPartida.en_juego))
+    j1 = crear_jugador(id_jugador=3, id_partida=99)
+    j2 = crear_jugador(id_jugador=7, id_partida=99)
+    repo_jugador = crear_repo_jugador_mock(listar_por_partida_return=[j1, j2])
+
+    repo_secreto = crear_repo_secreto_mock()
+    # primero jugador 3 (2 secretos), luego jugador 7 (4 secretos)
+    repo_secreto.contar_secretos_jugador.side_effect = [2, 4]
+
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, secretos=repo_secreto)
+    res = await s.obtener_cantidad_secretos(99)
+    assert res.secretos_por_jugador == {3: 2, 7: 4}
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_secretos_partida_no_encontrada():
+    repo_partida = crear_repo_partida_mock(obtener_return=None)
+    repo_jugador = crear_repo_jugador_mock()
+    repo_secreto = crear_repo_secreto_mock()
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, secretos=repo_secreto)
+    with pytest.raises(PartidaNoEncontrada):
+        await s.obtener_cantidad_secretos(99)
+
+@pytest.mark.asyncio
+async def test_obtener_cantidad_secretos_sin_jugadores():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=99, estado=EstadoPartida.en_juego))
+    repo_jugador = crear_repo_jugador_mock(listar_por_partida_return=[])
+    repo_secreto = crear_repo_secreto_mock()
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, secretos=repo_secreto)
+    res = await s.obtener_cantidad_secretos(99)
+    assert res.secretos_por_jugador == {}
+

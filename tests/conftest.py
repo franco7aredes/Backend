@@ -1,7 +1,7 @@
 import pytest
 import pytest_asyncio
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.capa_0_definicion_bd.base_datos_sqlalchemy import Base, get_async_db as get_async_db_es
@@ -57,6 +57,8 @@ def setup_db_once():
     yield
     async def _drop():
         async with async_engine.begin() as conn:
+            # Desactivar FKs en SQLite para evitar errores al dropear tablas con referencias
+            await conn.execute(text("PRAGMA foreign_keys=OFF"))
             await conn.run_sync(Base.metadata.drop_all)
     asyncio.run(_drop())
     if os.path.exists("./test.db"):

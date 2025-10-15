@@ -53,6 +53,11 @@ class CantidadManoResultado:
 
 
 @dataclass(slots=True)
+class CantidadMazoResultado:
+    cantidad: int
+
+
+@dataclass(slots=True)
 class UnirsePartidaResultado:
     partida: PartidaModelo
     jugador: JugadorModelo
@@ -73,3 +78,20 @@ class ObtenerSecretosResultado:
 @dataclass(slots=True)
 class ObtenerDraftResultado:
     draft: List[CartaModelo]
+      
+@dataclass(slots=True)      
+class ObtenerCartasResultado:
+    cartas: List[CartaModelo]
+
+@dataclass(slots=True)
+class CantidadManosResultado:
+    cartas_por_jugador: Dict[int, int]
+
+@dataclass(slots=True)
+class AsesinoResultado:
+    asesino: int
+
+@dataclass(slots=True)
+class CantidadSecretosResultado:
+    secretos_por_jugador: Dict[int, int]
+

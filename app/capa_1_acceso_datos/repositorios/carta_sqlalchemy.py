@@ -66,15 +66,6 @@ class RepositorioCartaSQLAlchemy:
         res = await self.db.execute(stmt)
         return int(res.scalar() or 0)
 
-    async def obtener_primera_en_mano(self, partida_id: int, jugador_id: int) -> Optional[CartaModelo]:
-        stmt = (
-            select(CartaModelo)
-            .where((CartaModelo.id_partida == partida_id) & (CartaModelo.id_jugador == jugador_id))
-            .limit(1)
-        )
-        res = await self.db.execute(stmt)
-        return res.scalars().first()
-
     async def guardar(self, carta: CartaModelo) -> None:
         if getattr(carta, "nombre", None) is None or getattr(carta, "tipo", None) is None:
             raise ValueError("Carta invalida: 'nombre' y 'tipo' son obligatorios")
@@ -88,3 +79,27 @@ class RepositorioCartaSQLAlchemy:
         )
         res = await self.db.execute(stmt)
         return list(res.scalars().all())
+    
+    async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> list[CartaModelo]:
+        """Obtiene las cartas en mano del jugador en la partida."""
+        stmt = (
+            select(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.id_jugador == jugador_id)
+                & (CartaModelo.posicion == PosicionCarta.mano)
+            )
+            .order_by(CartaModelo.id_carta.asc())
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+        
+    async def obtener_carta(self, partida_id: int, jugador_id: int, carta_id: int) -> CartaModelo:
+        """ obtengo una carta en particular"""
+        stmt = (
+            select(CartaModelo)
+            .where((CartaModelo.id_partida == partida_id) & (CartaModelo.id_carta == carta_id) & (CartaModelo.id_jugador == jugador_id))
+        )
+
+        res = await self.db.execute(stmt)
+        return res.scalars().first()

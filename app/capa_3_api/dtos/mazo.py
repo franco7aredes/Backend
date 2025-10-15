@@ -15,6 +15,7 @@ class ReponerRespuesta(BaseModel):
 
 class DescartarSolicitud(BaseModel):
     jugador_id: int
+    carta_id: int
 
 
 class DescartarRespuesta(BaseModel):
@@ -28,3 +29,8 @@ class ManoRespuesta(BaseModel):
 class DraftRespuesta(BaseModel):
     mensaje: str
     cartas: List[CartaDTO]
+
+class CartasEnManoRespuesta(BaseModel):
+    cantidad: int
+    cartas: List[CartaDTO]
+    model_config = ConfigDict(from_attributes=True)
