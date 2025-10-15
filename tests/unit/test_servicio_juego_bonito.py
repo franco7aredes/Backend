@@ -445,6 +445,9 @@ async def test_obtener_draft_bonito():
     c3 = crear_carta(id_carta=7, id_partida=77, posicion=PosicionCarta.draft)
     c3.nombre, c3.tipo = "Not so fast", TipoCarta.instant
 
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
     repo_c = crear_repo_carta_mock(obtener_draft_return=[c1, c2, c3])
     s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
 
