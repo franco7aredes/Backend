@@ -6,7 +6,7 @@ from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
-from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
 from tests.mocks.repos_mocks import (
     crear_repo_partida_mock,
     crear_repo_jugador_mock,
@@ -210,7 +210,6 @@ async def test_obtener_cartas_propias_errores():
 
 @pytest.mark.asyncio
 async def test_descartar_cartas_bonito():
-    from app.capa_0_definicion_bd.models.cartas_modelos import TipoCarta
 
     repo_p = crear_repo_partida_mock()
     repo_j = crear_repo_jugador_mock()
@@ -228,6 +227,64 @@ async def test_descartar_cartas_bonito():
 
     res = await s.descartar_carta(77, 10, 1)
 
-    assert hasattr(res, "descarte")
+    assert hasattr(res, "carta")
     assert res.carta == c1
     assert c1.orden_en_descarte == 36
+
+@pytest.mark.asyncio
+async def test_descartar_cartas_error():
+
+    # Veo que pasa cuando la query devuelve nada
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=None,
+                            obtener_cantidad_descartadas_return=35)
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.descartar_carta(77, 10, 1)
+    assert hasattr(res, "carta")
+    assert res.carta == None
+
+    # Veo cuando no hay base de datos
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.descartar_carta(77, 10, 1)
+    assert hasattr(res, "carta")
+    assert res.carta == None
+
+@pytest.mark.asyncio
+async def test_ver_del_descarte_bonito():
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    c1 = crear_carta(id_carta=1, id_partida=77, id_jugador=10, posicion=PosicionCarta.descarte, orden_en_descarte=4)
+    c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
+    c2 = crear_carta(id_carta=5, id_partida=77, id_jugador=10, posicion=PosicionCarta.descarte, orden_en_descarte=3)
+    c2.nombre, c2.tipo = "Hercule Poirot", TipoCarta.detective
+    c3 = crear_carta(id_carta=2, id_partida=77, id_jugador=10, posicion=PosicionCarta.descarte, orden_en_descarte=2)
+    c3.nombre, c3.tipo = "Not so fast", TipoCarta.instant
+    c4 = crear_carta(id_carta=9, id_partida=77, id_jugador=10, posicion=PosicionCarta.descarte, orden_en_descarte=1)
+    c4.nombre, c4.tipo = "Miss Marple", TipoCarta.detective
+
+    repo_c = crear_repo_carta_mock(
+                    obtener_primeras_de_descarte_return=[c1, c2, c3, c4]
+                    )
+   
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.ver_del_descarte(77, 10)
