@@ -288,3 +288,41 @@ async def test_ver_del_descarte_bonito():
     s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
 
     res = await s.ver_del_descarte(77, 10)
+
+    assert hasattr(res, "descarte")
+    assert res.descarte == [c1, c2, c3, c4]
+    assert all(c.orden_en_descarte == None for c in res.descarte)
+
+@pytest.mark.asyncio
+async def test_ver_de_descarte_error():
+
+    # Veo que pasa cuando la query devuelve nada
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    repo_c = crear_repo_carta_mock(
+                            obtener_primeras_de_descarte_return=None,
+                            )
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.ver_del_descarte(77, 10)
+    assert hasattr(res, "descarte")
+    assert res.descarte == []
+
+    # Veo cuando no hay base de datos
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.ver_del_descarte(77, 10)
+    assert hasattr(res, "descarte")
+    assert res.carta == []
