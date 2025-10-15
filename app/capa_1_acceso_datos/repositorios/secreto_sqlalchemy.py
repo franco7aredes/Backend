@@ -24,6 +24,15 @@ class RepositorioSecretoSQLAlchemy:
         res = await self.db.execute(stmt)
         return list(res.scalars().all())
 
+    async def obtener_secreto_asesino(self, partida_id: int) -> SecretoDB:
+        """" Obtengo el secreto del asesino """
+        stmt = (
+            select(SecretoDB)
+            .where((SecretoDB.id_partida == partida_id) & (SecretoDB.tipo == TipoSecreto.asesino))
+            )
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
+      
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int:
         """Cuenta cuántos secretos tiene un jugador en una partida."""
         stmt = (
@@ -36,3 +45,4 @@ class RepositorioSecretoSQLAlchemy:
         )
         res = await self.db.execute(stmt)
         return int(res.scalar() or 0)
+

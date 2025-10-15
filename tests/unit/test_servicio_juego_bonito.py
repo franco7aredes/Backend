@@ -320,6 +320,37 @@ async def test_obtener_secretos_propios_cero():
     assert len(res.secretos) == 0
 
 @pytest.mark.asyncio
+async def test_obtener_asesino():
+    # Setup repositorios mockeados
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=3))
+    repo_j = crear_repo_jugador_mock()
+
+    # Crear secreto de tipo asesino
+    secreto_asesino = crear_secreto(id_secreto=1, id_partida=3, id_jugador=5, tipo=TipoSecreto.asesino)
+
+    # Repositorio de secretos con el método mockeado correctamente
+    repo_s = crear_repo_secreto_mock(obtener_secreto_asesino_return=secreto_asesino)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    resultado = await servicio.obtener_asesino(partida_id=3)
+    assert hasattr(resultado, "asesino")
+    assert resultado.asesino == 5
+
+@pytest.mark.asyncio
+async def test_obtener_asesino_sin_partida():
+    repo_p = crear_repo_partida_mock()
+    repo_p.obtener.return_value = None 
+
+    repo_j = crear_repo_jugador_mock()
+    repo_s = crear_repo_secreto_mock()
+
+    servicio = ServicioJuego(partidas=repo_p,jugadores=repo_j, secretos=repo_s)
+
+    with pytest.raises(PartidaNoEncontrada):
+        await servicio.obtener_asesino(partida_id=5)
+
+@pytest.mark.asyncio
 async def test_obtener_cantidad_secretos():
     repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=99, estado=EstadoPartida.en_juego))
     j1 = crear_jugador(id_jugador=3, id_partida=99)
@@ -351,3 +382,4 @@ async def test_obtener_cantidad_secretos_sin_jugadores():
     s = ServicioJuego(repo_partida, jugadores=repo_jugador, secretos=repo_secreto)
     res = await s.obtener_cantidad_secretos(99)
     assert res.secretos_por_jugador == {}
+

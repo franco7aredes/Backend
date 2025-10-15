@@ -6,7 +6,7 @@ from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaM
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
 from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, TipoSecreto
 from typing import Protocol, runtime_checkable
-from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
+from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado, AsesinoNoEncontrado
 from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
     PosicionCarta,
@@ -27,6 +27,7 @@ from .resultados import (
     RepartirSecretosResultado,
     ObtenerSecretosResultado,
     CantidadManosResultado,
+    AsesinoResultado,
     CantidadSecretosResultado,
 )
 from .convertidores import partida_a_dict, jugador_a_dict
@@ -61,6 +62,7 @@ class _RepoCartaProto(Protocol):
 class _RepoSecretoProto(Protocol):
     async def crear_muchos(self, secretos: List[SecretoDB]) -> None: ...
     async def obtener_secretos(self, partida_id: int, jugador_id: int) -> List[SecretoDB]: ...
+    async def obtener_secreto_asesino(self, partida_id: int) -> SecretoDB: ...
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int: ...
 
 class ServicioJuego:
@@ -621,6 +623,22 @@ class ServicioJuego:
 
         return CantidadManosResultado(cartas_por_jugador=cantidades)
 
+
+    async def obtener_asesino(self, partida_id: int) -> AsesinoResultado:
+        if not self.secretos:
+            raise AsesinoNoEncontrado()
+        
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        secreto = await self.secretos.obtener_secreto_asesino(partida_id)
+        if not secreto:
+            raise AsesinoNoEncontrado()
+            
+        return AsesinoResultado(asesino=secreto.id_jugador)
+
+      
     async def obtener_cantidad_secretos(self, partida_id: int) -> CantidadSecretosResultado:
         """Devuelve la cantidad de secretos en mano de cada jugador para una partida"""
         if not self.secretos:
@@ -641,3 +659,4 @@ class ServicioJuego:
             cantidades[jj.id_jugador] = cantidad
 
         return CantidadSecretosResultado(secretos_por_jugador=cantidades)
+

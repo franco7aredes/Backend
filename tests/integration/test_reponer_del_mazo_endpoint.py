@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
-from app.capa_2_logica.resultados import ReponerResultado
+from app.capa_2_logica.resultados import ReponerResultado, AsesinoResultado
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
 
 
@@ -107,6 +107,7 @@ async def test_fin_de_mazo_al_agotar_bonito(async_client, monkeypatch):
         max_alcanzado=False,
         sin_cartas=False,
     )))
+    setattr(mock_service, "obtener_asesino", AsyncMock(return_value=AsesinoResultado(asesino=5)))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     import app.capa_3_api.routers.mazo as rmazo
@@ -124,6 +125,10 @@ async def test_fin_de_mazo_al_agotar_bonito(async_client, monkeypatch):
     assert send_text.await_count >= 1
     assert send_message.await_count >= 1
     assert broadcast.await_count >= 1
+
+    args = broadcast.await_args[0][1]
+    assert args["evento"] == "fin_de_mazo"
+    assert args["asesino_id"] == 5
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 

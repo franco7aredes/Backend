@@ -84,5 +84,10 @@ class CantidadManosResultado:
     cartas_por_jugador: Dict[int, int]
 
 @dataclass(slots=True)
+class AsesinoResultado:
+    asesino: int
+
+@dataclass(slots=True)
 class CantidadSecretosResultado:
     secretos_por_jugador: Dict[int, int]
+
