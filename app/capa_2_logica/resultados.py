@@ -76,6 +76,10 @@ class ObtenerSecretosResultado:
     secretos: List[SecretoDB]
 
 @dataclass(slots=True)
+class ObtenerDraftResultado:
+    draft: List[CartaModelo]
+      
+@dataclass(slots=True)      
 class ObtenerCartasResultado:
     cartas: List[CartaModelo]
 

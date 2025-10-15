@@ -7,7 +7,7 @@ from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
-from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
+from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
 from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, TipoSecreto, EstadoSecreto
 from tests.mocks.repos_mocks import (
     crear_repo_partida_mock,
@@ -213,7 +213,6 @@ async def test_obtener_cartas_propias_errores():
         await s.obtener_cartas_propias(77, 10)
 
 @pytest.mark.asyncio
-
 async def test_ordenar_turnos_bonitos():
     repo_partida = crear_repo_partida_mock()
     repo_jugador = crear_repo_jugador_mock()
@@ -320,6 +319,50 @@ async def test_obtener_secretos_propios_cero():
     assert len(res.secretos) == 0
 
 @pytest.mark.asyncio
+async def test_obtener_draft_bonito():
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    # Cartas en draft mock
+    c1 = crear_carta(id_carta=1, id_partida=77, posicion=PosicionCarta.draft)
+    c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
+    c2 = crear_carta(id_carta=4, id_partida=77, posicion=PosicionCarta.draft)
+    c2.nombre, c2.tipo = "Not so fast", TipoCarta.instant
+    c3 = crear_carta(id_carta=7, id_partida=77, posicion=PosicionCarta.draft)
+    c3.nombre, c3.tipo = "Not so fast", TipoCarta.instant
+
+    repo_c = crear_repo_carta_mock(obtener_draft_return=[c1, c2, c3])
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.ver_draft(77, 10)
+
+    assert len(res.draft) == 3
+    assert all (c.posicion == PosicionCarta.draft for c in res.draft)
+    assert [c.id_carta for c in res.draft] == [1, 4, 7]
+
+@pytest.mark.asyncio
+async def test_obtener_draft_errores():
+
+    # jugador no encontrado
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock(obtener_return=None)
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+    with pytest.raises(ValueError):
+        await s.ver_draft(77, 10)
+
+    # jugador no pertenece a la partida
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=10, id_partida=99))
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego))
+    s= ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+    with pytest.raises(ValueError):
+        await s.ver_draft(77, 10)
+        
+
+@pytest.mark.asyncio        
 async def test_obtener_asesino():
     # Setup repositorios mockeados
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=3))

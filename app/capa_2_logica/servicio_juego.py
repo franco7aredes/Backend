@@ -26,6 +26,7 @@ from .resultados import (
     IniciarPartidaResultado,
     RepartirSecretosResultado,
     ObtenerSecretosResultado,
+    ObtenerDraftResultado,
     CantidadManosResultado,
     AsesinoResultado,
     CantidadSecretosResultado,
@@ -54,6 +55,7 @@ class _RepoCartaProto(Protocol):
     async def contar_en_mano(self, partida_id: int, jugador_id: int) -> int: ...
     async def contar_en_mazo(self, partida_id: int) -> int: ...
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
+    async def obtener_draft(self, partida_id: int) -> List[CartaModelo]: ...
     async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> List[CartaModelo]: ...
     async def obtener_carta(self, partida_id: int, jugador_id: int, carta_id: int) -> CartaModelo: ...
 
@@ -253,6 +255,12 @@ class ServicioJuego:
                 idx += 1
 
         cartas_restantes_mazo = mazo_cartas[idx:]
+
+        # aca voy a sacar las 3 de draft
+        cartas_draft = cartas_restantes_mazo[:3]
+        for carta in cartas_draft:
+            carta.posicion = PosicionCarta.draft
+
 
         # Persistir todas las cartas
         todas: List[CartaModelo] = []
@@ -660,3 +668,21 @@ class ServicioJuego:
 
         return CantidadSecretosResultado(secretos_por_jugador=cantidades)
 
+      
+
+    async def ver_draft(self, partida_id: int, jugador_id: int) -> ObtenerDraftResultado:
+
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise ValueError("jugador_no_encontrado")
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador,"id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        drafts = await self.cartas.obtener_draft(partida_id)
+
+        return ObtenerDraftResultado(draft=drafts)
