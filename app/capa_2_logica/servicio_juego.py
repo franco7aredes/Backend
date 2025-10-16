@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional, cast
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
 from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, TipoSecreto
+from app.capa_0_definicion_bd.models.sets_modelos import Set as SetModelo
 from typing import Protocol, runtime_checkable
 from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado, AsesinoNoEncontrado
 from app.capa_0_definicion_bd.models.cartas_modelos import (
@@ -30,6 +31,7 @@ from .resultados import (
     CantidadManosResultado,
     AsesinoResultado,
     CantidadSecretosResultado,
+    JugarSetResultado,
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 
@@ -67,17 +69,22 @@ class _RepoSecretoProto(Protocol):
     async def obtener_secreto_asesino(self, partida_id: int) -> SecretoDB: ...
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int: ...
 
+@runtime_checkable
+class _RepoSetProto(Protocol):
+    async def crear_set(self, set: SetModelo) -> SetModelo: ...
+
 class ServicioJuego:
     """Servicio de reglas de negocio del juego.
 
     Expone casos de uso y no conoce detalles de SQLAlchemy ni de FastAPI.
     """
 
-    def __init__(self, partidas: _RepoPartidaProto, jugadores: _RepoJugadorProto | None = None, cartas: _RepoCartaProto | None = None, secretos: _RepoSecretoProto | None = None):
+    def __init__(self, partidas: _RepoPartidaProto, jugadores: _RepoJugadorProto | None = None, cartas: _RepoCartaProto | None = None, secretos: _RepoSecretoProto | None = None, sets: _RepoSetProto | None = None):
         self.partidas = partidas
         self.jugadores = jugadores
         self.cartas = cartas
         self.secretos = secretos
+        self.sets = sets
 
     async def crear_partida(self, jugador_creador: str, fecha_nac: datetime, minimo: int, maximo: int) -> CrearPartidaResultado:
         """Crea una partida y su jugador inicial (retorna CrearPartidaResultado).
@@ -686,3 +693,79 @@ class ServicioJuego:
         drafts = await self.cartas.obtener_draft(partida_id)
 
         return ObtenerDraftResultado(draft=drafts)
+
+
+    async def Preparar_set(self, partida_id: int, jugador_id: int, cartas_id: list[int]) -> JugarSetResultado:
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise ValueError("jugador no encontrado")
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+        
+        cartas_en_mano = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
+        if not cartas_en_mano:
+            raise ValueError("Cartas no encontradas")
+        cartas_seleccionadas = [c for c in cartas_en_mano if c.id_carta in cartas_id]
+
+        if len(cartas_seleccionadas) != len(cartas_id):
+            raise ValueError("Algunas cartas no están en la mano del jugador")
+        
+        if not (2 <= len(cartas_seleccionadas) <= 3):
+            raise ValueError("Un set debe tener 2 o 3 cartas")
+        
+        if any(carta.tipo != TipoCarta.detective for carta in cartas_seleccionadas):
+            raise ValueError("Todas las cartas deben ser de tipo detective")
+        
+        nombres = [carta.nombre for carta in cartas_seleccionadas]
+        comodines = [n for n in nombres if n == "Harley Quin Wildcard"]
+        normales = [n for n in nombres if n != "Harley Quin Wildcard"]
+
+        if len(comodines) > 2:
+            raise ValueError("No se permiten más de 2 comodines por set")
+
+        if len(normales) == 0:
+            raise ValueError("No se puede formar un set solo con comodines")
+        
+        # Detectives que requieren 3 cartas
+        requiere_3 = {"Miss Marple", "Hercule Poirot"}
+        total = len(normales) + len(comodines)
+        
+
+        # Caso especial: Beresford
+        beresford = {"Tommy Beresford", "Tuppence Beresford"}
+        if set(normales).issubset(beresford):
+            if total == 2:
+                nombre_set = "Beresford"
+            else:
+                raise ValueError("Los sets de Beresford solo pueden tener 2 cartas")
+
+        # Caso general
+        elif all(n == normales[0] for n in normales):
+            detective = normales[0]
+            if detective in requiere_3 and total == 3:
+                nombre_set = detective
+            elif detective not in requiere_3 and total == 2:
+                nombre_set = detective
+            else:
+                raise ValueError(f"El detective {detective} requiere {'3' if detective in requiere_3 else '2'} cartas para formar un set")
+
+        else:
+            raise ValueError("Las cartas no son compatibles para formar un set")
+        
+        # Crear el set y asociar cartas
+        nuevo_set = SetModelo(
+            id_partida=partida_id,
+            id_jugador=jugador_id,
+            nombre=nombre_set
+        )
+
+        set_creado = await self.sets.crear_set(nuevo_set)
+        if not set_creado: 
+            raise ValueError("set_no_creado")
+
+        for carta in cartas_seleccionadas:
+            carta.id_set = nuevo_set.id_set
+            carta.posicion = PosicionCarta.sets
+
+        return JugarSetResultado(set=set_creado)

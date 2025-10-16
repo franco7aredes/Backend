@@ -6,6 +6,7 @@ from app.capa_1_acceso_datos.repositorios.partida_sqlalchemy import RepositorioP
 from app.capa_1_acceso_datos.repositorios.jugador_sqlalchemy import RepositorioJugadorSQLAlchemy
 from app.capa_1_acceso_datos.repositorios.carta_sqlalchemy import RepositorioCartaSQLAlchemy
 from app.capa_1_acceso_datos.repositorios.secreto_sqlalchemy import RepositorioSecretoSQLAlchemy
+from app.capa_1_acceso_datos.repositorios.set_sqlalchemy import RepositorioSetsSQLAlchemy
 
 from .servicio_juego import ServicioJuego
 
@@ -20,4 +21,5 @@ def obtener_servicio_juego(db: AsyncSession = Depends(get_async_db)) -> Servicio
     repo_jugadores = RepositorioJugadorSQLAlchemy(db)
     repo_cartas = RepositorioCartaSQLAlchemy(db)
     repo_secretos = RepositorioSecretoSQLAlchemy(db)
-    return ServicioJuego(repo_partidas, jugadores=repo_jugadores, cartas=repo_cartas, secretos=repo_secretos)
+    repo_Set = RepositorioSetsSQLAlchemy(db)
+    return ServicioJuego(repo_partidas, jugadores=repo_jugadores, cartas=repo_cartas, secretos=repo_secretos, sets = repo_Set)

@@ -3,7 +3,7 @@ from datetime import date
 from app.capa_3_api.dtos.partidas import Partida as PartidaDTO, Jugador as JugadorDTO
 from app.capa_3_api.dtos.juego import Carta as CartaDTO
 from app.capa_3_api.dtos.juego import SecretoDTO
-
+from app.capa_3_api.dtos.juego import SetDTO
 
 def _estado_a_str(estado) -> str:
     return estado.value if hasattr(estado, "value") else cast(str, estado)
@@ -109,3 +109,6 @@ def mapear_secreto_a_dto(secreto: Any) -> SecretoDTO:
 
 def mapear_secretos_a_dto(secretos: List[Any]) -> List[SecretoDTO]:
     return [mapear_secreto_a_dto(s) for s in secretos]
+
+def mapear_set_a_dto(set: Any) -> SetDTO:
+    return SetDTO.model_validate(set)
