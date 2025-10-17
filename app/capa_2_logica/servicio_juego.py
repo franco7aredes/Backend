@@ -695,10 +695,11 @@ class ServicioJuego:
         return ObtenerDraftResultado(draft=drafts)
 
 
-    async def Preparar_set(self, partida_id: int, jugador_id: int, cartas_id: list[int]) -> JugarSetResultado:
+    async def preparar_set(self, partida_id: int, jugador_id: int, cartas_id: list[int]) -> JugarSetResultado:
         jugador = await self.jugadores.obtener(jugador_id)
         if not jugador:
             raise ValueError("jugador no encontrado")
+        
         partida = await self.partidas.obtener(partida_id)
         if not partida:
             raise PartidaNoEncontrada()
@@ -709,13 +710,16 @@ class ServicioJuego:
         cartas_seleccionadas = [c for c in cartas_en_mano if c.id_carta in cartas_id]
 
         if len(cartas_seleccionadas) != len(cartas_id):
-            raise ValueError("Algunas cartas no están en la mano del jugador")
+            raise ValueError("Algunas cartas no estan en la mano del jugador")
         
         if not (2 <= len(cartas_seleccionadas) <= 3):
             raise ValueError("Un set debe tener 2 o 3 cartas")
         
         if any(carta.tipo != TipoCarta.detective for carta in cartas_seleccionadas):
             raise ValueError("Todas las cartas deben ser de tipo detective")
+        
+        if any(carta.nombre == "Adriane Oliver" for carta in cartas_seleccionadas):
+            raise ValueError("La carta Adriane Oliver no puede ser jugada como parte de un set")
         
         nombres = [carta.nombre for carta in cartas_seleccionadas]
         comodines = [n for n in nombres if n == "Harley Quin Wildcard"]
@@ -762,10 +766,10 @@ class ServicioJuego:
 
         set_creado = await self.sets.crear_set(nuevo_set)
         if not set_creado: 
-            raise ValueError("set_no_creado")
+            raise ValueError("Set no creado")
 
         for carta in cartas_seleccionadas:
             carta.id_set = nuevo_set.id_set
-            carta.posicion = PosicionCarta.sets
+            carta.posicion = PosicionCarta.set
 
         return JugarSetResultado(set=set_creado)
