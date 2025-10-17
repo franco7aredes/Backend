@@ -216,6 +216,58 @@ async def test_obtener_cartas_propias_errores():
         await s.obtener_cartas_propias(77, 10)
 
 @pytest.mark.asyncio
+async def test_descartar_cartas_bonito():
+
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    c1 = crear_carta(id_carta=1, id_partida=77, id_jugador=10, posicion=PosicionCarta.mano)
+    c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=c1,
+                            obtener_cantidad_descartadas_return=35)
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.descartar_carta(77, 10, 1)
+
+    assert hasattr(res, "carta")
+    assert res.carta == c1
+    assert c1.orden_en_descarte == 36
+
+@pytest.mark.asyncio
+async def test_descartar_cartas_error():
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    # Veo que pasa cuando la query devuelve nada
+    repo_c = crear_repo_carta_mock(obtener_carta_return=None,
+                            obtener_cantidad_descartadas_return=35)
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.descartar_carta(77, 10, 1)
+    assert hasattr(res, "carta")
+    assert res.carta == None
+    # Veo cuando no hay base de datos
+    
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.descartar_carta(77, 10, 1)
+    assert hasattr(res, "carta")
+    assert res.carta == None
+
+
+@pytest.mark.asyncio    
 async def test_ordenar_turnos_bonitos():
     repo_partida = crear_repo_partida_mock()
     repo_jugador = crear_repo_jugador_mock()
@@ -322,13 +374,72 @@ async def test_obtener_secretos_propios_cero():
     assert len(res.secretos) == 0
 
 @pytest.mark.asyncio
-async def test_obtener_draft_bonito():
+async def test_ver_del_descarte_bonito():
     repo_p = crear_repo_partida_mock()
     repo_j = crear_repo_jugador_mock()
 
     repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
     repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
 
+    c1 = crear_carta(id_carta=1, id_partida=77, id_jugador=10, posicion=PosicionCarta.descarte, orden_en_descarte=4)
+    c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
+    c2 = crear_carta(id_carta=5, id_partida=77, id_jugador=10, posicion=PosicionCarta.descarte, orden_en_descarte=3)
+    c2.nombre, c2.tipo = "Hercule Poirot", TipoCarta.detective
+    c3 = crear_carta(id_carta=2, id_partida=77, id_jugador=10, posicion=PosicionCarta.descarte, orden_en_descarte=2)
+    c3.nombre, c3.tipo = "Not so fast", TipoCarta.instant
+    c4 = crear_carta(id_carta=9, id_partida=77, id_jugador=10, posicion=PosicionCarta.descarte, orden_en_descarte=1)
+    c4.nombre, c4.tipo = "Miss Marple", TipoCarta.detective
+
+    repo_c = crear_repo_carta_mock(
+                    obtener_primeras_de_descarte_return=[c1, c2, c3, c4]
+                    )
+   
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.ver_del_descarte(77, 10)
+
+    assert hasattr(res, "descarte")
+    assert res.descarte == [c1, c2, c3, c4]
+    assert all(c.orden_en_descarte == None for c in res.descarte)
+
+@pytest.mark.asyncio
+async def test_ver_de_descarte_error():
+
+    # Veo que pasa cuando la query devuelve nada
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    repo_c = crear_repo_carta_mock(
+                            obtener_primeras_de_descarte_return=[],
+                            )
+
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.ver_del_descarte(77, 10)
+    assert hasattr(res, "descarte")
+    assert res.descarte == []
+
+    # Veo cuando no hay base de datos
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
+
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.ver_del_descarte(77, 10)
+    assert hasattr(res, "descarte")
+    assert res.descarte == []
+    
+@pytest.mark.asyncio
+async def test_obtener_draft_bonito():
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
     # Cartas en draft mock
     c1 = crear_carta(id_carta=1, id_partida=77, posicion=PosicionCarta.draft)
     c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
@@ -336,6 +447,9 @@ async def test_obtener_draft_bonito():
     c2.nombre, c2.tipo = "Not so fast", TipoCarta.instant
     c3 = crear_carta(id_carta=7, id_partida=77, posicion=PosicionCarta.draft)
     c3.nombre, c3.tipo = "Not so fast", TipoCarta.instant
+
+    repo_j.obtener.return_value = crear_jugador(id_jugador=10, id_partida=77)
+    repo_p.obtener.return_value = crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego)
 
     repo_c = crear_repo_carta_mock(obtener_draft_return=[c1, c2, c3])
     s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
@@ -638,3 +752,115 @@ async def test_preparar_set_solo_con_comodines():
     with pytest.raises(ValueError):
         await servicio.preparar_set(partida_id=1, jugador_id=1, cartas_id=[1, 2])
     
+
+async def test_reponer_del_draft_errores():
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock()
+    repo_c = crear_repo_carta_mock()
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    # jugador no encontrado
+    repo_j.obtener.return_value = None
+    with pytest.raises(ValueError):
+        await s.reponer_del_draft(1, 99, carta_id=5)
+
+    # partida no encontrada
+    repo_j.obtener.return_value = crear_jugador(id_partida=1)
+    repo_p.obtener.return_value = None
+    with pytest.raises(PartidaNoEncontrada):
+        await s.reponer_del_draft(1, 1, carta_id=5)
+
+    # jugador no pertenece a la partida
+    repo_p.obtener.return_value = type("P", (), {"id_partida": 2})()
+    repo_j.obtener.return_value = crear_jugador(id_partida=2)
+    with pytest.raises(ValueError):
+        await s.reponer_del_draft(1, 1, carta_id=5)
+
+
+@pytest.mark.asyncio
+async def test_reponer_del_draft_max_alcanzado():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1, estado=EstadoPartida.en_juego))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=1))
+    repo_c = crear_repo_carta_mock(contar_en_mano_return=6)
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.reponer_del_draft(1, 1, carta_id=10)
+    assert res.cartas == []
+    assert res.max_alcanzado is True
+    assert res.fin_de_mazo is False
+    assert res.sin_cartas is False
+    repo_c.obtener_draft_disponible.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reponer_del_draft_repone_y_rellena():
+    # Setup partida/jugador válidos
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=77, estado=EstadoPartida.en_juego))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=10, id_partida=77))
+    # Draft tiene la carta pedida, mazo no queda vacío (contar_en_mazo > 0)
+    c_draft = crear_carta(id_carta=5, id_partida=77, id_jugador=None, posicion=PosicionCarta.draft)
+    repo_c = crear_repo_carta_mock(
+        contar_en_mano_return=2,
+        obtener_draft_disponible_return=[c_draft],
+        contar_en_mazo_return=3,
+        mover_primera_carta_mazo_a_draft_return=crear_carta(id_carta=100, id_partida=77, posicion=PosicionCarta.draft),
+    )
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.reponer_del_draft(77, 10, carta_id=5)
+
+    # Se movió a la mano
+    assert len(res.cartas) == 1
+    assert res.cartas[0].id_carta == 5
+    assert res.cartas[0].posicion == PosicionCarta.mano
+    assert res.cartas[0].id_jugador == 10
+    # Se repuso el draft desde el mazo
+    repo_c.guardar_muchas.assert_awaited_once()
+    repo_c.mover_primera_carta_mazo_a_draft.assert_awaited_once_with(77)
+    # No finaliza la partida
+    assert res.fin_de_mazo is False
+    assert res.max_alcanzado is False
+    assert res.sin_cartas is False
+    repo_p.guardar.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reponer_del_draft_sin_disponible_finaliza():
+    # Si no hay carta en draft, finaliza
+    partida = crear_partida_en_juego(id_partida=50, estado=EstadoPartida.en_juego)
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=50))
+    repo_c = crear_repo_carta_mock(contar_en_mano_return=0, obtener_draft_disponible_return=[])
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.reponer_del_draft(50, 1, carta_id=999)
+
+    assert res.cartas == []
+    assert res.fin_de_mazo is True
+    assert res.sin_cartas is True
+    repo_p.guardar.assert_awaited()
+    repo_p.confirmar.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reponer_del_draft_fin_de_mazo():
+    # Hay carta en draft, pero el mazo queda en cero -> finaliza partida
+    partida = crear_partida_en_juego(id_partida=60, estado=EstadoPartida.en_juego)
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=60, id_jugador=7))
+    c_draft = crear_carta(id_carta=3, id_partida=60, id_jugador=None, posicion=PosicionCarta.draft)
+    repo_c = crear_repo_carta_mock(
+        contar_en_mano_return=1,
+        obtener_draft_disponible_return=[c_draft],
+        contar_en_mazo_return=0,  # gatilla finalización
+        mover_primera_carta_mazo_a_draft_return=None,
+    )
+    s = ServicioJuego(repo_p, jugadores=repo_j, cartas=repo_c)
+
+    res = await s.reponer_del_draft(60, 7, carta_id=3)
+
+    assert len(res.cartas) == 1
+    assert res.fin_de_mazo is True
+    repo_p.guardar.assert_awaited()
+    repo_p.confirmar.assert_awaited()
+

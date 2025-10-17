@@ -85,6 +85,10 @@ class ObtenerCartasResultado:
     cartas: List[CartaModelo]
 
 @dataclass(slots=True)
+class VerDescarteResultado:
+    descarte: List[CartaModelo]
+      
+@dataclass(slots=True)      
 class CantidadManosResultado:
     cartas_por_jugador: Dict[int, int]
 

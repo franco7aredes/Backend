@@ -1,3 +1,4 @@
+from ast import stmt
 from typing import List, Optional
 
 from sqlalchemy import select, func
@@ -103,3 +104,57 @@ class RepositorioCartaSQLAlchemy:
 
         res = await self.db.execute(stmt)
         return res.scalars().first()
+
+    async def obtener_cantidad_descartadas(self, partida_id: int) -> int:
+        """ obtengo cuantas cartas hay en el mazo de descarte """
+        stmt = (
+            select(func.count())
+            .select_from(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.posicion == PosicionCarta.descarte)
+            )
+        )
+        res = await self.db.execute(stmt)
+        return int(res.scalar() or 0)
+
+    async def obtener_draft_disponible(self, partida_id: int, carta_id: int) -> List[CartaModelo]:
+        stmt = (
+            select(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.posicion == PosicionCarta.draft)
+                & (CartaModelo.id_jugador.is_(None))
+                & (CartaModelo.id_carta == carta_id)
+            )
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+    
+    async def mover_primera_carta_mazo_a_draft(self, partida_id: int) -> Optional[CartaModelo]:
+        """Toma la primera carta del mazo y la mueve al draft. Devuelve la carta movida o None si no hay mazo."""
+        mazo = await self.obtener_mazo_disponible(partida_id, 1)
+        if not mazo:
+            return None
+        carta = mazo[0]
+        
+        carta.posicion = PosicionCarta.draft
+        # Ya deberia estar sin jugador, pero por las dudas
+        carta.id_jugador = None
+        self.db.add(carta)
+        await self.db.flush()
+        return carta
+    
+    async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]:
+        """ obtengo las ultimas cartas que fueron descartadas """
+        stmt = (
+            select(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.posicion == PosicionCarta.descarte)
+            )
+            .order_by(desc(CartaModelo.orden_en_descarte))
+            .limit(5)
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())

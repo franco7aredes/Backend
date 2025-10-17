@@ -27,6 +27,7 @@ from .resultados import (
     IniciarPartidaResultado,
     RepartirSecretosResultado,
     ObtenerSecretosResultado,
+    VerDescarteResultado,
     ObtenerDraftResultado,
     CantidadManosResultado,
     AsesinoResultado,
@@ -34,6 +35,7 @@ from .resultados import (
     JugarSetResultado,
 )
 from .convertidores import partida_a_dict, jugador_a_dict
+from .constantes import CARTAS_POR_MANO
 
 
 @runtime_checkable
@@ -59,8 +61,11 @@ class _RepoCartaProto(Protocol):
     async def obtener_mazo_disponible(self, partida_id: int, limite: int) -> List[CartaModelo]: ...
     async def obtener_draft(self, partida_id: int) -> List[CartaModelo]: ...
     async def obtener_cartas_en_mano(self, partida_id: int, jugador_id: int) -> List[CartaModelo]: ...
+    async def obtener_cantidad_descartadas(self, partida_id: int) -> int: ...
+    async def obtener_primeras_de_descarte(self, partida_id: int) -> List[CartaModelo]: ...
     async def obtener_carta(self, partida_id: int, jugador_id: int, carta_id: int) -> CartaModelo: ...
-
+    async def obtener_draft_disponible(self, partida_id: int, carta_id: int) -> List[CartaModelo]: ...
+    async def mover_primera_carta_mazo_a_draft(self, partida_id: int) -> Optional[CartaModelo]: ...
 
 @runtime_checkable
 class _RepoSecretoProto(Protocol):
@@ -406,8 +411,8 @@ class ServicioJuego:
             await self.partidas.confirmar()  # type: ignore[attr-defined]
         return TurnoResultado(turno_nuevo=int(p.turno_actual))
 
-    async def reponer_del_mazo(self, partida_id: int, jugador_id: int, max_cartas_en_mano: int = 6) -> ReponerResultado:
-        """Mueve cartas del mazo a la mano del jugador (retorna ReponerResultado: cartas, fin_de_mazo, max_alcanzado, sin_cartas)."""
+    async def reponer_del_mazo(self, partida_id: int, jugador_id: int, max_cartas_en_mano: int = CARTAS_POR_MANO) -> ReponerResultado:
+        """Mueve una carta del mazo regular a la mano del jugador (retorna ReponerResultado: cartas, fin_de_mazo, max_alcanzado, sin_cartas)."""
         if not self.jugadores or not self.cartas:
             return ReponerResultado(cartas=[], fin_de_mazo=False, max_alcanzado=False, sin_cartas=True)
 
@@ -427,7 +432,8 @@ class ServicioJuego:
         if a_reponer <= 0:
             return ReponerResultado(cartas=[], fin_de_mazo=False, max_alcanzado=True, sin_cartas=False)
 
-        disponibles = await self.cartas.obtener_mazo_disponible(partida_id, a_reponer)
+        # Ahora obtenemos una sola carta del mazo, no cambiamos el resto para mantener facilidad de modificacion a futuro.
+        disponibles = await self.cartas.obtener_mazo_disponible(partida_id, 1)
         if not disponibles:
             # mazo vacío -> marcar partida finalizada y COMMIT inmediato (el endpoint retornará 404)
             cast(Any, partida).estado = EstadoPartida.Finalizada
@@ -475,9 +481,13 @@ class ServicioJuego:
             return DescartarResultado(carta=None)
         if not carta:
             return DescartarResultado(carta=None)
-        cc2 = cast(Any, carta)
+        # Antes, necesito saber cuantas cartas hay en en el mazo de descarte
+        cantidad_descartadas = await self.cartas.obtener_cantidad_descartadas(partida_id)
+
+        cc2 = cast(Any, carta) 
         cc2.id_jugador = None
         cc2.posicion = PosicionCarta.descarte
+        cc2.orden_en_descarte = cantidad_descartadas + 1
         if hasattr(self.cartas, "guardar"):
             await self.cartas.guardar(cc2)  # type: ignore[attr-defined]
         # Si el repo no provee "guardar", no realizamos accesos directos a BD desde la capa 2
@@ -615,6 +625,31 @@ class ServicioJuego:
 
         cartas = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
         return ObtenerCartasResultado(cartas=cartas)
+
+    async def ver_del_descarte(self, partida_id: int, jugador_id: int) -> VerDescarteResultado:
+        """ obtiene las cartas que estan mas arriba del mazo de descarte,
+         las 5 (o menos) que esten mas arriba """
+         
+        if not self.jugadores or not self.cartas:
+            return VerDescarteResultado(descarte=[])
+         
+        jugador = await self.jugadores.obtener(jugador_id)
+        if jugador is None:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if partida is None:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        descartadas = await self.cartas.obtener_primeras_de_descarte(partida_id)
+        # les limpio el campo de orden_en_descarte, no quiero romper cosas
+        for c in descartadas:
+            c.orden_en_descarte = None
+
+        return VerDescarteResultado(descarte=descartadas)
     
 
     async def obtener_cantidad_manos(self, partida_id: int) -> CantidadManosResultado:
@@ -773,3 +808,67 @@ class ServicioJuego:
             carta.posicion = PosicionCarta.set
 
         return JugarSetResultado(set=set_creado)
+
+    async def reponer_del_draft(self, partida_id: int, jugador_id: int, carta_id: int, max_cartas_en_mano: int = CARTAS_POR_MANO) -> ReponerResultado:
+        """Mueve una carta del draft a la mano del jugador (retorna ReponerResultado: cartas, fin_de_mazo, max_alcanzado, sin_cartas).
+        Al igual que reponer_del_mazo, no modificamos la logica para mantener adaptabilidad a futuro, y poder devolver mas de una carta si fuese necesario."""
+        if not self.jugadores or not self.cartas:
+            return ReponerResultado(cartas=[], fin_de_mazo=False, max_alcanzado=False, sin_cartas=True)
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        en_mano = await self.cartas.contar_en_mano(partida_id, jugador_id)
+        a_reponer = max_cartas_en_mano - en_mano
+        if a_reponer <= 0:
+            return ReponerResultado(cartas=[], fin_de_mazo=False, max_alcanzado=True, sin_cartas=False)
+
+        disponibles = await self.cartas.obtener_draft_disponible(partida_id, carta_id)
+        if not disponibles:
+            # mazo vacío -> marcar partida finalizada y COMMIT inmediato (el endpoint retornará 404)
+            cast(Any, partida).estado = EstadoPartida.Finalizada
+            await self.partidas.guardar(cast(Any, partida))
+            if hasattr(self.partidas, "confirmar"):
+                await self.partidas.confirmar()  # type: ignore[attr-defined]
+            return ReponerResultado(cartas=[], fin_de_mazo=True, max_alcanzado=False, sin_cartas=True)
+
+        # mover a mano
+        for c in disponibles:
+            cc = cast(Any, c)
+            cc.id_jugador = jugador_id
+            cc.posicion = PosicionCarta.mano
+        # Persistir cambios en cartas a través del repositorio (si existe el método)
+        if hasattr(self.cartas, "guardar_muchas"):
+            await self.cartas.guardar_muchas(disponibles)  # type: ignore[attr-defined]
+
+        # Reponer el draft con la primera carta del mazo
+        if hasattr(self.cartas, "mover_primera_carta_mazo_a_draft"):
+            await self.cartas.mover_primera_carta_mazo_a_draft(partida_id)
+
+        # verificar si quedó el mazo en cero
+        fin_de_mazo = False
+        if hasattr(self.cartas, "contar_en_mazo"):
+            restantes = await self.cartas.contar_en_mazo(partida_id)  # type: ignore[attr-defined]
+            if restantes == 0:
+                cast(Any, partida).estado = EstadoPartida.Finalizada
+                await self.partidas.guardar(cast(Any, partida))
+                if hasattr(self.partidas, "confirmar"):
+                    await self.partidas.confirmar()  # type: ignore[attr-defined]
+                fin_de_mazo = True
+
+        # si no hay método contar_en_mazo, omitimos este chequeo para mantener aislado el test
+        if fin_de_mazo:
+            cast(Any, partida).estado = EstadoPartida.Finalizada
+            await self.partidas.guardar(cast(Any, partida))
+            if hasattr(self.partidas, "confirmar"):
+                await self.partidas.confirmar()  # type: ignore[attr-defined]
+
+        return ReponerResultado(cartas=disponibles, fin_de_mazo=fin_de_mazo, max_alcanzado=False, sin_cartas=False)
