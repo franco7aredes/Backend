@@ -9,16 +9,19 @@ from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaM
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
 from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, TipoSecreto, EstadoSecreto
+from app.capa_0_definicion_bd.models.sets_modelos import Set as SetModelo
 from tests.mocks.repos_mocks import (
     crear_repo_partida_mock,
     crear_repo_jugador_mock,
+    crear_repo_set_mock,
     crear_repo_carta_mock,
     crear_repo_secreto_mock,
     crear_partida_en_juego,
     crear_partida_en_espera,
     crear_jugador,
     crear_carta,
-    crear_secreto
+    crear_secreto,
+    crear_set
 )
 
 
@@ -541,6 +544,216 @@ async def test_obtener_cantidad_secretos_sin_jugadores():
     assert res.secretos_por_jugador == {}
 
 @pytest.mark.asyncio
+async def test_preparar_set_valido_dos_cartas():
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=4, id_partida=2))
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=2))
+    
+    # Cartas: mismo detective, requiere 2
+    c1 = crear_carta(id_carta=1, id_partida=2, id_jugador=4)
+    c1.nombre = "Parker Pyne"
+    c1.tipo = TipoCarta.detective
+
+    c2 = crear_carta(id_carta=2, id_partida=2, id_jugador=4)
+    c2.nombre = "Parker Pyne"
+    c2.tipo = TipoCarta.detective
+    repo_cartas = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2])
+
+    set_modelo = crear_set(id_set=1, id_partida=2, id_jugador=4, nombre="Parker Pyne")
+    repo_sets = crear_repo_set_mock(crear_set_return=set_modelo)
+
+    servicio = ServicioJuego(
+        partidas=repo_partida,
+        jugadores=repo_jugador,
+        cartas=repo_cartas,
+        sets=repo_sets
+    )
+
+    resultado = await servicio.preparar_set(partida_id=2, jugador_id=4, cartas_id=[1, 2])
+
+    assert resultado.set.id_set == 1
+    assert resultado.set.nombre == "Parker Pyne"
+    assert resultado.set.id_partida == 2
+    assert resultado.set.id_jugador == 4
+
+@pytest.mark.asyncio
+async def test_preparar_set_valido_tres_cartas_con_comodin():
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=5, id_partida=3))
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=3))
+
+    # Cartas: 2 normales + 1 comodín
+    c1 = crear_carta(id_carta=10, id_partida=3, id_jugador=5)
+    c1.nombre = "Miss Marple"
+    c1.tipo = TipoCarta.detective
+
+    c2 = crear_carta(id_carta=11, id_partida=3, id_jugador=5)
+    c2.nombre = "Miss Marple"
+    c2.tipo = TipoCarta.detective
+
+    c3 = crear_carta(id_carta=12, id_partida=3, id_jugador=5)
+    c3.nombre = "Harley Quin Wildcard"
+    c3.tipo = TipoCarta.detective
+
+    repo_cartas = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2, c3])
+
+    set_modelo = crear_set(id_set=2, id_partida=3, id_jugador=5, nombre="Miss Marple")
+    repo_sets = crear_repo_set_mock(crear_set_return=set_modelo)
+
+    servicio = ServicioJuego(
+        partidas=repo_partida,
+        jugadores=repo_jugador,
+        cartas=repo_cartas,
+        sets=repo_sets
+    )
+
+    resultado = await servicio.preparar_set(partida_id=3, jugador_id=5, cartas_id=[10, 11, 12])
+
+    assert resultado.set.id_set == 2
+    assert resultado.set.nombre == "Miss Marple"
+    assert resultado.set.id_partida == 3
+    assert resultado.set.id_jugador == 5
+
+@pytest.mark.asyncio
+async def test_preparar_set_valido_beresford():
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=7, id_partida=4))
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=4))
+
+    # Cartas de Beresford
+    c1 = crear_carta(id_carta=20, id_partida=4, id_jugador=7)
+    c1.nombre = "Tommy Beresford"
+    c1.tipo = TipoCarta.detective
+
+    c2 = crear_carta(id_carta=21, id_partida=4, id_jugador=7)
+    c2.nombre = "Tuppence Beresford"
+    c2.tipo = TipoCarta.detective
+
+    repo_cartas = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2])
+
+    set_modelo = crear_set(id_set=4, id_partida=4, id_jugador=7, nombre="Beresford")
+    repo_sets = crear_repo_set_mock(crear_set_return=set_modelo)
+
+    servicio = ServicioJuego(
+        partidas=repo_partida,
+        jugadores=repo_jugador,
+        cartas=repo_cartas,
+        sets=repo_sets
+    )
+
+    resultado = await servicio.preparar_set(partida_id=4, jugador_id=7, cartas_id=[20, 21])
+
+    assert resultado.set.id_set == 4
+    assert resultado.set.nombre == "Beresford"
+    assert resultado.set.id_partida == 4
+    assert resultado.set.id_jugador == 7
+
+@pytest.mark.asyncio
+async def test_preparar_set_invalido_beresford_tres_cartas():
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+
+    c1 = crear_carta(id_carta=1, id_partida=1, id_jugador=2)
+    c1.nombre = "Tommy Beresford"
+    c1.tipo = TipoCarta.detective
+
+    c2 = crear_carta(id_carta=2, id_partida=1, id_jugador=2)
+    c2.nombre = "Tuppence Beresford"
+    c2.tipo = TipoCarta.detective
+
+    c3 = crear_carta(id_carta=3, id_partida=1, id_jugador=2)
+    c3.nombre = "Tommy Beresford"
+    c3.tipo = TipoCarta.detective
+
+    repo_cartas = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2, c3])
+    repo_sets = crear_repo_set_mock()
+
+    servicio = ServicioJuego(
+        partidas=repo_partida,
+        jugadores=repo_jugador,
+        cartas=repo_cartas,
+        sets=repo_sets
+    )
+
+    with pytest.raises(ValueError):
+        await servicio.preparar_set(partida_id=1, jugador_id=2, cartas_id=[1, 2, 3])
+
+@pytest.mark.asyncio
+async def test_preparar_set_invalido_con_adriane_oliver():
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=1, id_partida=1))
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+
+    c1 = crear_carta(id_carta=1, id_partida=1, id_jugador=1)
+    c1.nombre = "Miss Marple"
+    c1.tipo = TipoCarta.detective
+
+    c2 = crear_carta(id_carta=2, id_partida=1, id_jugador=1)
+    c2.nombre = "Adriane Oliver"
+    c2.tipo = TipoCarta.detective 
+
+    repo_cartas = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2])
+    repo_sets = crear_repo_set_mock()
+
+    servicio = ServicioJuego(
+        partidas=repo_partida,
+        jugadores=repo_jugador,
+        cartas=repo_cartas,
+        sets=repo_sets
+    )
+
+    with pytest.raises(ValueError):
+        await servicio.preparar_set(partida_id=1, jugador_id=1, cartas_id=[1, 2])
+
+@pytest.mark.asyncio
+async def test_preparar_set_mas_de_tres_cartas():
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+
+    cartas = []
+    for i in range(1, 5):
+        carta = crear_carta(id_carta=i, id_partida=1, id_jugador=2)
+        carta.nombre = "Miss Marple"
+        carta.tipo = TipoCarta.detective
+        cartas.append(carta)
+
+    repo_cartas = crear_repo_carta_mock(obtener_cartas_en_mano_return=cartas)
+    repo_sets = crear_repo_set_mock()
+
+    servicio = ServicioJuego(
+        partidas=repo_partida,
+        jugadores=repo_jugador,
+        cartas=repo_cartas,
+        sets=repo_sets
+    )
+
+    with pytest.raises(ValueError):
+        await servicio.preparar_set(partida_id=1, jugador_id=2, cartas_id=[1, 2, 3, 4])
+
+@pytest.mark.asyncio
+async def test_preparar_set_solo_con_comodines():
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=1, id_partida=1))
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+
+    c1 = crear_carta(id_carta=1, id_partida=1, id_jugador=1)
+    c1.nombre = "Harley Quin Wildcard"
+    c1.tipo = TipoCarta.detective
+
+    c2 = crear_carta(id_carta=2, id_partida=1, id_jugador=1)
+    c2.nombre = "Harley Quin Wildcard"
+    c2.tipo = TipoCarta.detective
+
+    repo_cartas = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2])
+    repo_sets = crear_repo_set_mock()
+
+    servicio = ServicioJuego(
+        partidas=repo_partida,
+        jugadores=repo_jugador,
+        cartas=repo_cartas,
+        sets=repo_sets
+    )
+
+    with pytest.raises(ValueError):
+        await servicio.preparar_set(partida_id=1, jugador_id=1, cartas_id=[1, 2])
+
+    
+@pytest.mark.asyncio
 async def test_reponer_del_draft_errores():
     repo_p = crear_repo_partida_mock()
     repo_j = crear_repo_jugador_mock()
@@ -651,3 +864,4 @@ async def test_reponer_del_draft_fin_de_mazo():
     assert res.fin_de_mazo is True
     repo_p.guardar.assert_awaited()
     repo_p.confirmar.assert_awaited()
+

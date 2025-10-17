@@ -6,6 +6,7 @@ from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
 from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB
+from app.capa_0_definicion_bd.models.sets_modelos import Set as SetModelo
 
 
 @dataclass(slots=True)
@@ -99,3 +100,6 @@ class AsesinoResultado:
 class CantidadSecretosResultado:
     secretos_por_jugador: Dict[int, int]
 
+@dataclass(slots=True)
+class JugarSetResultado:
+    set: SetModelo
