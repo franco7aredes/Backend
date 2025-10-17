@@ -104,3 +104,20 @@ async def test_obtener_cartas_jugador_no_pertenece(async_client):
     assert resp.json()["detail"] == "Jugador no pertenece a la partida"
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+
+@pytest.mark.asyncio
+async def test_obtener_cartas_jugador_error_interno_bonito(async_client):
+    class S:
+        async def obtener_cartas_propias(self, *args, **kwargs): ...
+    async def raise_err(*_, **__):
+        raise Exception("error interno")
+    mock_service = S()
+    setattr(mock_service, "obtener_cartas_propias", raise_err)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.get("/partida/1/cartas/9")
+    assert resp.status_code == 500
+    assert "Error interno" in resp.text
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

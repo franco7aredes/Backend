@@ -34,6 +34,8 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
         if str(e) == "jugador_no_en_partida":
             raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     if resultado.max_alcanzado:
         return ReponerRespuesta(mensaje="El jugador ya tiene el maximo de cartas en la mano")
@@ -51,16 +53,16 @@ async def reponer_mazo(partida_id: int, data: ReponerSolicitud, service: Servici
 
     if resultado.fin_de_mazo:
         try:
-                asesino_res = await service.obtener_asesino(partida_id)
-                id_asesino = asesino_res.asesino
+            asesino_res = await service.obtener_asesino(partida_id)
+            id_asesino = asesino_res.asesino
 
-                await administrador.enviar_texto(jugador_id, "fin_de_mazo")
-                await administrador.enviar_mensaje({"evento": "fin_de_mazo", "partida_id": partida_id, "asesino_id": id_asesino}, jugador_id)
-                await administrador.difundir_a_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id, "asesino_id": id_asesino})
-        except Exception:
-            pass
+            await administrador.enviar_texto(jugador_id, "fin_de_mazo")
+            await administrador.enviar_mensaje({"evento": "fin_de_mazo", "partida_id": partida_id, "asesino_id": id_asesino}, jugador_id)
+            await administrador.difundir_a_partida(partida_id, {"evento": "fin_de_mazo", "partida_id": partida_id, "asesino_id": id_asesino})
         except AsesinoNoEncontrado:
-            pass
+            raise HTTPException(status_code=404, detail="No se encontró el asesino")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     cartas = resultado.cartas
     cartas_dto = mapear_cartas_a_dto(cartas)
