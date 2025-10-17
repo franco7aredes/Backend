@@ -751,8 +751,9 @@ async def test_preparar_set_solo_con_comodines():
 
     with pytest.raises(ValueError):
         await servicio.preparar_set(partida_id=1, jugador_id=1, cartas_id=[1, 2])
-    
 
+    
+@pytest.mark.asyncio
 async def test_reponer_del_draft_errores():
     repo_p = crear_repo_partida_mock()
     repo_j = crear_repo_jugador_mock()
