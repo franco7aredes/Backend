@@ -10,7 +10,7 @@ from app.capa_3_api.mapeadores import mapear_set_a_dto
 set_router = APIRouter()
 
 @set_router.post("/partidas/{partida_id}/sets", response_model=JugarSetRespuesta, status_code=status.HTTP_201_CREATED)
-async def jugar_set_(partida_id: int, datos: JugarSetRequest, service: ServicioJuego = Depends(obtener_servicio_juego)):
+async def jugar_set(partida_id: int, datos: JugarSetRequest, service: ServicioJuego = Depends(obtener_servicio_juego)):
     try:
         resultado = await service.preparar_set(partida_id, datos.id_jugador, datos.cartas_id)
         set = resultado.set
@@ -30,7 +30,7 @@ async def jugar_set_(partida_id: int, datos: JugarSetRequest, service: ServicioJ
                 "partida_id": partida_id,
                 "id_jugador": datos.id_jugador,
                 "cartas": datos.cartas_id,
-                "set": set_dto.dict()
+                "set": set_dto.model_dump()
             }
         )
     except Exception:

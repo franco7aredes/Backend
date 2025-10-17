@@ -16,6 +16,7 @@ try:
     from app.capa_0_definicion_bd.models.partidas_modelos import EstadoPartida
     from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, Tiposecreto
     from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
+    from app.capa_0_definicion_bd.models.sets_modelos import Set as SetModelo
 except Exception:  # pragma: no cover - los tests pueden no necesitar estos imports
     EstadoPartida = SimpleNamespace(en_juego="En Juego", en_espera="En Espera", finalizada="Finalizada")  # type: ignore
     PosicionCarta = SimpleNamespace(mazo="mazo", mano="mano", descarte="descarte", draft="draft")  # type: ignore
@@ -35,6 +36,13 @@ except Exception:  # pragma: no cover - los tests pueden no necesitar estos impo
             self.id_jugador = id_jugador
             self.tipo = tipo
             self.estado = estado
+    
+    class SetModelo:
+        def __init__(self, id_set: int, id_partida: int, id_jugador: int, nombre: str):
+            self.id_set = id_set
+            self.id_partida = id_partida
+            self.id_jugador = id_jugador
+            self.nombre = nombre
 
 
 # --------- Fábricas de Repos Mockeados (Async) ---------
@@ -117,6 +125,15 @@ def crear_repo_secreto_mock(
     repo.obtener_secretos = _async_method(obtener_secretos_return)
     repo.obtener_secreto_asesino = _async_method(obtener_secreto_asesino_return)
     repo.contar_secretos_jugador = _async_method(contar_secretos_jugador_return)
+    return repo
+
+def crear_repo_set_mock(
+    *,
+    crear_set_return: Any | None = None,
+) -> MagicMock:
+    repo = MagicMock()
+    repo.db = object()
+    repo.crear_set = _async_method(crear_set_return)
     return repo
 
 # --------- Constructores mínimos de entidades ---------
@@ -207,3 +224,6 @@ def crear_secreto(
     *, id_secreto: int = 1, id_partida: int = 1, id_jugador: int = 1, tipo: Any  = TipoSecreto.otro, estado: Any = EstadoSecreto.oculto
  ) -> SecretoDB:
     return SecretoDB(id_secreto=id_secreto, id_partida=id_partida, id_jugador=id_jugador, tipo=tipo, estado=estado)
+
+def crear_set(*, id_set: int = 1, id_partida: int = 1, id_jugador: int = 1, nombre: str = "Detective") -> SetModelo:
+    return SetModelo(id_set=id_set, id_partida=id_partida, id_jugador=id_jugador, nombre=nombre)
