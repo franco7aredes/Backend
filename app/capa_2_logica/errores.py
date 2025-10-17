@@ -23,3 +23,18 @@ class MaximoJugadoresAlcanzado(Exception):
 
 class AsesinoNoEncontrado(Exception):
     pass
+
+class JugadorNoEncontrado(Exception):
+    pass
+
+class JugadorNoEnPartida(Exception):
+    pass
+
+class SetNoEncontrado(Exception):
+    pass
+
+class SetNoEnPartida(Exception):
+    pass
+
+class NoPuedeRobarSuPropioSet(Exception):
+    pass

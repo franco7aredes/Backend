@@ -7,7 +7,18 @@ from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as Jugador
 from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, TipoSecreto
 from app.capa_0_definicion_bd.models.sets_modelos import Set as SetModelo
 from typing import Protocol, runtime_checkable
-from .errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado, AsesinoNoEncontrado
+from .errores import (
+    PartidaNoEncontrada,
+    PartidaYaEnJuego,
+    MinimoJugadoresNoAlcanzado,
+    MaximoJugadoresAlcanzado,
+    AsesinoNoEncontrado,
+    JugadorNoEncontrado,
+    JugadorNoEnPartida,
+    SetNoEncontrado,
+    SetNoEnPartida,
+    NoPuedeRobarSuPropioSet,
+)
 from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
     PosicionCarta,
@@ -33,6 +44,7 @@ from .resultados import (
     AsesinoResultado,
     CantidadSecretosResultado,
     JugarSetResultado,
+    RobarSetResultado,
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 from .constantes import CARTAS_POR_MANO
@@ -66,6 +78,7 @@ class _RepoCartaProto(Protocol):
     async def obtener_carta(self, partida_id: int, jugador_id: int, carta_id: int) -> CartaModelo: ...
     async def obtener_draft_disponible(self, partida_id: int, carta_id: int) -> List[CartaModelo]: ...
     async def mover_primera_carta_mazo_a_draft(self, partida_id: int) -> Optional[CartaModelo]: ...
+    async def guardar_muchas(self, cartas: List[CartaModelo]) -> None: ...
 
 @runtime_checkable
 class _RepoSecretoProto(Protocol):
@@ -77,6 +90,9 @@ class _RepoSecretoProto(Protocol):
 @runtime_checkable
 class _RepoSetProto(Protocol):
     async def crear_set(self, set: SetModelo) -> SetModelo: ...
+    async def obtener_set_por_id(self, set_id: int) -> Optional[SetModelo]: ...
+    async def guardar_set(self, set: SetModelo) -> None: ...
+    async def obtener_cartas_del_set(self, set_id: int) -> List[CartaModelo]: ...
 
 class ServicioJuego:
     """Servicio de reglas de negocio del juego.
@@ -872,3 +888,42 @@ class ServicioJuego:
                 await self.partidas.confirmar()  # type: ignore[attr-defined]
 
         return ReponerResultado(cartas=disponibles, fin_de_mazo=fin_de_mazo, max_alcanzado=False, sin_cartas=False)
+
+    async def robar_set(self, partida_id: int, jugador_id: int, set_id: int) -> RobarSetResultado:
+        """Permite a un jugador robar un set de otro jugador."""
+        if not self.sets or not self.cartas:
+            raise ValueError("Repositorio de sets o cartas no disponible")
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+
+        set_a_robar = await self.sets.obtener_set_por_id(set_id)
+        if not set_a_robar:
+            raise SetNoEncontrado()
+
+        if getattr(set_a_robar, "id_partida", None) != partida_id:
+            raise SetNoEnPartida()
+
+        if getattr(set_a_robar, "id_jugador", None) == jugador_id:
+            raise NoPuedeRobarSuPropioSet()
+
+        # Transferir el set al jugador que roba
+        setattr(set_a_robar, "id_jugador", jugador_id)
+        await self.sets.guardar_set(set_a_robar)
+
+        # Actualizar las cartas asociadas al set (puede devolver vacio para compatibilidad con tests)
+        cartas_del_set = await self.sets.obtener_cartas_del_set(set_id) or []
+        for carta in cartas_del_set:
+            carta.id_jugador = jugador_id
+        if hasattr(self.cartas, "guardar_muchas"):
+            await self.cartas.guardar_muchas(cartas_del_set)  # type: ignore[attr-defined]
+
+        return RobarSetResultado(set=set_a_robar)

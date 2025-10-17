@@ -4,7 +4,18 @@ from typing import List, Optional
 from datetime import datetime, date
 
 from app.capa_2_logica.servicio_juego import ServicioJuego
-from app.capa_2_logica.errores import PartidaNoEncontrada
+from app.capa_2_logica.errores import (
+    PartidaNoEncontrada,
+    PartidaYaEnJuego,
+    MinimoJugadoresNoAlcanzado,
+    MaximoJugadoresAlcanzado,
+    AsesinoNoEncontrado,
+    JugadorNoEncontrado,
+    JugadorNoEnPartida,
+    SetNoEncontrado,
+    SetNoEnPartida,
+    NoPuedeRobarSuPropioSet,
+)
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
@@ -751,7 +762,6 @@ async def test_preparar_set_solo_con_comodines():
 
     with pytest.raises(ValueError):
         await servicio.preparar_set(partida_id=1, jugador_id=1, cartas_id=[1, 2])
-
     
 @pytest.mark.asyncio
 async def test_reponer_del_draft_errores():
@@ -865,3 +875,88 @@ async def test_reponer_del_draft_fin_de_mazo():
     repo_p.guardar.assert_awaited()
     repo_p.confirmar.assert_awaited()
 
+
+@pytest.mark.asyncio
+async def test_robar_set():
+    # partida y jugador válidos
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=10, estado=EstadoPartida.en_juego))
+    rj = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=99, id_partida=10))
+    
+    # set pertenece a otro jugador
+    set_obj = crear_set(id_set=7, id_partida=10, id_jugador=33, nombre="Parker Pyne")
+
+    # cartas del set
+    c1 = crear_carta(id_carta=1, id_partida=10, id_jugador=33, posicion=PosicionCarta.set)
+    c2 = crear_carta(id_carta=2, id_partida=10, id_jugador=33, posicion=PosicionCarta.set)
+    rc = crear_repo_carta_mock()
+
+    # Creamos el repo de sets mockeado acá, porque usamos las cartas de arriba.
+    rs = crear_repo_set_mock(
+    obtener_set_por_id_return=set_obj,
+    obtener_cartas_del_set_return=[c1, c2],
+    )
+
+    s = ServicioJuego(repo_p, jugadores=rj, cartas=rc, sets=rs)
+    res = await s.robar_set(partida_id=10, jugador_id=99, set_id=7)
+
+    assert hasattr(res, "set")
+    assert res.set is set_obj
+    assert set_obj.id_jugador == 99
+    rs.obtener_cartas_del_set.assert_awaited_once_with(7)
+    # cartas transferidas
+    assert all(c.id_jugador == 99 for c in [c1, c2])
+    rc.guardar_muchas.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_robar_set_errores():
+    # repos obligatorios faltan
+    repo_p = crear_repo_partida_mock()
+    rj = crear_repo_jugador_mock()
+    s = ServicioJuego(repo_p, jugadores=rj, cartas=None, sets=None)
+    with pytest.raises(ValueError):
+        await s.robar_set(1, 1, 1)
+
+    # jugador no encontrado
+    rs = crear_repo_set_mock()
+    rc = crear_repo_carta_mock()
+    rj = crear_repo_jugador_mock(obtener_return=None)
+    s = ServicioJuego(repo_p, jugadores=rj, cartas=rc, sets=rs)
+    with pytest.raises(JugadorNoEncontrado):
+        await s.robar_set(1, 1, 1)
+
+    # partida no encontrada
+    rj = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=1))
+    repo_p = crear_repo_partida_mock(obtener_return=None)
+    s = ServicioJuego(repo_p, jugadores=rj, cartas=rc, sets=rs)
+    with pytest.raises(PartidaNoEncontrada):
+        await s.robar_set(1, 1, 1)
+
+    # jugador no pertenece a la partida
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=2, estado=EstadoPartida.en_juego))
+    rj = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=3))
+    s = ServicioJuego(repo_p, jugadores=rj, cartas=rc, sets=rs)
+    with pytest.raises(JugadorNoEnPartida):
+        await s.robar_set(2, 1, 1)
+
+    # set no encontrado
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=5, estado=EstadoPartida.en_juego))
+    rj = crear_repo_jugador_mock(obtener_return=crear_jugador(id_partida=5))
+    rs = crear_repo_set_mock(obtener_set_por_id_return=None)
+    s = ServicioJuego(repo_p, jugadores=rj, cartas=rc, sets=rs)
+    with pytest.raises(SetNoEncontrado):
+        await s.robar_set(5, 1, 7)
+
+    # set no pertenece a la partida
+    set_otro = crear_set(id_set=9, id_partida=99, id_jugador=3, nombre="X")
+    rs = crear_repo_set_mock(obtener_set_por_id_return=set_otro)
+    s = ServicioJuego(repo_p, jugadores=rj, cartas=rc, sets=rs)
+    with pytest.raises(SetNoEnPartida):
+        await s.robar_set(5, 1, 9)
+
+    # no puede robar su propio set
+    set_propio = crear_set(id_set=11, id_partida=5, id_jugador=1, nombre="Y")
+    rs = crear_repo_set_mock(obtener_set_por_id_return=set_propio)
+    s = ServicioJuego(repo_p, jugadores=rj, cartas=rc, sets=rs)
+    with pytest.raises(NoPuedeRobarSuPropioSet):
+        await s.robar_set(5, 1, 11)
