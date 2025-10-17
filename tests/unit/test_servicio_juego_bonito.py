@@ -411,7 +411,7 @@ async def test_ver_del_descarte_bonito():
 
     assert hasattr(res, "descarte")
     assert res.descarte == [c1, c2, c3, c4]
-    assert all(c.orden_en_descarte == None for c in res.descarte)
+    assert [c.orden_en_descarte for c in res.descarte] == [4, 3, 2, 1]
 
 @pytest.mark.asyncio
 async def test_ver_de_descarte_error():

@@ -7,6 +7,9 @@ from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.capa_2_logica.resultados import VerDescarteResultado
 from app.capa_0_definicion_bd.models.cartas_modelos import TipoCarta, PosicionCarta
 
+from tests.mocks.repos_mocks import (
+    crear_carta
+)
 
 @pytest.mark.asyncio
 async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):

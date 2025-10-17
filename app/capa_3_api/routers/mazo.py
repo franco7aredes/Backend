@@ -229,7 +229,7 @@ async def ver_primeras_del_descarte(id: int, jugador_id: int, service: ServicioJ
     
 
     cartas_dto = mapear_cartas_a_dto(res.descarte)
-    cartas_data = [c.dict() for c in cartas_dto]
+    cartas_data = [c.model_dump() for c in cartas_dto]
     mensaje = {"cantidad": len(cartas_data),
                 "cartas": cartas_data
               }
