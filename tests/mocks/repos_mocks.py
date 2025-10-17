@@ -145,10 +145,16 @@ def crear_repo_secreto_mock(
 def crear_repo_set_mock(
     *,
     crear_set_return: Any | None = None,
+    obtener_set_por_id_return: Any | None = None,
+    guardar_set_return: Any | None = None,
+    obtener_cartas_del_set_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
     repo.crear_set = _async_method(crear_set_return)
+    repo.obtener_set_por_id = _async_method(obtener_set_por_id_return)
+    repo.guardar_set = _async_method(guardar_set_return)
+    repo.obtener_cartas_del_set = _async_method(obtener_cartas_del_set_return)
     return repo
 
 # --------- Constructores mínimos de entidades ---------

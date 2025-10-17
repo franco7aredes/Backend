@@ -103,3 +103,7 @@ class CantidadSecretosResultado:
 @dataclass(slots=True)
 class JugarSetResultado:
     set: SetModelo
+
+@dataclass(slots=True)
+class RobarSetResultado:
+    set: SetModelo
