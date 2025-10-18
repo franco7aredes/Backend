@@ -7,6 +7,9 @@ from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.capa_2_logica.resultados import VerDescarteResultado
 from app.capa_0_definicion_bd.models.cartas_modelos import TipoCarta, PosicionCarta
 
+from tests.mocks.repos_mocks import (
+    crear_carta
+)
 
 @pytest.mark.asyncio
 async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):
@@ -15,50 +18,20 @@ async def test_ver_descarte_ok_emite_mensaje(async_client, monkeypatch):
         async def ver_del_descarte(self, *args, **kwargs): ...
     svc = S()
 
-    c1 = type ("C", (), {})()
-    c1.id_carta = 1
-    c1.id_partida = 7
-    c1.id_jugador = None
-    c1.posicion = PosicionCarta.descarte
-    c1.nombre = "Hercule Poirot"
-    c1.tipo = TipoCarta.detective
-    c1.orden_en_descarte = 1
+    c1 = crear_carta(id_carta=1, id_partida=7, id_jugador=None, posicion=PosicionCarta.descarte, orden_en_descarte=1)
+    c1.nombre, c1.tipo = "Hercule Poirot", TipoCarta.detective
 
-    c2 = type ("C", (), {})()
-    c2.id_carta = 3
-    c2.id_partida = 7
-    c2.id_jugador = None
-    c2.posicion = PosicionCarta.descarte
-    c2.nombre = "Hercule Poirot"
-    c2.tipo = TipoCarta.detective
-    c2.orden_en_descarte = 2
+    c2 = crear_carta(id_carta=3, id_partida=7, id_jugador=None, posicion=PosicionCarta.descarte, orden_en_descarte=2)
+    c2.nombre, c2.tipo = "Hercule Poirot", TipoCarta.detective
 
-    c3 = type ("C", (), {})()
-    c3.id_carta = 6
-    c3.id_partida = 7
-    c3.id_jugador = None
-    c3.posicion = PosicionCarta.descarte
-    c3.nombre = "Not so fast"
-    c3.tipo = TipoCarta.instant
-    c3.orden_en_descarte = 3
+    c3 = crear_carta(id_carta=6, id_partida=7, id_jugador=None, posicion=PosicionCarta.descarte, orden_en_descarte=3)
+    c3.nombre, c3.tipo = "Not so fast", TipoCarta.instant
 
-    c4 = type ("C", (), {})()
-    c4.id_carta = 10
-    c4.id_partida = 7
-    c4.id_jugador = None
-    c4.posicion = PosicionCarta.descarte
-    c4.nombre = "Not so fast"
-    c4.tipo = TipoCarta.instant
-    c4.orden_en_descarte = 4
+    c4 = crear_carta(id_carta=10, id_partida=7, id_jugador=None, posicion=PosicionCarta.descarte, orden_en_descarte=4)
+    c4.nombre, c4.tipo = "Not so fast", TipoCarta.instant
     
-    c5 = type ("C", (), {})()
-    c5.id_carta = 2
-    c5.id_partida = 7
-    c5.id_jugador = None
-    c5.posicion = PosicionCarta.descarte
-    c5.nombre = "Hercule Poirot"
-    c5.tipo = TipoCarta.detective
-    c5.orden_en_descarte = 5
+    c5 = crear_carta(id_carta=2, id_partida=7, id_jugador=None, posicion=PosicionCarta.descarte, orden_en_descarte=5)
+    c5.nombre, c5.tipo = "Hercule Poirot", TipoCarta.detective
 
     desc = [c1, c2, c3, c4, c5] 
     setattr(svc, "ver_del_descarte", AsyncMock(return_value=VerDescarteResultado(descarte=desc)))
