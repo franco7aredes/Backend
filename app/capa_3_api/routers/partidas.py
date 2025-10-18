@@ -121,7 +121,7 @@ async def iniciar_partida(partida_id:int, data: dict, service: ServicioJuego = D
         secretos_repartidos = resultado.get("secretos", {})
     if secretos_repartidos:
         for jugador_id, secretos in secretos_repartidos.items():
-            secretos_data =[s.dict() for s in mapear_secretos_a_dto(secretos)]
+            secretos_data =[s.model_dump() for s in mapear_secretos_a_dto(secretos)]
             mensaje = {"evento": "partida_iniciada", "data": {"secretos": secretos_data}}
             await administrador.enviar_mensaje(mensaje, jugador_id)
 
