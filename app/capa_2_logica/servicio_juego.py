@@ -665,9 +665,6 @@ class ServicioJuego:
             raise ValueError("jugador_no_en_partida")
 
         descartadas = await self.cartas.obtener_primeras_de_descarte(partida_id)
-        # les limpio el campo de orden_en_descarte, no quiero romper cosas
-        for c in descartadas:
-            c.orden_en_descarte = None
 
         return VerDescarteResultado(descarte=descartadas)
     

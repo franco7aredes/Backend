@@ -412,7 +412,7 @@ async def test_ver_del_descarte_bonito():
 
     assert hasattr(res, "descarte")
     assert res.descarte == [c1, c2, c3, c4]
-    assert all(c.orden_en_descarte == None for c in res.descarte)
+    assert [c.orden_en_descarte for c in res.descarte] == [4, 3, 2, 1]
 
 @pytest.mark.asyncio
 async def test_ver_de_descarte_error():
@@ -962,6 +962,7 @@ async def test_robar_set_errores():
     with pytest.raises(NoPuedeRobarSuPropioSet):
         await s.robar_set(5, 1, 11)
 
+
 @pytest.mark.asyncio
 async def test_listar_en_espera_sin_partidas():
     s = ServicioJuego(partidas=None)
@@ -1447,4 +1448,3 @@ async def test_ver_del_descarte_jugador_no_en_partida():
     s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta)
     with pytest.raises(ValueError):
         await s.ver_del_descarte(2, 1)
-
