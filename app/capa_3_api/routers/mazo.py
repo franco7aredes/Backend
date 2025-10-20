@@ -235,9 +235,13 @@ async def ver_primeras_del_descarte(id: int, jugador_id: int, service: ServicioJ
     mensaje = {"cantidad": len(cartas_data),
                 "cartas": cartas_data
               }
-    await administrador.enviar_mensaje(mensaje, jugador_id)
+    
+    try:
+        await administrador.enviar_mensaje(mensaje, jugador_id)
+    except Exception:
+        pass
 
-    return Response(status_code=status.HTTP_200_OK)
+    return mensaje
 
 @mazo_router.put("/partida/{partida_id}/reponer_draft", response_model=ReponerRespuesta, status_code=status.HTTP_200_OK)
 async def reponer_draft(partida_id: int, carta_id: int, data: ReponerSolicitud, service: ServicioJuego = Depends(obtener_servicio_juego)):
