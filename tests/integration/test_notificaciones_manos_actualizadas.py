@@ -8,6 +8,7 @@ from app.capa_2_logica.resultados import (
     CantidadManosResultado,
 )
 from app.capa_0_definicion_bd.models.cartas_modelos import PosicionCarta, TipoCarta
+import app.capa_3_api.websockets.ApiWS as wsmod
 
 class _Carta:
     id_carta = 1
@@ -31,7 +32,6 @@ async def test_reponer_emite_manos_actualizadas(async_client, monkeypatch):
     setattr(svc, "obtener_cantidad_manos", AsyncMock(return_value=CantidadManosResultado(cartas_por_jugador={3: 4})))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: svc
 
-    import app.capa_3_api.websockets.ApiWS as wsmod
     monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", AsyncMock())
 
     resp = await async_client.put("/partida/9/reponer", json={"jugador_id": 3})
@@ -69,7 +69,6 @@ async def test_descartar_emite_manos_actualizadas(async_client, monkeypatch):
     setattr(svc, "obtener_cantidad_manos", AsyncMock(return_value=CantidadManosResultado(cartas_por_jugador={7: 2})))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: svc
 
-    import app.capa_3_api.websockets.ApiWS as wsmod
     monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", AsyncMock())
 
     resp = await async_client.patch(
@@ -97,6 +96,54 @@ async def test_descartar_emite_manos_actualizadas(async_client, monkeypatch):
             "evento": "manos_actualizadas",
             "partida_id": 11,
             "manos": [{"id_jugador": 7, "cantidad": 2}],
+        },
+    )
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_reponer_draft_emite_manos_actualizadas_varios_jugadores(async_client, monkeypatch):
+
+    # Mock cartas y manos de varios jugadores
+    class _Carta:
+        id_carta = 2
+        id_partida = 20
+        id_jugador = 5
+        posicion = PosicionCarta.mano
+        nombre = "Y"
+        tipo = TipoCarta.event
+
+    class ServicioMock:
+        async def reponer_del_draft(self, *a, **k):
+            return ReponerResultado(
+                cartas=[_Carta()],
+                fin_de_mazo=False,
+                max_alcanzado=False,
+                sin_cartas=False
+            )
+        async def obtener_cantidad_cartas_en_mazo(self, *a, **k):
+            class R: cantidad = 8
+            return R()
+        async def obtener_cantidad_manos(self, *a, **k):
+            # Varios jugadores
+            return CantidadManosResultado(cartas_por_jugador={5: 3, 6: 2})
+
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: ServicioMock()
+
+    mock_difundir = AsyncMock()
+    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", mock_difundir)
+
+    resp = await async_client.put("/partida/20/reponer_draft?carta_id=1", json={"jugador_id": 5})
+    assert resp.status_code == 200
+
+    # Debe emitir manos_actualizadas con todos los jugadores
+    mock_difundir.assert_any_call(
+        20,
+        {
+            "evento": "manos_actualizadas",
+            "partida_id": 20,
+            "manos": [{"id_jugador": 5, "cantidad": 3}, {"id_jugador": 6, "cantidad": 2}],
         },
     )
 

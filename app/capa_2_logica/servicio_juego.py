@@ -182,11 +182,15 @@ class ServicioJuego:
 
     async def listar_en_espera(self) -> list[dict]:
         """Lista partidas en estado 'en_espera' (sin exponer ORM)."""
+        if not self.partidas:
+            return []
         partidas = await self.partidas.listar_en_espera()
         return [partida_a_dict(p) for p in partidas]
 
     async def obtener_por_id(self, partida_id: int) -> dict | None:
         """Obtiene una partida por su id o None si no existe (dict)."""
+        if not self.partidas:
+            return None
         p = await self.partidas.obtener(partida_id)
         return partida_a_dict(p) if p else None
 
@@ -526,7 +530,7 @@ class ServicioJuego:
         """ Crea los secretos de acuerdo a la cantidad de jugadores, reparte 3 a cada
         uno, y persiste (retorna RetartirSecretosResultado)"""
 
-        if not self.jugadores or not self.cartas:
+        if not self.jugadores or not self.cartas or not self.secretos:
             return RepartirSecretosResultado(secretos_repartidos={})
         
         partida = await self.partidas.obtener(partida_id)
@@ -667,7 +671,7 @@ class ServicioJuego:
 
     async def obtener_cantidad_manos(self, partida_id: int) -> CantidadManosResultado:
         """Devuelve la cantidad de cartas en mano de cada jugador para una partida"""
-        if not self.cartas:
+        if not self.cartas or not self.jugadores:
             return CantidadManosResultado(cartas_por_jugador={})
         
         partida = await self.partidas.obtener(partida_id)
@@ -704,7 +708,7 @@ class ServicioJuego:
       
     async def obtener_cantidad_secretos(self, partida_id: int) -> CantidadSecretosResultado:
         """Devuelve la cantidad de secretos en mano de cada jugador para una partida"""
-        if not self.secretos:
+        if not self.secretos or not self.jugadores:
             return CantidadSecretosResultado(secretos_por_jugador={})
 
         partida = await self.partidas.obtener(partida_id)

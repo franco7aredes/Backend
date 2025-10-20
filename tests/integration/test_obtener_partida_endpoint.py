@@ -40,3 +40,23 @@ async def test_obtener_partida_existente_bonito(async_client):
     }
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_obtener_partida_no_encontrada(async_client):
+    class S:
+        async def obtener_por_id(self, partida_id: int): return None
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: S()
+    resp = await async_client.get("/partidas/999")
+    assert resp.status_code == 404
+    assert "Partida no encontrada" in resp.text
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_obtener_partida_error_interno(async_client):
+    class S:
+        async def obtener_por_id(self, partida_id: int): raise Exception("fallo inesperado")
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: S()
+    resp = await async_client.get("/partidas/999")
+    assert resp.status_code == 500
+    assert "Error interno del servidor" in resp.text
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

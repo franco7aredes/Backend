@@ -72,3 +72,35 @@ async def test_get_mano_bonito(async_client):
     assert resp.json()["cantidad"] == 0
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_descartar_carta_exception_bonito(async_client):
+    class S:
+        async def descartar_carta(self, *args, **kwargs): ...
+    async def raise_err(*_, **__):
+        raise Exception("error inesperado")
+    mock_service = S()
+    setattr(mock_service, "descartar_carta", raise_err)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.patch("/partida/1/descartar", json={"jugador_id": 9, "carta_id": 1})
+    assert resp.status_code == 404
+    assert "No se encontró carta" in resp.text
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_get_mano_obj_bonito(async_client):
+    class Res:
+        cantidad = 7
+    class S:
+        async def obtener_cantidad_mano(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "obtener_cantidad_mano", AsyncMock(return_value=Res()))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.get("/partida/1/mano/9")
+    assert resp.status_code == 200
+    assert resp.json()["cantidad"] == 7
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

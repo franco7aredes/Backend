@@ -71,3 +71,53 @@ async def test_ver_descarte_partida_no_encontrada(async_client):
     assert resp.json()["detail"] == "Partida no encontrada"
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego,None)
+
+@pytest.mark.asyncio
+async def test_ver_primeras_del_descarte_jugador_no_encontrado_bonito(async_client):
+    class S:
+        async def ver_del_descarte(self, *args, **kwargs): ...
+    async def raise_err(*_, **__):
+        raise ValueError("jugador_no_encontrado")
+    mock_service = S()
+    setattr(mock_service, "ver_del_descarte", raise_err)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.get("/partida/1/descarte?jugador_id=9")
+    assert resp.status_code == 404
+    assert "Jugador no encontrado" in resp.text
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+
+@pytest.mark.asyncio
+async def test_ver_primeras_del_descarte_jugador_no_en_partida_bonito(async_client):
+    class S:
+        async def ver_del_descarte(self, *args, **kwargs): ...
+    async def raise_err(*_, **__):
+        raise ValueError("jugador_no_en_partida")
+    mock_service = S()
+    setattr(mock_service, "ver_del_descarte", raise_err)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.get("/partida/1/descarte?jugador_id=9")
+    assert resp.status_code == 400
+    assert "El jugador no pertenece" in resp.text
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+
+@pytest.mark.asyncio
+async def test_ver_primeras_del_descarte_error_interno_bonito(async_client):
+    class S:
+        async def ver_del_descarte(self, *args, **kwargs): ...
+    async def raise_err(*_, **__):
+        raise Exception("error interno")
+    mock_service = S()
+    setattr(mock_service, "ver_del_descarte", raise_err)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.get("/partida/1/descarte?jugador_id=9")
+    assert resp.status_code == 500
+    assert "Error interno" in resp.text
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

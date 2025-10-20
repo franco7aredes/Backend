@@ -41,3 +41,57 @@ async def test_terminar_turno_invalido_bonito(async_client):
     assert resp.status_code == 400
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+
+@pytest.mark.asyncio
+async def test_terminar_turno_partida_no_en_juego(async_client):
+    class S:
+        async def terminar_turno(self, *args, **kwargs):
+            raise ValueError("partida_no_en_juego")
+        async def listar_jugadores(self, partida_id: int):
+            return []
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: S()
+    resp = await async_client.patch("/partidas/1/terminar_turno?id_enviada=1")
+    assert resp.status_code == 400
+    assert "no está en juego" in resp.text
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_terminar_turno_jugador_no_encontrado(async_client):
+    class S:
+        async def terminar_turno(self, *args, **kwargs):
+            raise ValueError("otro_error")
+        async def listar_jugadores(self, partida_id: int):
+            return []
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: S()
+    resp = await async_client.patch("/partidas/1/terminar_turno?id_enviada=1")
+    assert resp.status_code == 404
+    assert "Jugador no encontrado" in resp.text
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_terminar_turno_error_interno(async_client):
+    class S:
+        async def terminar_turno(self, *args, **kwargs):
+            raise Exception("fallo inesperado")
+        async def listar_jugadores(self, partida_id: int):
+            return []
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: S()
+    resp = await async_client.patch("/partidas/1/terminar_turno?id_enviada=1")
+    assert resp.status_code == 500
+    assert "Error interno del servidor" in resp.text
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_terminar_turno_partida_no_encontrada(async_client):
+    from app.capa_2_logica.errores import PartidaNoEncontrada
+    class S:
+        async def terminar_turno(self, *args, **kwargs):
+            raise PartidaNoEncontrada()
+        async def listar_jugadores(self, partida_id: int):
+            return []
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: S()
+    resp = await async_client.patch("/partidas/1/terminar_turno?id_enviada=1")
+    assert resp.status_code == 404
+    assert "Partida no encontrada" in resp.text
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

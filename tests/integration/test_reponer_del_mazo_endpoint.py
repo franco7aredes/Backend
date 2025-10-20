@@ -1,11 +1,13 @@
 import pytest
 from unittest.mock import AsyncMock
 
+from app.capa_2_logica.errores import PartidaNoEncontrada
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.resultados import ReponerResultado, AsesinoResultado
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta, TipoCarta
-
+from app.capa_2_logica.errores import AsesinoNoEncontrado
+from app.capa_3_api.websockets import ApiWS as wsmod
 
 @pytest.mark.asyncio
 async def test_reponer_del_mazo_bonito(async_client, monkeypatch):
@@ -167,3 +169,109 @@ async def test_reponer_partida_inexistente_bonito(async_client):
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
+@pytest.mark.asyncio
+async def test_reponer_jugador_no_en_partida_bonito(async_client):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+    async def raise_err(*_, **__):
+        raise ValueError("jugador_no_en_partida")
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", raise_err)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.put("/partida/10/reponer", json={"jugador_id": 9999})
+    assert resp.status_code == 400
+    assert resp.json()["detail"].startswith("El jugador no pertenece")
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+
+@pytest.mark.asyncio
+async def test_reponer_error_inesperado_bonito(async_client):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+    async def raise_err(*_, **__):
+        raise Exception("error inesperado")
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", raise_err)
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    resp = await async_client.put("/partida/10/reponer", json={"jugador_id": 9999})
+    assert resp.status_code == 500
+    assert "error inesperado" in resp.text
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+
+@pytest.mark.asyncio
+async def test_reponer_fin_de_mazo_asesino_no_encontrado_bonito(async_client, monkeypatch):
+    class S:
+        async def reponer_del_mazo(self, *args, **kwargs): ...
+        async def obtener_asesino(self, *args, **kwargs): ...
+    mock_service = S()
+    setattr(mock_service, "reponer_del_mazo", AsyncMock(return_value=ReponerResultado(
+        cartas=[CartaModelo(id_carta=1, id_partida=10, id_jugador=99, posicion=PosicionCarta.mano, nombre="Carta 1", tipo=TipoCarta.detective)],
+        fin_de_mazo=True,
+        max_alcanzado=False,
+        sin_cartas=False,
+    )))
+    setattr(mock_service, "obtener_asesino", AsyncMock(side_effect=AsesinoNoEncontrado()))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    monkeypatch.setattr(wsmod.administrador, "enviar_texto", AsyncMock())
+    monkeypatch.setattr(wsmod.administrador, "enviar_mensaje", AsyncMock())
+    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", AsyncMock())
+
+    resp = await async_client.put("/partida/10/reponer", json={"jugador_id": 99})
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "No se encontró el asesino"
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_reponer_mazo_partida_no_encontrada(async_client, monkeypatch):
+    class ServicioMock:
+        async def reponer_del_mazo(self, *a, **k): raise PartidaNoEncontrada()
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: ServicioMock()
+    resp = await async_client.put("/partida/1/reponer", json={"jugador_id": 1})
+    assert resp.status_code == 404
+    assert "Partida no encontrada" in resp.text
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_reponer_mazo_sin_cartas_notifica(async_client, monkeypatch):
+    class Resultado:
+        max_alcanzado = False
+        sin_cartas = True
+        fin_de_mazo = False
+        cartas = []
+    class ServicioMock:
+        async def reponer_del_mazo(self, *a, **k): return Resultado()
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: ServicioMock()
+    monkeypatch.setattr(wsmod.administrador, "enviar_texto", AsyncMock())
+    monkeypatch.setattr(wsmod.administrador, "enviar_mensaje", AsyncMock())
+    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", AsyncMock())
+    resp = await async_client.put("/partida/1/reponer", json={"jugador_id": 1})
+    assert resp.status_code == 404
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_reponer_mazo_fin_de_mazo_asesino_no_encontrado(async_client, monkeypatch):
+    class Resultado:
+        max_alcanzado = False
+        sin_cartas = False
+        fin_de_mazo = True
+        cartas = []
+    class ServicioMock:
+        async def reponer_del_mazo(self, *a, **k): return Resultado()
+        async def obtener_asesino(self, *a, **k): raise AsesinoNoEncontrado()
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: ServicioMock()
+    monkeypatch.setattr(wsmod.administrador, "enviar_texto", AsyncMock())
+    monkeypatch.setattr(wsmod.administrador, "enviar_mensaje", AsyncMock())
+    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", AsyncMock())
+    resp = await async_client.put("/partida/1/reponer", json={"jugador_id": 1})
+    assert resp.status_code == 404
+    assert "No se encontró el asesino" in resp.text
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

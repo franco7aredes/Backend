@@ -1,7 +1,7 @@
 from ast import stmt
 from typing import List, Optional
 
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
