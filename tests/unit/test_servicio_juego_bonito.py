@@ -16,6 +16,8 @@ from app.capa_2_logica.errores import (
     SetNoEncontrado,
     SetNoEnPartida,
     NoPuedeRobarSuPropioSet,
+    SecretoNoEncontrado,
+    SecretoNoDisponible,
 )
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
@@ -1448,3 +1450,46 @@ async def test_ver_del_descarte_jugador_no_en_partida():
     s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta)
     with pytest.raises(ValueError):
         await s.ver_del_descarte(2, 1)
+
+@pytest.mark.asyncio
+async def test_revelar_secreto_exitoso():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=1))
+
+    secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    resultado = await servicio.revelar_secreto(partida_id=1, jugador_id=3, secreto_id=3)
+
+    assert isinstance(resultado, RevelarSecretoResultado)
+    assert resultado.secreto.id_secreto == 3
+    assert resultado.secreto.estado == EstadoSecreto.revelado
+
+@pytest.mark.asyncio
+async def test_revelar_secreto_no_encontrado():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+
+    # El secreto con ID 99 no está en la lista
+    otro_secreto = crear_secreto(id_secreto=88, id_partida=1, id_jugador=2, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[otro_secreto])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    with pytest.raises(SecretoNoEncontrado):
+        await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
+
+@pytest.mark.asyncio
+async def test_revelar_secreto_no_disponible():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+
+    # El secreto existe pero ya está revelado
+    secreto = crear_secreto(id_secreto=99, id_partida=1, id_jugador=2, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    with pytest.raises(SecretoNoDisponible):
+        await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
