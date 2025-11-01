@@ -959,9 +959,9 @@ class ServicioJuego:
         
         secreto.estado = EstadoSecreto.revelado
 
-        return RevelarSecretoResultado(secreto=secreto
+        return RevelarSecretoResultado(secreto=secreto)
 
-    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int)
+    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int):
 
         jugador = await self.jugadores.obtener(jugador_id)
         if not jugador:
@@ -983,4 +983,3 @@ class ServicioJuego:
         
         secreto.estado = EstadoSecreto.oculto
         secreto.id_jugador = jugador_id
-    )
