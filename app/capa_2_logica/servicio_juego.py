@@ -18,6 +18,8 @@ from .errores import (
     SetNoEncontrado,
     SetNoEnPartida,
     NoPuedeRobarSuPropioSet,
+    SecretoNoEncontrado,
+    SecretoNoDisponible,
 )
 from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
@@ -45,6 +47,7 @@ from .resultados import (
     CantidadSecretosResultado,
     JugarSetResultado,
     RobarSetResultado,
+    RevelarSecretoResultado,
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 from .constantes import CARTAS_POR_MANO
@@ -543,7 +546,7 @@ class ServicioJuego:
 
         mazo_secretos: List[SecretoDB] = []
         cantidad = partida.cantidad_jugadores * 3 
-        for i in range (1, 19):
+        for i in range (1, 18):
             secreto = SecretoDB(
                 id_secreto = i,
                 id_partida = partida_id,
@@ -928,3 +931,31 @@ class ServicioJuego:
             await self.cartas.guardar_muchas(cartas_del_set)  # type: ignore[attr-defined]
 
         return RobarSetResultado(set=set_a_robar)
+
+    async def revelar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> RevelarSecretoResultado:
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+        
+        secretos = await self.secretos.obtener_secretos(partida_id, jugador_id)
+        secreto = None
+        for s in secretos:
+            if getattr(s, "id_secreto", None) == secreto_id:
+                secreto = s
+                break
+        if secreto is None:
+            raise SecretoNoEncontrado()
+        
+        if getattr(secreto, "estado", None) != EstadoSecreto.oculto:
+            raise SecretoNoDisponible()
+        
+        secreto.estado = EstadoSecreto.revelado
+
+        return RevelarSecretoResultado(secreto=secreto)

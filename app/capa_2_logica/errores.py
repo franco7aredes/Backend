@@ -38,3 +38,9 @@ class SetNoEnPartida(Exception):
 
 class NoPuedeRobarSuPropioSet(Exception):
     pass
+
+class SecretoNoEncontrado(Exception):
+    pass
+
+class SecretoNoDisponible(Exception):
+    pass
