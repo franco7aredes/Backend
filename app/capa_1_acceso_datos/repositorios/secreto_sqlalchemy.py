@@ -46,11 +46,11 @@ class RepositorioSecretoSQLAlchemy:
         res = await self.db.execute(stmt)
         return int(res.scalar() or 0)
 
-    async def obtener_secreto_individual(self, partida_id: int, secreto_id: int) -> SecretoDB:
-        """obtiene un secreto en particular"""
+    async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]:
+        """obtiene los secretos revelados de una partida"""
         stmt = (
             select(SecretoDB)
-            .where((SecretoDB.id_partida == partida_id) & (SecretoDB.id_secreto == secreto_id))
+            .where((SecretoDB.id_partida == partida_id) & (SecretoDB.estado == EstadoSecreto.revelado))
         )
         res = await self.db.execute(stmt)
-        return res.scalars().first()
+        return list(res.scalars().all())

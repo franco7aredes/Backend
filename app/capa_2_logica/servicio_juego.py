@@ -89,7 +89,7 @@ class _RepoSecretoProto(Protocol):
     async def obtener_secretos(self, partida_id: int, jugador_id: int) -> List[SecretoDB]: ...
     async def obtener_secreto_asesino(self, partida_id: int) -> SecretoDB: ...
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int: ...
-    async def obtener_secreto_individual(self, partida_id: int, secreto_id: int) -> SecretoDB: ...
+    async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]: ...
 
 @runtime_checkable
 class _RepoSetProto(Protocol):
@@ -974,7 +974,12 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
-        secreto = await self.secretos.obtener_secreto_individual(partida_id, secreto_id)
+        secretos = await self.secretos.obtener_secretos_revelados(partida_id)
+        secreto = None
+        for s in secretos:
+            if getattr(s, "id_secreto", None) == secreto_id:
+                secreto = s
+                break
         if secreto is None:
             raise SecretoNoEncontrado()
         
