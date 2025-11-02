@@ -90,6 +90,7 @@ class _RepoSecretoProto(Protocol):
     async def obtener_secreto_asesino(self, partida_id: int) -> SecretoDB: ...
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int: ...
     async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]: ...
+    async def guardar(self, secreto: SecretoDB) -> None: ...
 
 @runtime_checkable
 class _RepoSetProto(Protocol):
@@ -961,7 +962,7 @@ class ServicioJuego:
 
         return RevelarSecretoResultado(secreto=secreto)
 
-    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int):
+    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> None:
 
         jugador = await self.jugadores.obtener(jugador_id)
         if not jugador:
@@ -988,3 +989,6 @@ class ServicioJuego:
         
         secreto.estado = EstadoSecreto.oculto
         secreto.id_jugador = jugador_id
+
+        # Ahora actualizo la base de datos
+        self.secretos.guardar(secreto)

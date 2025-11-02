@@ -54,3 +54,9 @@ class RepositorioSecretoSQLAlchemy:
         )
         res = await self.db.execute(stmt)
         return list(res.scalars().all())
+
+    async def guardar(self, secreto: SecretoDB) -> None:
+        """guarda un secreto nuevo. Esta funcion tambien
+        permite actualizar el secreto si lo modificaste"""
+        self.db.add(secreto)
+        await self.db.flush()
