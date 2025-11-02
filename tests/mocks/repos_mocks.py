@@ -133,6 +133,7 @@ def crear_repo_secreto_mock(
     obtener_secretos_return: Any | None = None,
     obtener_secreto_asesino_return: Any | None = None,
     contar_secretos_jugador_return: Any | None = None,
+    obtener_secretos_revelados_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
@@ -140,6 +141,7 @@ def crear_repo_secreto_mock(
     repo.obtener_secretos = _async_method(obtener_secretos_return)
     repo.obtener_secreto_asesino = _async_method(obtener_secreto_asesino_return)
     repo.contar_secretos_jugador = _async_method(contar_secretos_jugador_return)
+    repo.obtener_secretos_revelados = _async_method(obtener_secretos_revelados_return)
     return repo
 
 def crear_repo_set_mock(

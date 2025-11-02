@@ -1493,3 +1493,47 @@ async def test_revelar_secreto_no_disponible():
 
     with pytest.raises(SecretoNoDisponible):
         await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
+      
+ @pytest.mark.asyncio
+async def test_robar_secreto_exitoso():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+
+    secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    resultado = await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=3)
+
+    assert secreto.estado == EstadoSecreto.revelado
+    assert secreto.id_jugador == 2
+
+@pytest.mark.asyncio
+async def test_robar_secreto_no_encontrado():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+
+    # El secreto con ID 99 no est√° en la lista
+    otro_secreto = crear_secreto(id_secreto=88, id_partida=1, id_jugador=5, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[otro_secreto])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    with pytest.raises(SecretoNoEncontrado):
+        await servicio.robar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
+
+@pytest.mark.asyncio
+async def test_robar_secreto_no_disponible():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+
+    # El secreto existe pero ya est√ °oculto
+    secreto = crear_secreto(id_secreto=99, id_partida=1, id_jugador=9, estado=EstadoSecreto.oculto)
+    # con lo siguiente, estamos asumiendo que la
+    # consulta a la base de datos se puede hacer mal
+    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[secreto])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    with pytest.raises(SecretoNoDisponible):
+        await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
