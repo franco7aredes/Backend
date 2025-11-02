@@ -92,14 +92,14 @@ async def test_contar_secretos_jugador_none(db):
 async def test_obtener_secretos_revelados(db, secreto_valido_revelado):
     db.execute.return_value.scalars = lambda: DummyScalars([secreto_valido_revelado])
     repo = RepositorioSecretoSQLAlchemy(db)
-    res = await repo.obtener_secretos_revelados(2, 3)
+    res = await repo.obtener_secretos_revelados(2)
     assert res == [secreto_valido_revelado]
 
 @pytest.mark.asyncio
 async def test_obtener_secretos_revelados_vacio(db):
     db.execute.return_value.scalars = lambda: DummyScalars([])
     repo = RepositorioSecretoSQLAlchemy(db)
-    res = await repo.obtener_secretos_revelados(2, 3)
+    res = await repo.obtener_secretos_revelados(2)
     assert res == []
 
 @pytest.mark.asyncio

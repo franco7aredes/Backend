@@ -1494,18 +1494,18 @@ async def test_revelar_secreto_no_disponible():
     with pytest.raises(SecretoNoDisponible):
         await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
       
- @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_robar_secreto_exitoso():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
 
     secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[secreto])
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
-    resultado = await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=3)
+    resultado = await servicio.robar_secreto(partida_id=1, jugador_id=2, secreto_id=3)
 
-    assert secreto.estado == EstadoSecreto.revelado
+    assert secreto.estado == EstadoSecreto.oculto
     assert secreto.id_jugador == 2
 
 @pytest.mark.asyncio
@@ -1536,4 +1536,4 @@ async def test_robar_secreto_no_disponible():
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
     with pytest.raises(SecretoNoDisponible):
-        await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
+        await servicio.robar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
