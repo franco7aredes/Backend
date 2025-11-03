@@ -60,3 +60,12 @@ class RepositorioSecretoSQLAlchemy:
         permite actualizar el secreto si lo modificaste"""
         self.db.add(secreto)
         await self.db.flush()
+    
+    async def obtener_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> SecretoDB:
+        stmt = (
+            select(SecretoDB)
+            .where((SecretoDB.id_partida == partida_id) & (SecretoDB.id_jugador == jugador_id) & (SecretoDB.id_secreto == secreto_id))
+            )
+        
+        res = await self.db.execute(stmt)
+        return res.scalar_one_or_none()

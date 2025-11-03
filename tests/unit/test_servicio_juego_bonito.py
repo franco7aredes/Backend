@@ -1639,3 +1639,42 @@ async def test_revelar_asesino():
     with pytest.raises(AsesinoRevelado):
         await servicio.revelar_secreto(partida_id=1, jugador_id=3, secreto_id=3)
 
+@pytest.mark.asyncio
+async def test_ocultar_secreto_exitoso():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=2))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=2))
+
+    secreto = crear_secreto(id_secreto=2, id_partida=2, id_jugador=3, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    resultado = await servicio.ocultar_secreto(partida_id=2, jugador_id=3, secreto_id=2)
+
+    assert isinstance(resultado, OcultarSecretoResultado)
+    assert resultado.secreto.id_secreto == 2
+    assert resultado.secreto.estado == EstadoSecreto.oculto
+
+@pytest.mark.asyncio
+async def test_ocultar_secreto_no_encontrado():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=2))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=2))
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=None)  # simula que no se encuentra el secreto
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    with pytest.raises(SecretoNoEncontrado):
+        await servicio.ocultar_secreto(partida_id=2, jugador_id=3, secreto_id=99)
+
+@pytest.mark.asyncio
+async def test_ocultar_secreto_no_disponible():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=2))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=2))
+
+    # secreto ya oculto, no deberia poder ocultarse de nuevo
+    secreto = crear_secreto(id_secreto=2, id_partida=2, id_jugador=3, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+
+    with pytest.raises(SecretoNoDisponible):
+        await servicio.ocultar_secreto(partida_id=2, jugador_id=3, secreto_id=2)
