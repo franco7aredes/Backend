@@ -20,6 +20,7 @@ from .errores import (
     NoPuedeRobarSuPropioSet,
     SecretoNoEncontrado,
     SecretoNoDisponible,
+    AsesinoRevelado,
 )
 from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
@@ -959,6 +960,15 @@ class ServicioJuego:
             raise SecretoNoDisponible()
         
         secreto.estado = EstadoSecreto.revelado
+        # Ahora actualizo la base de datos
+        self.secretos.guardar(secreto)
+
+        # ahora, manejo el caso en que se revela el asesino
+        if secreto.tipo == TipoSecreto.asesino:
+            partida.estado = EstadoPartida.Finalizada
+            self.partidas.guardar(partida)
+            # lo voy a manejar como una excepcion
+            raise AsesinoRevelado()
 
         return RevelarSecretoResultado(secreto=secreto)
 
