@@ -966,7 +966,7 @@ class ServicioJuego:
         # ahora, manejo el caso en que se revela el asesino
         if secreto.tipo == TipoSecreto.asesino:
             partida.estado = EstadoPartida.Finalizada
-            self.partidas.guardar(partida)
+            await self.partidas.guardar(partida)
             # lo voy a manejar como una excepcion
             raise AsesinoRevelado()
 
