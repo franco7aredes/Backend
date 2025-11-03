@@ -93,6 +93,8 @@ class _RepoSecretoProto(Protocol):
     async def obtener_secretos(self, partida_id: int, jugador_id: int) -> List[SecretoDB]: ...
     async def obtener_secreto_asesino(self, partida_id: int) -> SecretoDB: ...
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int: ...
+    async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]: ...
+    async def guardar(self, secreto: SecretoDB) -> None: ...
 
 @runtime_checkable
 class _RepoSetProto(Protocol):
@@ -935,6 +937,66 @@ class ServicioJuego:
             await self.cartas.guardar_muchas(cartas_del_set)  # type: ignore[attr-defined]
 
         return RobarSetResultado(set=set_a_robar)
+
+    async def revelar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> RevelarSecretoResultado:
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+        
+        secretos = await self.secretos.obtener_secretos(partida_id, jugador_id)
+        secreto = None
+        for s in secretos:
+            if getattr(s, "id_secreto", None) == secreto_id:
+                secreto = s
+                break
+        if secreto is None:
+            raise SecretoNoEncontrado()
+        
+        if getattr(secreto, "estado", None) != EstadoSecreto.oculto:
+            raise SecretoNoDisponible()
+        
+        secreto.estado = EstadoSecreto.revelado
+
+        return RevelarSecretoResultado(secreto=secreto)
+
+
+    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> None:
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+
+        secretos = await self.secretos.obtener_secretos_revelados(partida_id)
+        secreto = None
+        for s in secretos:
+            if getattr(s, "id_secreto", None) == secreto_id:
+                secreto = s
+                break
+        if secreto is None:
+            raise SecretoNoEncontrado()
+        
+        if getattr(secreto, "estado", None) != EstadoSecreto.revelado:
+            raise SecretoNoDisponible()
+        
+        secreto.estado = EstadoSecreto.oculto
+        secreto.id_jugador = jugador_id
+
+        # Ahora actualizo la base de datos
+        self.secretos.guardar(secreto)
 
     async def revelar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> RevelarSecretoResultado:
         jugador = await self.jugadores.obtener(jugador_id)
