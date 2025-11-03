@@ -53,3 +53,6 @@ class PartidaEnJuegoNoAbandonable(Exception):
 
 class CreadorNoPuedeAbandonarPartida(Exception):
     pass
+
+class SetNoCorrespondeAlJugadorSeleccionado(Exception):
+    pass
