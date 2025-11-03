@@ -18,6 +18,7 @@ from app.capa_2_logica.errores import (
     NoPuedeRobarSuPropioSet,
     SecretoNoEncontrado,
     SecretoNoDisponible,
+    AsesinoRevelado,
 )
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
@@ -1537,3 +1538,17 @@ async def test_robar_secreto_no_disponible():
 
     with pytest.raises(SecretoNoDisponible):
         await servicio.robar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
+       
+
+@pytest.mark.asyncio
+async def test_revelar_asesino():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=1))
+
+    secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.oculto, tipo=TipoSecreto.asesino)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    with pytest.raises(AsesinoRevelado):
+        await servicio.revelar_secreto(partida_id=1, jugador_id=3, secreto_id=3)
+
