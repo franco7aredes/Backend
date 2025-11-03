@@ -20,6 +20,8 @@ from .errores import (
     NoPuedeRobarSuPropioSet,
     SecretoNoEncontrado,
     SecretoNoDisponible,
+    PartidaEnJuegoNoAbandonable,
+    CreadorNoPuedeAbandonarPartida,
 )
 from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
@@ -48,6 +50,7 @@ from .resultados import (
     JugarSetResultado,
     RobarSetResultado,
     RevelarSecretoResultado,
+    AbandonarPartidaResultado
 )
 from .convertidores import partida_a_dict, jugador_a_dict
 from .constantes import CARTAS_POR_MANO
@@ -59,13 +62,14 @@ class _RepoPartidaProto(Protocol):
     async def obtener(self, partida_id: int) -> Optional[PartidaModelo]: ...
     async def listar_en_espera(self) -> List[PartidaModelo]: ...
     async def guardar(self, partida: PartidaModelo) -> None: ...
-
+    async def confirmar(self) -> None: ...
 
 @runtime_checkable
 class _RepoJugadorProto(Protocol):
     async def listar_por_partida(self, partida_id: int) -> List[JugadorModelo]: ...
     async def crear(self, jugador: JugadorModelo) -> JugadorModelo: ...
     async def obtener(self, jugador_id: int) -> Optional[JugadorModelo]: ...
+    async def eliminar(self, jugador_id: int) -> None: ...
 
 
 @runtime_checkable
@@ -959,3 +963,35 @@ class ServicioJuego:
         secreto.estado = EstadoSecreto.revelado
 
         return RevelarSecretoResultado(secreto=secreto)
+    
+    async def abandonar_partida(self, partida_id: int, jugador_id: int) -> AbandonarPartidaResultado:
+        """Permite a un jugador abandonar la partida."""
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+
+        if partida.estado == EstadoPartida.en_juego:
+            raise PartidaEnJuegoNoAbandonable()
+
+        if partida.id_jugador_creador != jugador_id:
+            # "Eliminamos" al jugador de la Bd partida
+            if partida.cantidad_jugadores > 1:
+                partida.cantidad_jugadores -= 1
+                if hasattr(self.partidas, "confirmar"):
+                    await self.partidas.confirmar()
+            # Eliminamos efectivamente al jugador en la BD de Jugadores
+                await self.jugadores.eliminar(jugador_id)
+        else:
+            raise CreadorNoPuedeAbandonarPartida()
+
+        return AbandonarPartidaResultado(partida_id=partida_id,
+                                          jugador_id=jugador_id,
+                                          cantidad_jugadores=partida.cantidad_jugadores)

@@ -18,6 +18,8 @@ from app.capa_2_logica.errores import (
     NoPuedeRobarSuPropioSet,
     SecretoNoEncontrado,
     SecretoNoDisponible,
+    CreadorNoPuedeAbandonarPartida,
+    PartidaEnJuegoNoAbandonable,
 )
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo, EstadoPartida
 from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as JugadorModelo
@@ -1493,3 +1495,88 @@ async def test_revelar_secreto_no_disponible():
 
     with pytest.raises(SecretoNoDisponible):
         await servicio.revelar_secreto(partida_id=1, jugador_id=2, secreto_id=99)
+
+@pytest.mark.asyncio
+async def test_abandonar_partida_ok_decrementa_y_elimina():
+    partida = crear_partida_en_espera(id_partida=1, cantidad_jugadores=3)
+    partida.id_jugador_creador = 10  # owner
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=20, id_partida=1))
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j)
+    res = await s.abandonar_partida(1, 20)
+
+    assert res.partida_id == 1
+    assert res.jugador_id == 20
+    assert res.cantidad_jugadores == 2  # decrementa
+    repo_j.eliminar.assert_awaited_once_with(20)
+    repo_p.confirmar.assert_awaited()
+
+@pytest.mark.asyncio
+async def test_abandonar_partida_owner_no_puede():
+    partida = crear_partida_en_espera(id_partida=1, cantidad_jugadores=3)
+    partida.id_jugador_creador = 20  # el que intenta abandonar es el owner
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=20, id_partida=1))
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j)
+    with pytest.raises(CreadorNoPuedeAbandonarPartida):
+        await s.abandonar_partida(1, 20)
+
+@pytest.mark.asyncio
+async def test_abandonar_partida_partida_en_juego_no_abandonable():
+    partida = crear_partida_en_juego(id_partida=1, estado=EstadoPartida.en_juego, cantidad_jugadores=3)
+    partida.id_jugador_creador = 10
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=20, id_partida=1))
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j)
+    with pytest.raises(PartidaEnJuegoNoAbandonable):
+        await s.abandonar_partida(1, 20)
+
+@pytest.mark.asyncio
+async def test_abandonar_partida_jugador_no_encontrado():
+    partida = crear_partida_en_espera(id_partida=1, cantidad_jugadores=2)
+    partida.id_jugador_creador = 10
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=None)
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j)
+    with pytest.raises(JugadorNoEncontrado):
+        await s.abandonar_partida(1, 99)
+
+@pytest.mark.asyncio
+async def test_abandonar_partida_partida_no_encontrada():
+    repo_p = crear_repo_partida_mock(obtener_return=None)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=20, id_partida=1))
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j)
+    with pytest.raises(PartidaNoEncontrada):
+        await s.abandonar_partida(1, 20)
+
+@pytest.mark.asyncio
+async def test_abandonar_partida_jugador_no_en_partida():
+    partida = crear_partida_en_espera(id_partida=1, cantidad_jugadores=3)
+    partida.id_jugador_creador = 10
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    # jugador en otra partida
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=20, id_partida=99))
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j)
+    with pytest.raises(JugadorNoEnPartida):
+        await s.abandonar_partida(1, 20)
+
+@pytest.mark.asyncio
+async def test_abandonar_partida_no_decrementa_ni_elimina_si_cantidad_igual_a_uno():
+    # Caso límite según implementación actual: si cantidad_jugadores <= 1, no elimina ni decrementa
+    partida = crear_partida_en_espera(id_partida=1, cantidad_jugadores=1)
+    partida.id_jugador_creador = 10
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    # jugador no es owner (estado inconsistente, pero nos permite cubrir rama)
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=20, id_partida=1))
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j)
+    res = await s.abandonar_partida(1, 20)
+
+    assert res.cantidad_jugadores == 1
+    repo_j.eliminar.assert_not_awaited()

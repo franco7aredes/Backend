@@ -1,5 +1,5 @@
 from typing import List, cast, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from app.capa_3_api.dtos.partidas import (
     PartidaCrear,
     Jugador as JugadorDTO,
@@ -23,8 +23,7 @@ from app.capa_3_api.mapeadores import (
 # Nuevo: servicio de juego (capa 2) con repos async 
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
-from app.capa_2_logica.errores import PartidaNoEncontrada, PartidaYaEnJuego, MinimoJugadoresNoAlcanzado, MaximoJugadoresAlcanzado
-
+from app.capa_2_logica.errores import *
 partida_router = APIRouter()
 
 # Helper para acceder tanto dicts como objetos con atributos (p.ej., clase J de los tests)
@@ -206,3 +205,38 @@ async def terminar_turno(partida_id: int, id_enviada: int, service: ServicioJueg
     for j in jugadores_en_partida:
         await administrador.enviar_mensaje(mensaje, cast(int, _jval(j, "id_jugador")))
     return mensaje
+
+@partida_router.delete("/partidas/{partida_id}/abandonar", response_model=None, status_code=status.HTTP_204_NO_CONTENT)
+async def abandonar_partida(partida_id: int, id_jugador: int, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    try:
+        res = await service.abandonar_partida(partida_id, id_jugador)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except JugadorNoEncontrado:
+        raise HTTPException(status_code=404, detail="Jugador no encontrado")
+    except JugadorNoEnPartida:
+        raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida")
+    except PartidaEnJuegoNoAbandonable:
+        raise HTTPException(status_code=400, detail="No se puede abandonar una partida ya comenzada")
+    except CreadorNoPuedeAbandonarPartida:
+        raise HTTPException(status_code=400, detail="El creador no puede abandonar la partida")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+    # Broadcast al resto de los jugadores de la partida
+    try:
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "jugador_abandono",
+                "partida_id": res.partida_id,
+                "jugador_id": res.jugador_id,
+                "cantidad_jugadores": res.cantidad_jugadores,
+            },
+        )
+    except Exception:
+        # no romper el endpoint por fallas de notificación
+        pass
+
+    # Por lo general el delete no retorna nada, por eso se usa 204 para indicar éxito
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

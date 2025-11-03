@@ -111,3 +111,9 @@ class RobarSetResultado:
 @dataclass(slots=True)
 class RevelarSecretoResultado:
     secreto: SecretoDB
+
+@dataclass(slots=True)
+class AbandonarPartidaResultado:
+    partida_id: int
+    jugador_id: int
+    cantidad_jugadores: int
