@@ -51,6 +51,7 @@ from .resultados import (
     JugarSetResultado,
     RobarSetResultado,
     RevelarSecretoResultado,
+    OcultarSecretoResultado,
     AbandonarPartidaResultado
 )
 from .convertidores import partida_a_dict, jugador_a_dict
@@ -1040,3 +1041,28 @@ class ServicioJuego:
         return AbandonarPartidaResultado(partida_id=partida_id,
                                           jugador_id=jugador_id,
                                           cantidad_jugadores=partida.cantidad_jugadores)
+
+    async def ocultar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> OcultarSecretoResultado:
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+        
+        secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+        if not secreto:
+            raise SecretoNoEncontrado()
+        
+        if getattr(secreto, "estado", None) != EstadoSecreto.revelado:
+            raise SecretoNoDisponible()
+        
+        secreto.estado = EstadoSecreto.oculto
+        # Ahora actualizo la base de datos
+        self.secretos.guardar(secreto)
+
+        return OcultarSecretoResultado(secreto=secreto)
