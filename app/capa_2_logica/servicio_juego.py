@@ -998,33 +998,6 @@ class ServicioJuego:
         # Ahora actualizo la base de datos
         self.secretos.guardar(secreto)
 
-    async def revelar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> RevelarSecretoResultado:
-        jugador = await self.jugadores.obtener(jugador_id)
-        if not jugador:
-            raise JugadorNoEncontrado()
-
-        partida = await self.partidas.obtener(partida_id)
-        if not partida:
-            raise PartidaNoEncontrada()
-
-        if getattr(jugador, "id_partida", None) != partida_id:
-            raise JugadorNoEnPartida()
-        
-        secretos = await self.secretos.obtener_secretos(partida_id, jugador_id)
-        secreto = None
-        for s in secretos:
-            if getattr(s, "id_secreto", None) == secreto_id:
-                secreto = s
-                break
-        if secreto is None:
-            raise SecretoNoEncontrado()
-        
-        if getattr(secreto, "estado", None) != EstadoSecreto.oculto:
-            raise SecretoNoDisponible()
-        
-        secreto.estado = EstadoSecreto.revelado
-
-        return RevelarSecretoResultado(secreto=secreto)
     
     async def abandonar_partida(self, partida_id: int, jugador_id: int) -> AbandonarPartidaResultado:
         """Permite a un jugador abandonar la partida."""
