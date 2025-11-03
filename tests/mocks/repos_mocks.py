@@ -78,6 +78,7 @@ def crear_repo_jugador_mock(
     obtener_return: Any | None = None,
     listar_por_partida_return: Any | None = None,
     crear_return: Any | None = None,
+    eliminar_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
@@ -86,6 +87,7 @@ def crear_repo_jugador_mock(
     repo.obtener = AsyncMock(return_value=obtener_return)
     # opcional: guardar_muchos si el servicio lo usa
     repo.guardar_muchos = _async_method()
+    repo.eliminar = _async_method(eliminar_return)
     return repo
 
 

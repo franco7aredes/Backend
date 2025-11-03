@@ -47,3 +47,9 @@ class SecretoNoDisponible(Exception):
 
 class AsesinoRevelado(Exception):
     pass
+
+class PartidaEnJuegoNoAbandonable(Exception):
+    pass
+
+class CreadorNoPuedeAbandonarPartida(Exception):
+    pass

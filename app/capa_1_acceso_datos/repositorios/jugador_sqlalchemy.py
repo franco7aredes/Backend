@@ -27,3 +27,8 @@ class RepositorioJugadorSQLAlchemy:
     async def guardar_muchos(self, jugadores: List[JugadorModelo]) -> None:
         self.db.add_all(jugadores)
         await self.db.flush()
+
+    async def eliminar(self, jugador_id: int) -> None:
+        jugador = await self.obtener(jugador_id)
+        await self.db.delete(jugador)
+        await self.db.flush()
