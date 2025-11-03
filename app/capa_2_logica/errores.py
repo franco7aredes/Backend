@@ -45,6 +45,9 @@ class SecretoNoEncontrado(Exception):
 class SecretoNoDisponible(Exception):
     pass
 
+class AsesinoRevelado(Exception):
+    pass
+
 class PartidaEnJuegoNoAbandonable(Exception):
     pass
 

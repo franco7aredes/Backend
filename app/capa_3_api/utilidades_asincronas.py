@@ -9,3 +9,7 @@ async def _notificar_jugadores_async(cartas_repartidas: Dict[int, List[Any]]):
         cartas_data = [c.dict() for c in mapear_cartas_a_dto(cartas)]
         mensaje = {"evento": "partida_iniciada", "data": {"mano": cartas_data}}
         await administrador.enviar_mensaje(mensaje, jugador_id)
+
+async def _notificar_asesino_revelado(partida_id: int) -> None:
+    await administrador.difundir_a_partida(partida_id,
+        {"evento": "asesino revelado"})
