@@ -16,6 +16,7 @@ def db():
     db.add = MagicMock()
     db.refresh = AsyncMock()
     db.get = AsyncMock()
+    db.delete = AsyncMock()
     return db
 
 class DummyScalars:
@@ -67,4 +68,13 @@ async def test_guardar_muchos(db, jugador_valido):
     repo = RepositorioJugadorSQLAlchemy(db)
     await repo.guardar_muchos([jugador_valido])
     db.add_all.assert_called_with([jugador_valido])
+    db.flush.assert_awaited()
+
+@pytest.mark.asyncio
+async def test_eliminar(db, jugador_valido):
+    db.get.return_value = jugador_valido
+    repo = RepositorioJugadorSQLAlchemy(db)
+    await repo.eliminar(1)
+    db.get.assert_awaited_with(JugadorModelo, 1)
+    db.delete.assert_awaited_with(jugador_valido)
     db.flush.assert_awaited()
