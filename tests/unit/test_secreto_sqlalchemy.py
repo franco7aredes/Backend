@@ -14,6 +14,16 @@ def secreto_valido():
     )
 
 @pytest.fixture
+def secreto_valido_revelado():
+    return SecretoDB(
+        id_secreto=1,
+        id_partida=2,
+        id_jugador=3,
+        tipo=TipoSecreto.otro,
+        estado=EstadoSecreto.revelado,
+    )
+
+@pytest.fixture
 def db():
     db = MagicMock()
     db.execute = AsyncMock()
@@ -77,3 +87,24 @@ async def test_contar_secretos_jugador_none(db):
     repo = RepositorioSecretoSQLAlchemy(db)
     res = await repo.contar_secretos_jugador(2, 3)
     assert res == 0
+
+@pytest.mark.asyncio
+async def test_obtener_secretos_revelados(db, secreto_valido_revelado):
+    db.execute.return_value.scalars = lambda: DummyScalars([secreto_valido_revelado])
+    repo = RepositorioSecretoSQLAlchemy(db)
+    res = await repo.obtener_secretos_revelados(2)
+    assert res == [secreto_valido_revelado]
+
+@pytest.mark.asyncio
+async def test_obtener_secretos_revelados_vacio(db):
+    db.execute.return_value.scalars = lambda: DummyScalars([])
+    repo = RepositorioSecretoSQLAlchemy(db)
+    res = await repo.obtener_secretos_revelados(2)
+    assert res == []
+
+@pytest.mark.asyncio
+async def test_guardar_ok(db, secreto_valido):
+    repo = RepositorioSecretoSQLAlchemy(db)
+    await repo.guardar(secreto_valido)
+    db.add.assert_called()
+    db.flush.assert_awaited()

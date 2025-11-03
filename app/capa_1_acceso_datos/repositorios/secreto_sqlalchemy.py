@@ -46,3 +46,17 @@ class RepositorioSecretoSQLAlchemy:
         res = await self.db.execute(stmt)
         return int(res.scalar() or 0)
 
+    async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]:
+        """obtiene los secretos revelados de una partida"""
+        stmt = (
+            select(SecretoDB)
+            .where((SecretoDB.id_partida == partida_id) & (SecretoDB.estado == EstadoSecreto.revelado))
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def guardar(self, secreto: SecretoDB) -> None:
+        """guarda un secreto nuevo. Esta funcion tambien
+        permite actualizar el secreto si lo modificaste"""
+        self.db.add(secreto)
+        await self.db.flush()
