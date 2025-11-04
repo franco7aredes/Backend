@@ -7,53 +7,14 @@ from app.capa_0_definicion_bd.models.jugadores_modelos import Jugador as Jugador
 from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, TipoSecreto
 from app.capa_0_definicion_bd.models.sets_modelos import Set as SetModelo
 from typing import Protocol, runtime_checkable
-from .errores import (
-    PartidaNoEncontrada,
-    PartidaYaEnJuego,
-    MinimoJugadoresNoAlcanzado,
-    MaximoJugadoresAlcanzado,
-    AsesinoNoEncontrado,
-    JugadorNoEncontrado,
-    JugadorNoEnPartida,
-    SetNoEncontrado,
-    SetNoEnPartida,
-    NoPuedeRobarSuPropioSet,
-    SecretoNoEncontrado,
-    SecretoNoDisponible,
-    AsesinoRevelado,
-    PartidaEnJuegoNoAbandonable,
-    CreadorNoPuedeAbandonarPartida,
-)
+from .errores import *
 from app.capa_0_definicion_bd.models.cartas_modelos import (
     Carta as CartaModelo,
     PosicionCarta,
     TipoCarta,
 )
-from .resultados import (
-    ObtenerCartasResultado,
-    ReponerResultado,
-    TurnoResultado,
-    CrearPartidaResultado,
-    RepartirCartasResultado,
-    IniciarYPrepararResultado,
-    DescartarResultado,
-    CantidadManoResultado,
-    CantidadMazoResultado,
-    UnirsePartidaResultado,
-    IniciarPartidaResultado,
-    RepartirSecretosResultado,
-    ObtenerSecretosResultado,
-    VerDescarteResultado,
-    ObtenerDraftResultado,
-    CantidadManosResultado,
-    AsesinoResultado,
-    CantidadSecretosResultado,
-    JugarSetResultado,
-    RobarSetResultado,
-    RevelarSecretoResultado,
-    OcultarSecretoResultado,
-    AbandonarPartidaResultado
-)
+
+from .resultados import *
 from .convertidores import partida_a_dict, jugador_a_dict
 from .constantes import CARTAS_POR_MANO
 
@@ -1042,6 +1003,7 @@ class ServicioJuego:
                                           jugador_id=jugador_id,
                                           cantidad_jugadores=partida.cantidad_jugadores)
 
+
     async def ocultar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> OcultarSecretoResultado:
         jugador = await self.jugadores.obtener(jugador_id)
         if not jugador:
@@ -1066,3 +1028,47 @@ class ServicioJuego:
         self.secretos.guardar(secreto)
 
         return OcultarSecretoResultado(secreto=secreto)
+      
+    async def verificar_seleccionar_jugador_set(self, partida_id: int, jugador_id: int, set_id: int, id_seleccionado: int, posicion_secreto: Optional[int]= None) -> None:
+        """ Verifica que un jugador pueda seleccionar a otro jugador para robarle un set.
+            Levanta excepciones en caso de error."""
+        
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+
+        set_a_robar = await self.sets.obtener_set_por_id(set_id)
+        if not set_a_robar:
+            raise SetNoEncontrado()
+
+        if getattr(set_a_robar, "id_partida", None) != partida_id:
+            raise SetNoEnPartida()
+
+        if getattr(set_a_robar, "id_jugador", None) == jugador_id:
+            raise NoPuedeRobarSuPropioSet()
+
+        jugador_seleccionado = await self.jugadores.obtener(id_seleccionado)
+        if not jugador_seleccionado:
+            raise JugadorNoEncontrado()
+
+        if getattr(jugador_seleccionado, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+
+        if getattr(set_a_robar, "id_jugador", None) != id_seleccionado:
+            raise SetNoCorrespondeAlJugadorSeleccionado()
+        
+        secretos = await self.secretos.obtener_secretos(partida_id, id_seleccionado)
+        if not secretos:
+            raise SecretoNoEncontrado()
+
+        if posicion_secreto is not None:
+            largo = await self.secretos.contar_secretos_jugador(partida_id, id_seleccionado)
+            if posicion_secreto < 1 or posicion_secreto > largo:
+                raise SecretoNoEncontrado()

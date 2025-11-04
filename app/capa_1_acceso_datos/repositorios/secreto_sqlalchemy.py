@@ -16,10 +16,11 @@ class RepositorioSecretoSQLAlchemy:
 
     async def obtener_secretos(self, partida_id: int, jugador_id: int) -> List[SecretoDB]:
         """ Obtengo los secretos del jugador """
+        # Los ordenamos por id para tener un orden consistente.
         stmt = (
             select(SecretoDB)
             .where((SecretoDB.id_partida == partida_id) & (SecretoDB.id_jugador == jugador_id))
-            )
+            ).order_by(SecretoDB.id_secreto)
         
         res = await self.db.execute(stmt)
         return list(res.scalars().all())
