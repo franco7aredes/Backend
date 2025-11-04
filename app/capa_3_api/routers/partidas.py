@@ -241,7 +241,7 @@ async def abandonar_partida(partida_id: int, id_jugador: int, service: ServicioJ
     # Por lo general el delete no retorna nada, por eso se usa 204 para indicar éxito
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-@partida_router.post("/partidas/{partida_id}/jugar_evento", status_code=status.HTTP_200_OK)
+@partida_router.post("/partidas/{partida_id}/eventos", status_code=status.HTTP_200_OK)
 async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: ServicioJuego = Depends(obtener_servicio_juego)):
     try:
         resultado = await service.preparar_evento(
