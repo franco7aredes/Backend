@@ -63,3 +63,11 @@ class JugarSetRespuesta(BaseModel):
     set: SetDTO
 
     model_config = ConfigDict(from_attributes=True)
+
+class JugarEventoDTO(BaseModel):
+    id_jugador: int
+    id_carta: int
+    id_carta_descarte: Optional[int] = None
+    id_secreto: Optional[int] = None
+    id_jugador_objetivo: Optional[int] = None
+    id_set: Optional[int] = None

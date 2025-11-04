@@ -132,6 +132,6 @@ class EventoResultado:
     cartas_descartadas: Optional[List[CartaModelo]] = None
     cartas_agregadas: Optional[List[CartaModelo]] = None
     set_robado: Optional[SetModelo] = None
-    secreto_oculto: Optional[CartaModelo] = None
+    secreto_oculto: Optional[SecretoDB] = None
     cartas_repuestas: Optional[List[CartaModelo]] = None
     mensaje: Optional[str] = None 

@@ -6,7 +6,7 @@ from app.capa_3_api.dtos.partidas import (
     Partida as PartidaDTO,
     JugadorCrear,
 )
-from app.capa_3_api.dtos.juego import SecretoDTO
+from app.capa_3_api.dtos.juego import SecretoDTO, JugarEventoDTO
 from app.capa_3_api.websockets.ApiWS import administrador
 import app.capa_2_logica.constantes as C
 from app.capa_3_api.utilidades_asincronas import _notificar_jugadores_async
@@ -240,3 +240,52 @@ async def abandonar_partida(partida_id: int, id_jugador: int, service: ServicioJ
 
     # Por lo general el delete no retorna nada, por eso se usa 204 para indicar éxito
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@partida_router.post("/partidas/{partida_id}/jugar_evento", status_code=status.HTTP_200_OK)
+async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: ServicioJuego = Depends(obtener_servicio_juego)):
+    try:
+        resultado = await service.preparar_evento(
+            partida_id=partida_id,
+            jugador_id=datos.id_jugador,
+            carta_id=datos.id_carta,
+            carta_descarte=datos.id_carta_descarte,
+            secreto_id=datos.id_secreto,
+            jugador_objetivo_id=datos.id_jugador_objetivo,
+            set_id=datos.id_set
+        )
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except JugadorNoEncontrado:
+        raise HTTPException(status_code=404, detail="Jugador no encontrado")
+    except JugadorNoEnPartida:
+        raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida")
+    except CartaNoEsEvento:
+        raise HTTPException(status_code=400, detail="La carta no es un evento")
+    except EventoNoImplementado as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+    mensaje = {
+        "evento": "evento_jugado",
+        "partida_id": partida_id,
+        "jugador_id": datos.id_jugador,
+        "tipo_evento": resultado.tipo_evento,
+        "mensaje": resultado.mensaje,
+    }
+    try:
+        await administrador.difundir_a_partida(partida_id, mensaje)
+    except Exception:
+        pass  
+
+    return {
+        "mensaje": "Evento jugado con éxito",
+        "tipo_evento": resultado.tipo_evento,
+        "detalle": resultado.mensaje,
+        "cartas_descartadas": [c.id_carta for c in resultado.cartas_descartadas or []],
+        "cartas_agregadas": [c.id_carta for c in resultado.cartas_agregadas or []],
+        "cartas_repuestas": [c.id_carta for c in resultado.cartas_repuestas or []],
+        "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None
+    }
