@@ -1004,7 +1004,7 @@ class ServicioJuego:
                                           cantidad_jugadores=partida.cantidad_jugadores)
 
 
-    async def verificar_seleccionar_jugador_set(self, partida_id: int, jugador_id: int, set_id: int, id_seleccionado: int) -> None:
+    async def verificar_seleccionar_jugador_set(self, partida_id: int, jugador_id: int, set_id: int, id_seleccionado: int, posicion_secreto: Optional[int]= None) -> None:
         """ Verifica que un jugador pueda seleccionar a otro jugador para robarle un set.
             Levanta excepciones en caso de error."""
         
@@ -1038,3 +1038,12 @@ class ServicioJuego:
 
         if getattr(set_a_robar, "id_jugador", None) != id_seleccionado:
             raise SetNoCorrespondeAlJugadorSeleccionado()
+        
+        secretos = await self.secretos.obtener_secretos(partida_id, id_seleccionado)
+        if not secretos:
+            raise SecretoNoEncontrado()
+
+        if posicion_secreto is not None:
+            largo = await self.secretos.contar_secretos_jugador(partida_id, id_seleccionado)
+            if posicion_secreto < 1 or posicion_secreto > largo:
+                raise SecretoNoEncontrado()

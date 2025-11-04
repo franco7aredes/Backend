@@ -97,10 +97,9 @@ async def seleccionar_destino(
 ):
     jugador_id = datos.id_jugador
     id_seleccionado = datos.id_seleccionado
-    secreto_a_revelar = datos.secreto_a_revelar
-
+    posicion_secreto = datos.posicion_secreto
     try:
-        await service.verificar_seleccionar_jugador_set(partida_id, jugador_id, set_id, id_seleccionado, secreto_a_revelar)
+        await service.verificar_seleccionar_jugador_set(partida_id, jugador_id, set_id, id_seleccionado, posicion_secreto)
     except PartidaNoEncontrada:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
     except JugadorNoEncontrado:
@@ -115,6 +114,8 @@ async def seleccionar_destino(
         raise HTTPException(status_code=400, detail="No puede seleccionar su propio set")
     except SetNoCorrespondeAlJugadorSeleccionado:
         raise HTTPException(status_code=400, detail="El set no corresponde al jugador seleccionado")
+    except SecretoNoEncontrado:
+        raise HTTPException(status_code=400, detail="El jugador seleccionado no tiene un secreto en la posición indicada")
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
     
@@ -128,7 +129,7 @@ async def seleccionar_destino(
                 "set_id": set_id,
                 "jugador_id": jugador_id,
                 "id_seleccionado": id_seleccionado,
-                "secreto_posicion": secreto_a_revelar
+                "secreto_posicion": posicion_secreto
             }
         )
     except Exception:
@@ -142,7 +143,7 @@ async def seleccionar_destino(
                 "partida_id": partida_id,
                 "set_id": set_id,
                 "origen": jugador_id,
-                "secreto_posicion": secreto_a_revelar
+                "secreto_posicion": posicion_secreto
             },
             id_seleccionado
         )
@@ -155,5 +156,5 @@ async def seleccionar_destino(
         "set_id": set_id,
         "jugador_id": jugador_id,
         "id_seleccionado": id_seleccionado,
-        "secreto_posicion": secreto_a_revelar
+        "secreto_posicion": posicion_secreto
     }
