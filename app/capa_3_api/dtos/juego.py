@@ -71,3 +71,9 @@ class JugarEventoDTO(BaseModel):
     id_secreto: Optional[int] = None
     id_jugador_objetivo: Optional[int] = None
     id_set: Optional[int] = None
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        use_enum_values=True,
+        extra="ignore"
+    )
