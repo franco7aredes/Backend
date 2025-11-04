@@ -1731,7 +1731,7 @@ async def test_verificar_seleccionar_no_puede_robar_su_propio_set_lanza_excepcio
     s = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s, sets=repo_sets)
     with pytest.raises(NoPuedeRobarSuPropioSet):
         await s.verificar_seleccionar_jugador_set(8, 16, 10, 16, None)
-=======
+        
 async def test_ocultar_secreto_exitoso():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=2))
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=2))
