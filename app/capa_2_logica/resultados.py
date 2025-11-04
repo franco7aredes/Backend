@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo
@@ -121,3 +121,17 @@ class AbandonarPartidaResultado:
     partida_id: int
     jugador_id: int
     cantidad_jugadores: int
+
+@dataclass(slots=True)
+class NotsoFastResultado:
+    carta: List[CartaModelo]
+
+@dataclass(slots=True)
+class EventoResultado:
+    tipo_evento: Optional[str] = None  
+    cartas_descartadas: Optional[List[CartaModelo]] = None
+    cartas_agregadas: Optional[List[CartaModelo]] = None
+    set_robado: Optional[SetModelo] = None
+    secreto_oculto: Optional[CartaModelo] = None
+    cartas_repuestas: Optional[List[CartaModelo]] = None
+    mensaje: Optional[str] = None 

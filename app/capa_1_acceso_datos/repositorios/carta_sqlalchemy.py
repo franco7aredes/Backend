@@ -141,6 +141,7 @@ class RepositorioCartaSQLAlchemy:
         carta.posicion = PosicionCarta.draft
         # Ya deberia estar sin jugador, pero por las dudas
         carta.id_jugador = None
+        carta.orden_en_mazo = None 
         self.db.add(carta)
         await self.db.flush()
         return carta
@@ -155,6 +156,20 @@ class RepositorioCartaSQLAlchemy:
             )
             .order_by(desc(CartaModelo.orden_en_descarte))
             .limit(5)
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+    
+    async def obtener_primeras_de_mazo(self, partida_id: int) -> List[CartaModelo]:
+        """ obtengo las primeras cartas del mazo """
+        stmt = (
+            select(CartaModelo)
+            .where(
+                (CartaModelo.id_partida == partida_id)
+                & (CartaModelo.posicion == PosicionCarta.mazo)
+            )
+            .order_by(desc(CartaModelo.orden_en_descarte))
+            .limit(6)
         )
         res = await self.db.execute(stmt)
         return list(res.scalars().all())
