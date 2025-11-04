@@ -13,8 +13,8 @@ from app.capa_0_definicion_bd.models.cartas_modelos import (
     PosicionCarta,
     TipoCarta,
 )
-from .resultados import *
 
+from .resultados import *
 from .convertidores import partida_a_dict, jugador_a_dict
 from .constantes import CARTAS_POR_MANO
 
@@ -1004,6 +1004,31 @@ class ServicioJuego:
                                           cantidad_jugadores=partida.cantidad_jugadores)
 
 
+    async def ocultar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> OcultarSecretoResultado:
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+        
+        secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+        if not secreto:
+            raise SecretoNoEncontrado()
+        
+        if getattr(secreto, "estado", None) != EstadoSecreto.revelado:
+            raise SecretoNoDisponible()
+        
+        secreto.estado = EstadoSecreto.oculto
+        # Ahora actualizo la base de datos
+        self.secretos.guardar(secreto)
+
+        return OcultarSecretoResultado(secreto=secreto)
+      
     async def verificar_seleccionar_jugador_set(self, partida_id: int, jugador_id: int, set_id: int, id_seleccionado: int, posicion_secreto: Optional[int]= None) -> None:
         """ Verifica que un jugador pueda seleccionar a otro jugador para robarle un set.
             Levanta excepciones en caso de error."""
