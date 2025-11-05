@@ -1771,3 +1771,550 @@ async def test_ocultar_secreto_no_disponible():
 
     with pytest.raises(SecretoNoDisponible):
         await servicio.ocultar_secreto(partida_id=2, jugador_id=3, secreto_id=2)
+
+@pytest.mark.asyncio
+async def test_descartar_not_so_fast_exitoso():
+    partida_id = 1
+    jugador_id = 2
+
+    c1 = crear_carta(id_carta=1, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    c1.nombre, c1.tipo = "Not so Fast", TipoCarta.instant
+
+    c2 = crear_carta(id_carta=2, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    c2.nombre, c2.tipo = "Not so Fast", TipoCarta.instant
+
+    c3 = crear_carta(id_carta=3, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    c3.nombre, c3.tipo = "Miss Marple", TipoCarta.detective
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2, c3], obtener_cantidad_descartadas_return=5)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    resultado = await servicio.descartar_not_so_fast(partida_id=partida_id, jugador_id=jugador_id)
+
+    assert isinstance(resultado, NotsoFastResultado)
+    assert len(resultado.carta) == 2
+    assert all(c.posicion == PosicionCarta.descarte for c in resultado.carta)
+    assert all(c.id_jugador is None for c in resultado.carta)
+    assert resultado.carta[0].orden_en_descarte == 6
+    assert resultado.carta[1].orden_en_descarte == 7
+
+@pytest.mark.asyncio
+async def test_descartar_not_so_fast_sin_cartas_en_mano():
+    partida_id = 5
+    jugador_id = 4
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="Cartas no encontradas"):
+        await servicio.descartar_not_so_fast(partida_id=partida_id, jugador_id=jugador_id)
+
+@pytest.mark.asyncio
+async def test_descartar_not_so_fast_sin_cartas_validas():
+    partida_id = 2
+    jugador_id = 1
+
+    c1 = crear_carta(id_carta=1, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    c1.nombre, c1.tipo = "Hercule Poirot", TipoCarta.detective
+
+    c2 = crear_carta(id_carta=2, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    c2.nombre, c2.tipo = "Dead card folly", TipoCarta.event
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[c1, c2])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    resultado = await servicio.descartar_not_so_fast(partida_id=partida_id, jugador_id=jugador_id)
+
+    assert isinstance(resultado, NotsoFastResultado)
+    assert resultado.carta == []
+
+@pytest.mark.asyncio
+async def test_preparar_evento_cards_off_the_table_exitoso():
+    partida_id = 5
+    jugador_id = 3
+    carta_id = 58
+    jugador_objetivo_id = 7
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    # carta de evento
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Cards off the table"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    # cartas descartadas del jugador objetivo
+    carta_1 = crear_carta(id_carta=25, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.descarte)
+    carta_2 = crear_carta(id_carta=26, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.descarte)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    servicio.descartar_not_so_fast = AsyncMock(return_value=[carta_1, carta_2])
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_id,
+        jugador_objetivo_id=jugador_objetivo_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Cards off the table"
+    assert len(resultado.cartas_descartadas) == 2
+    assert resultado.mensaje == "2 cartas descartadas del jugador objetivo"
+
+@pytest.mark.asyncio
+async def test_preparar_evento_cards_off_the_table_sin_cartas_validas():
+    partida_id = 5
+    jugador_id = 3
+    carta_id = 48
+    jugador_objetivo_id = 7
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Cards off the table"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    servicio.descartar_not_so_fast = AsyncMock(return_value=[])
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_id,
+        jugador_objetivo_id=jugador_objetivo_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Cards off the table"
+    assert resultado.cartas_descartadas == []
+    assert resultado.mensaje == "El jugador no tiene cartas Not so Fast para descartar"
+
+@pytest.mark.asyncio
+async def test_preparar_evento_another_victim():
+    partida_id = 5
+    jugador_id = 3
+    carta_id = 49
+    set_id = 4
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    # carta de evento
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Another Victim"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    # set robado
+    set_obj = crear_set(id_set=set_id, id_partida=partida_id, id_jugador=2, nombre="Parker Pyne")
+    c1 = crear_carta(id_carta=11, id_partida=partida_id, id_jugador=2, posicion=PosicionCarta.set)
+    c2 = crear_carta(id_carta=12, id_partida=partida_id, id_jugador=2, posicion=PosicionCarta.set)
+
+    repo_s = crear_repo_set_mock(obtener_set_por_id_return=set_obj, obtener_cartas_del_set_return=[c1, c2])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, sets=repo_s)
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_id,
+        set_id=set_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Another Victim"
+    assert resultado.set_robado is not None
+    assert resultado.set_robado.id_set == set_id
+    assert resultado.set_robado.id_jugador == jugador_id
+    assert resultado.mensaje == "Se robo un set con exito"
+
+@pytest.mark.asyncio
+async def test_preparar_evento_another_victim_falla_por_set_invalido():
+    partida_id = 5
+    jugador_id = 3
+    carta_id = 49
+    set_id = 999
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Another Victim"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+    repo_s = crear_repo_set_mock(obtener_set_por_id_return=None)  # Simula que el set no existe
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, sets=repo_s)
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_id,
+        set_id=set_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Another Victim"
+    assert resultado.set_robado is None
+    assert resultado.mensaje == "No se pudo robar el set"
+
+
+@pytest.mark.asyncio
+async def test_preparar_evento_look_into_the_ashes_exitoso():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 51  
+    carta_descarte_id = 25 
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Look Into The Ashes"
+    carta_evento.tipo = TipoCarta.event
+
+    # carta objetivo en el descarte
+    carta_objetivo = crear_carta(id_carta=carta_descarte_id, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.descarte)
+
+    repo_c = crear_repo_carta_mock(
+        obtener_carta_return=None,
+        obtener_cantidad_descartadas_return=7 
+    )
+
+    # logica condicional para devolver la carta correcta
+    repo_c.obtener_carta = AsyncMock(side_effect=lambda *args: carta_evento if args == (partida_id, jugador_id, carta_evento_id) else carta_objetivo)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_evento_id,
+        carta_descarte=carta_descarte_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Look Into The Ashes"
+    assert len(resultado.cartas_agregadas) == 1
+    assert resultado.cartas_agregadas[0].id_carta == carta_descarte_id
+    assert resultado.cartas_agregadas[0].posicion == PosicionCarta.mano
+    assert resultado.cartas_agregadas[0].id_jugador == jugador_id
+    assert resultado.mensaje == f"La carta {carta_descarte_id} fue recuperada del descarte"
+
+    # verifica que se haya guardado la carta 
+    repo_c.guardar.assert_awaited()
+   
+
+@pytest.mark.asyncio
+async def test_preparar_evento_look_into_the_ashes_sin_carta_descarte():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 51
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Look Into The Ashes"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="Debe especificarse una carta del descarte para este evento"):
+        await servicio.preparar_evento(
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            carta_id=carta_evento_id
+            # carta_descarte omitida
+        )
+
+
+@pytest.mark.asyncio
+async def test_preparar_evento_look_into_the_ashes_carta_no_en_descarte():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 51
+    carta_descarte_id = 25
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Look Into The Ashes"
+    carta_evento.tipo = TipoCarta.event
+
+    carta_objetivo = crear_carta(id_carta=carta_descarte_id, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.mano)  # No esta en el descarte
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=None)
+    repo_c.obtener_carta = AsyncMock(side_effect=lambda *args: carta_evento if args == (partida_id, jugador_id, carta_evento_id) else carta_objetivo)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="La carta seleccionada no esta en el descarte"):
+        await servicio.preparar_evento(
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            carta_id=carta_evento_id,
+            carta_descarte=carta_descarte_id
+        )
+
+@pytest.mark.asyncio
+async def test_preparar_evento_and_then_there_was_one_more_exitoso():
+    partida_id = 5
+    jugador_id = 3
+    carta_id = 54 
+    secreto_id = 77
+    jugador_objetivo_id = 8
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    secreto_ocultado = crear_secreto(id_partida=partida_id, id_secreto=secreto_id, id_jugador=jugador_objetivo_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    servicio.ocultar_secreto = AsyncMock(return_value=secreto_ocultado)
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_id,
+        secreto_id=secreto_id,
+        jugador_objetivo_id=jugador_objetivo_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "And Then There Was One More"
+    assert resultado.secreto_oculto == secreto_ocultado
+    assert resultado.mensaje == f"Se ocultó el secreto {secreto_id}"
+
+@pytest.mark.asyncio
+async def test_preparar_evento_and_then_there_was_one_more_falla():
+    partida_id = 5
+    jugador_id = 3
+    carta_id = 54
+    secreto_id = 77
+    jugador_objetivo_id = 8
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    servicio.ocultar_secreto = AsyncMock(return_value=None) 
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_id,
+        secreto_id=secreto_id,
+        jugador_objetivo_id=jugador_objetivo_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "And Then There Was One More"
+    assert resultado.secreto_oculto is None
+    assert resultado.mensaje == "No se pudo ocultar el secreto"
+
+@pytest.mark.asyncio
+async def test_preparar_evento_delay_the_murderer_escape_exitoso():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 40  
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Delay the murderer Escape"
+    carta_evento.tipo = TipoCarta.event
+
+    cartas_descarte = [
+        crear_carta(id_carta=25, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.descarte, orden_en_descarte=1),
+        crear_carta(id_carta=26, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.descarte, orden_en_descarte=2),
+    ]
+
+    repo_c = crear_repo_carta_mock(
+        obtener_carta_return=carta_evento,
+        obtener_cantidad_descartadas_return=7,
+        contar_en_mazo_return=10
+    )
+    repo_c.guardar = AsyncMock()
+    
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    servicio.ver_del_descarte = AsyncMock(return_value=VerDescarteResultado(descarte=cartas_descarte))
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_evento_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Delay the murderer Escape"
+    assert resultado.cartas_agregadas == cartas_descarte
+    assert resultado.mensaje == "2 cartas fueron reintegradas al mazo"
+
+    for i, carta in enumerate(cartas_descarte, start=1):
+        assert carta.posicion == PosicionCarta.mazo
+        assert carta.id_jugador is None
+        assert carta.orden_en_descarte is None
+        assert carta.orden_en_mazo == 10 + i
+    
+    assert carta_evento.posicion == PosicionCarta.descarte
+    assert carta_evento.id_jugador is None
+
+@pytest.mark.asyncio
+async def test_preparar_evento_delay_the_murderer_escape_sin_cartas_en_descarte():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 40
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Delay the murderer Escape"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+    repo_c.guardar = AsyncMock()
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    servicio.ver_del_descarte = AsyncMock(return_value=VerDescarteResultado(descarte=[]))
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_evento_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Delay the murderer Escape"
+    assert resultado.cartas_agregadas is None or resultado.cartas_agregadas == []
+    assert resultado.mensaje == "No hay cartas para reintegrar al mazo"
+
+    # Verifica que no se haya llamado a guardar
+    repo_c.guardar.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_preparar_evento_early_train_to_paddington_exitoso():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 40
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Early Train To Paddington"
+    carta_evento.tipo = TipoCarta.event
+
+    cartas_mazo = []
+    for i in range(6):
+        carta = crear_carta(id_carta=10 + i, id_partida=partida_id, posicion=PosicionCarta.mazo)
+        carta.orden_en_mazo = i + 1
+        cartas_mazo.append(carta)
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento, obtener_primeras_de_mazo_return=cartas_mazo, obtener_cantidad_descartadas_return=7)
+    repo_c.guardar = AsyncMock()
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    resultado = await servicio.preparar_evento(partida_id=partida_id, jugador_id=jugador_id, carta_id=carta_evento_id)
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Early Train To Paddington"
+    assert resultado.cartas_descartadas == cartas_mazo
+    assert resultado.mensaje == "6 cartas movidas del mazo al descarte"
+
+    for i, carta in enumerate(cartas_mazo, start=1):
+        assert carta.posicion == PosicionCarta.descarte
+        assert carta.id_jugador is None
+        assert carta.orden_en_mazo is None
+        assert carta.orden_en_descarte == 7 + i
+
+    assert carta_evento.posicion == PosicionCarta.descarte
+    assert carta_evento.id_jugador is None
+    assert carta_evento.orden_en_descarte == 7 + len(cartas_mazo) + 1
+
+    repo_c.guardar.assert_awaited()
+
+@pytest.mark.asyncio
+async def test_preparar_evento_early_train_to_paddington_sin_cartas_en_mazo():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 40
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Early Train To Paddington"
+    carta_evento.tipo = TipoCarta.event
+
+    # simular que el mazo esta vacio
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento, obtener_primeras_de_mazo_return=[], obtener_cantidad_descartadas_return=4)
+    repo_c.guardar = AsyncMock()
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    resultado = await servicio.preparar_evento(partida_id=partida_id, jugador_id=jugador_id, carta_id=carta_evento_id)
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Early Train To Paddington"
+    assert resultado.cartas_descartadas is None or resultado.cartas_descartadas == []
+    assert resultado.mensaje == "No hay cartas en el mazo para mover al descarte"
+
+    repo_c.guardar.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_preparar_evento_no_implementado():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 99
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    # carta con nombre de evento no implementado
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "Evento Fantasma"
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(EventoNoImplementado):
+        await servicio.preparar_evento(
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            carta_id=carta_evento_id
+        )
