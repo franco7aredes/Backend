@@ -13,8 +13,9 @@ async def test_jugar_evento_exitoso(async_client):
     
     mock_resultado = EventoResultado(
         tipo_evento="Early Train To Paddington",
-        mensaje="6 cartas movidas del mazo al descarte",
-        cartas_descartadas=[type("Carta", (), {"id_carta": i})() for i in range(1, 7)]
+        mensaje="6 cartas fueron movidas del mazo al descarte",
+        cartas_descartadas=[type("Carta", (), {"id_carta": i})() for i in range(1, 7)],
+        fin_de_mazo=False
     )
 
     mock_service = S()
@@ -36,8 +37,46 @@ async def test_jugar_evento_exitoso(async_client):
     body = resp.json()
     assert body["mensaje"] == "Evento jugado con éxito"
     assert body["tipo_evento"] == "Early Train To Paddington"
-    assert body["detalle"] == "6 cartas movidas del mazo al descarte"
+    assert body["detalle"] == "6 cartas fueron movidas del mazo al descarte"
     assert body["cartas_descartadas"] == [1, 2, 3, 4, 5, 6]
+    assert body["fin_de_mazo"] is False
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_jugar_evento_fin_de_mazo(async_client):
+    class S:
+        async def preparar_evento(self, *args, **kwargs): ...
+
+    mock_resultado = EventoResultado(
+        tipo_evento="Early Train To Paddington",
+        mensaje="6 cartas fueron movidas del mazo al descarte. El asesino ha ganado. La partida ha finalizado.",
+        cartas_descartadas=[type("Carta", (), {"id_carta": i})() for i in range(1, 7)],
+        fin_de_mazo=True  
+    )
+
+    mock_service = S()
+    setattr(mock_service, "preparar_evento", AsyncMock(return_value=mock_resultado))
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    payload = {
+        "id_jugador": 1,
+        "id_carta": 40,
+        "id_carta_descarte": None,
+        "id_secreto": None,
+        "id_jugador_objetivo": None,
+        "id_set": None
+    }
+
+    resp = await async_client.post("/partidas/1/eventos", json=payload)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["mensaje"] == "Evento jugado con éxito"
+    assert body["tipo_evento"] == "Early Train To Paddington"
+    assert body["detalle"] == mock_resultado.mensaje
+    assert body["cartas_descartadas"] == [1, 2, 3, 4, 5, 6]
+    assert body["fin_de_mazo"] is True  
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 

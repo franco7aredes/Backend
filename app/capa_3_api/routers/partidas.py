@@ -287,5 +287,6 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
         "cartas_descartadas": [c.id_carta for c in resultado.cartas_descartadas or []],
         "cartas_agregadas": [c.id_carta for c in resultado.cartas_agregadas or []],
         "cartas_repuestas": [c.id_carta for c in resultado.cartas_repuestas or []],
-        "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None
+        "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None,
+        "fin_de_mazo": resultado.fin_de_mazo if resultado.fin_de_mazo is not None else None
     }

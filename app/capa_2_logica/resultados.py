@@ -135,3 +135,4 @@ class EventoResultado:
     secreto_oculto: Optional[SecretoDB] = None
     cartas_repuestas: Optional[List[CartaModelo]] = None
     mensaje: Optional[str] = None 
+    fin_de_mazo: Optional[bool] = None

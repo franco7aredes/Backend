@@ -2243,7 +2243,7 @@ async def test_preparar_evento_early_train_to_paddington_exitoso():
         carta.orden_en_mazo = i + 1
         cartas_mazo.append(carta)
 
-    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento, obtener_primeras_de_mazo_return=cartas_mazo, obtener_cantidad_descartadas_return=7)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento, obtener_primeras_de_mazo_return=cartas_mazo, obtener_cantidad_descartadas_return=7, contar_en_mazo_return=3)
     repo_c.guardar = AsyncMock()
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
@@ -2253,7 +2253,8 @@ async def test_preparar_evento_early_train_to_paddington_exitoso():
     assert isinstance(resultado, EventoResultado)
     assert resultado.tipo_evento == "Early Train To Paddington"
     assert resultado.cartas_descartadas == cartas_mazo
-    assert resultado.mensaje == "6 cartas movidas del mazo al descarte"
+    assert resultado.mensaje == "6 cartas fueron movidas del mazo al descarte"
+    assert resultado.fin_de_mazo is False
 
     for i, carta in enumerate(cartas_mazo, start=1):
         assert carta.posicion == PosicionCarta.descarte
@@ -2266,6 +2267,61 @@ async def test_preparar_evento_early_train_to_paddington_exitoso():
     assert carta_evento.orden_en_descarte == 7 + len(cartas_mazo) + 1
 
     repo_c.guardar.assert_awaited()
+
+@pytest.mark.asyncio
+async def test_preparar_evento_early_train_to_paddington_fin_de_partida():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 40
+
+    partida_finalizable = crear_partida_en_juego(id_partida=partida_id)
+    repo_p = crear_repo_partida_mock(obtener_return=partida_finalizable)
+    repo_p.guardar = AsyncMock()
+    repo_p.confirmar = AsyncMock()
+
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(
+        id_carta=carta_evento_id,
+        id_partida=partida_id,
+        id_jugador=jugador_id,
+        posicion=PosicionCarta.mano
+    )
+    carta_evento.nombre = "Early Train To Paddington"
+    carta_evento.tipo = TipoCarta.event
+
+    cartas_mazo = []
+    for i in range(6):
+        carta = crear_carta(id_carta=10 + i, id_partida=partida_id, posicion=PosicionCarta.mazo)
+        carta.orden_en_mazo = i + 1
+        cartas_mazo.append(carta)
+
+    repo_c = crear_repo_carta_mock(
+        obtener_carta_return=carta_evento,
+        obtener_primeras_de_mazo_return=cartas_mazo,
+        obtener_cantidad_descartadas_return=7,
+        contar_en_mazo_return=0 
+    )
+    repo_c.guardar = AsyncMock()
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_evento_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "Early Train To Paddington"
+    assert resultado.cartas_descartadas == cartas_mazo
+    assert resultado.fin_de_mazo is True
+    assert "El asesino ha ganado" in resultado.mensaje
+    assert "La partida ha finalizado" in resultado.mensaje
+    assert partida_finalizable.estado == EstadoPartida.Finalizada
+
+    repo_p.guardar.assert_awaited_once()
+    repo_p.confirmar.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_preparar_evento_early_train_to_paddington_sin_cartas_en_mazo():
