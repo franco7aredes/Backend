@@ -110,8 +110,8 @@ async def seleccionar_destino(
         raise HTTPException(status_code=404, detail="Set no encontrado")
     except SetNoEnPartida:
         raise HTTPException(status_code=400, detail="El set no pertenece a la partida indicada")
-    except NoPuedeRobarSuPropioSet:
-        raise HTTPException(status_code=400, detail="No puede seleccionar su propio set")
+    except NoPuedeAplicarseEfectosAsiMismo:
+        raise HTTPException(status_code=400, detail="No puede seleccionarse a si mismo para aplicar los efectos de su propio set")
     except SetNoCorrespondeAlJugadorSeleccionado:
         raise HTTPException(status_code=400, detail="El set no corresponde al jugador seleccionado")
     except SecretoNoEncontrado:

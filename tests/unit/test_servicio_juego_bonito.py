@@ -1627,10 +1627,10 @@ async def test_revelar_asesino():
 async def test_verificar_seleccionar_ok_sin_posicion():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
     repo_j = crear_repo_jugador_mock(obtener_return=None)
-    # origen y seleccionado distintos: devolveremos distintos según llamadas
+    # origen y seleccionado distintos, y el set pertenece a otro jugador (no al seleccionado)
     repo_j.obtener = AsyncMock(side_effect=[crear_jugador(id_jugador=10, id_partida=1), crear_jugador(id_jugador=20, id_partida=1)])
     repo_s = crear_repo_secreto_mock(obtener_secretos_return=[crear_secreto(id_secreto=1, id_partida=1, id_jugador=20)])
-    repo_sets = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=5, id_partida=1, id_jugador=20))
+    repo_sets = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=5, id_partida=1, id_jugador=10))
 
     s = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s, sets=repo_sets)
     # no debe levantar
@@ -1644,7 +1644,7 @@ async def test_verificar_seleccionar_ok_con_posicion_valida():
     repo_j.obtener = AsyncMock(side_effect=[crear_jugador(id_jugador=11, id_partida=2), crear_jugador(id_jugador=22, id_partida=2)])
     secretos_lista = [crear_secreto(id_secreto=i, id_partida=2, id_jugador=22) for i in (1,2,3)]
     repo_s = crear_repo_secreto_mock(obtener_secretos_return=secretos_lista, contar_secretos_jugador_return=len(secretos_lista))
-    repo_sets = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=6, id_partida=2, id_jugador=22))
+    repo_sets = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=6, id_partida=2, id_jugador=11))
 
     s = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s, sets=repo_sets)
     # posicion 2 existe -> no debe levantar
@@ -1657,7 +1657,7 @@ async def test_verificar_seleccionar_no_secretos_lanza_excepcion():
     repo_j = crear_repo_jugador_mock(obtener_return=None)
     repo_j.obtener = AsyncMock(side_effect=[crear_jugador(id_jugador=12, id_partida=3), crear_jugador(id_jugador=24, id_partida=3)])
     repo_s = crear_repo_secreto_mock(obtener_secretos_return=[])
-    repo_sets = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=7, id_partida=3, id_jugador=24))
+    repo_sets = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=7, id_partida=3, id_jugador=12))
 
     s = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s, sets=repo_sets)
     with pytest.raises(SecretoNoEncontrado):
@@ -1671,7 +1671,7 @@ async def test_verificar_seleccionar_posicion_fuera_de_rango_lanza_excepcion():
     repo_j.obtener = AsyncMock(side_effect=[crear_jugador(id_jugador=13, id_partida=4), crear_jugador(id_jugador=26, id_partida=4)])
     secretos_lista = [crear_secreto(id_secreto=1, id_partida=4, id_jugador=26)]
     repo_s = crear_repo_secreto_mock(obtener_secretos_return=secretos_lista, contar_secretos_jugador_return=1)
-    repo_sets = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=8, id_partida=4, id_jugador=26))
+    repo_sets = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=8, id_partida=4, id_jugador=13))
 
     s = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s, sets=repo_sets)
     with pytest.raises(SecretoNoEncontrado):

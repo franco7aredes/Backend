@@ -60,7 +60,7 @@ async def test_elegir_jugador_ok_200_y_broadcast(async_client, servicio_mock_ove
         (JugadorNoEnPartida, 400, "El jugador no pertenece a la partida indicada"),
         (SetNoEncontrado, 404, "Set no encontrado"),
         (SetNoEnPartida, 400, "El set no pertenece a la partida indicada"),
-        (NoPuedeRobarSuPropioSet, 400, "No puede seleccionar su propio set"),
+        (NoPuedeAplicarseEfectosAsiMismo, 400, "No puede seleccionarse a si mismo para aplicar los efectos de su propio set"),
         (SetNoCorrespondeAlJugadorSeleccionado, 400, "El set no corresponde al jugador seleccionado"),
         (SecretoNoEncontrado, 400, "El jugador seleccionado no tiene un secreto en la posición indicada"),
     ],
