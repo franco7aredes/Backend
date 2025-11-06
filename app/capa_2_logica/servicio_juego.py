@@ -1031,7 +1031,7 @@ class ServicioJuego:
         return OcultarSecretoResultado(secreto=secreto)
       
     async def verificar_seleccionar_jugador_set(self, partida_id: int, jugador_id: int, set_id: int, id_seleccionado: int, posicion_secreto: Optional[int]= None) -> None:
-        """ Verifica que un jugador pueda seleccionar a otro jugador para robarle un set.
+        """ Verifica que un jugador pueda seleccionar a otro jugador para aplicarle el efecto de un set.
             Levanta excepciones en caso de error."""
         
         jugador = await self.jugadores.obtener(jugador_id)
@@ -1045,15 +1045,15 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
-        set_a_robar = await self.sets.obtener_set_por_id(set_id)
-        if not set_a_robar:
+        set = await self.sets.obtener_set_por_id(set_id)
+        if not set:
             raise SetNoEncontrado()
 
-        if getattr(set_a_robar, "id_partida", None) != partida_id:
+        if getattr(set, "id_partida", None) != partida_id:
             raise SetNoEnPartida()
 
-        if getattr(set_a_robar, "id_jugador", None) == jugador_id:
-            raise NoPuedeRobarSuPropioSet()
+        if getattr(set, "id_jugador", None) == id_seleccionado or set.nombre == "Parker Pyne":
+            raise NoPuedeAplicarseEfectosAsiMismo()
 
         jugador_seleccionado = await self.jugadores.obtener(id_seleccionado)
         if not jugador_seleccionado:
@@ -1062,9 +1062,30 @@ class ServicioJuego:
         if getattr(jugador_seleccionado, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
-        if getattr(set_a_robar, "id_jugador", None) != id_seleccionado:
+        if getattr(set, "id_jugador", None) != jugador_id:
             raise SetNoCorrespondeAlJugadorSeleccionado()
         
+        match set.nombre:
+            case "Miss Marple" | "Hercule Poirot":
+                if posicion_secreto is None:
+                    raise PosicionSecretoNoProporcionada()
+                
+            case "Mr Satterthwaite":
+                if posicion_secreto is not None:
+                    raise SetNoSoportaSeleccionDeJugador()
+                
+            case "Parker Pyne":
+                if posicion_secreto is None:
+                    raise PosicionSecretoNoProporcionada()
+                
+            case "Lady Eileen \"Bundle\" Brent":
+                if posicion_secreto is not None:
+                    raise SetNoSoportaSeleccionDeJugador()
+                
+            case "Beresford":
+                if posicion_secreto is not None:
+                    raise SetNoSoportaSeleccionDeJugador()
+
         secretos = await self.secretos.obtener_secretos(partida_id, id_seleccionado)
         if not secretos:
             raise SecretoNoEncontrado()
