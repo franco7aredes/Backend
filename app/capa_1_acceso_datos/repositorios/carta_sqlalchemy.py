@@ -168,7 +168,7 @@ class RepositorioCartaSQLAlchemy:
                 (CartaModelo.id_partida == partida_id)
                 & (CartaModelo.posicion == PosicionCarta.mazo)
             )
-            .order_by(desc(CartaModelo.orden_en_descarte))
+            .order_by(CartaModelo.orden_en_descarte.asc())
             .limit(6)
         )
         res = await self.db.execute(stmt)
