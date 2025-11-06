@@ -1815,17 +1815,18 @@ async def test_aplicar_efectos_set_mr_satterthwaite_sin_wildcard():
     s.robar_secreto.assert_not_awaited()
 
 @pytest.mark.asyncio
-async def test_aplicar_efectos_set_parker_pyne_oculta_random():
+async def test_aplicar_efectos_set_parker_pyne_oculta_objetivo():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
     set_obj = crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Parker Pyne")
     repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
-    secreto_revelado = crear_secreto(id_secreto=8, id_partida=1, id_jugador=4, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secreto_return=None, obtener_secretos_revelados_return=[secreto_revelado])
+    # La lógica real oculta el secreto específico del jugador objetivo
+    secreto_revelado_objetivo = crear_secreto(id_secreto=7, id_partida=1, id_jugador=2, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto_revelado_objetivo)
     s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set, secretos=repo_s)
     s.ocultar_secreto = AsyncMock(return_value=object())
     await s.aplicar_efectos_set(1, 2, 5, 7)
-    s.ocultar_secreto.assert_awaited_once_with(1, 4, 8)
+    s.ocultar_secreto.assert_awaited_once_with(1, 2, 7)
 
 @pytest.mark.asyncio
 async def test_aplicar_efectos_set_parker_pyne_sin_revelados_lanza():

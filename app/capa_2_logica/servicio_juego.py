@@ -58,6 +58,7 @@ class _RepoSecretoProto(Protocol):
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int: ...
     async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]: ...
     async def guardar(self, secreto: SecretoDB) -> None: ...
+    async def obtener_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> Optional[SecretoDB]: ...
 
 @runtime_checkable
 class _RepoSetProto(Protocol):
@@ -1122,13 +1123,10 @@ class ServicioJuego:
                         raise SecretoNoDisponible()
 
             case "Parker Pyne":
-                revelados = await self.secretos.obtener_secretos_revelados(partida_id) or []
-                if not revelados:
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
                     raise SecretoNoEncontrado()
-                objetivo = random.choice(revelados)
-                if getattr(objetivo, "estado", None) != EstadoSecreto.revelado:
-                    raise SecretoNoDisponible()
-                res = await self.ocultar_secreto(partida_id, objetivo.id_jugador, objetivo.id_secreto)
+                res = await self.ocultar_secreto(partida_id, jugador_id, secreto_id)
                 if not res:
                     raise SecretoNoDisponible()
 
@@ -1140,7 +1138,7 @@ class ServicioJuego:
                 if not res:
                     raise SecretoNoDisponible()
 
-            case "Tommy Beresford" | "Tuppence Beresford":
+            case "Beresford":
                 secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
                 if not secreto:
                     raise SecretoNoEncontrado()
