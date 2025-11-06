@@ -1675,7 +1675,7 @@ async def test_verificar_seleccionar_posicion_fuera_de_rango_lanza_excepcion():
 
     s = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s, sets=repo_sets)
     with pytest.raises(SecretoNoEncontrado):
-        await s.verificar_seleccionar_jugador_set(4, 13, 8, 26, 2)
+        await s.verificar_seleccionar_jugador_set(4, 13, 8, 26, 1)
 
 
 @pytest.mark.asyncio
@@ -1856,6 +1856,7 @@ async def test_verificar_seleccionar_mr_satterthwaite_ok_sin_posicion():
     # No debe lanzar porque este set no requiere posición
     await s.verificar_seleccionar_jugador_set(15, 23, 18, 46, None)
 
+@pytest.mark.asyncio
 async def test_aplicar_efectos_set_poirot_revela_ok():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))

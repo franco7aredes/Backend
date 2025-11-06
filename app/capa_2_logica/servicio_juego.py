@@ -1092,7 +1092,7 @@ class ServicioJuego:
 
         if posicion_secreto is not None:
             largo = await self.secretos.contar_secretos_jugador(partida_id, id_seleccionado)
-            if posicion_secreto < 1 or posicion_secreto > largo:
+            if posicion_secreto < 0 or posicion_secreto > largo - 1:
                 raise SecretoNoEncontrado()
 
 
