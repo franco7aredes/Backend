@@ -58,6 +58,7 @@ class _RepoSecretoProto(Protocol):
     async def contar_secretos_jugador(self, partida_id: int, jugador_id: int) -> int: ...
     async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]: ...
     async def guardar(self, secreto: SecretoDB) -> None: ...
+    async def obtener_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> Optional[SecretoDB]: ...
 
 @runtime_checkable
 class _RepoSetProto(Protocol):
@@ -1093,3 +1094,75 @@ class ServicioJuego:
             largo = await self.secretos.contar_secretos_jugador(partida_id, id_seleccionado)
             if posicion_secreto < 1 or posicion_secreto > largo:
                 raise SecretoNoEncontrado()
+
+
+    async def aplicar_efectos_set(self, partida_id: int, jugador_id: int, set_id: int, secreto_id: int) -> None:
+        """ Aplica los efectos del set jugado por otro jugador.
+        jugador_id es a quien se le aplican los efectos."""
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        set_a_aplicar = await self.sets.obtener_set_por_id(set_id)
+        if not set_a_aplicar:
+            raise SetNoEncontrado()
+
+        if getattr(set_a_aplicar, "id_partida", None) != partida_id:
+            raise SetNoEnPartida()
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+
+        match set_a_aplicar.nombre:
+            case "Hercule Poirot" | "Miss Marple":
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
+                    raise SecretoNoEncontrado()
+                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                if not res:
+                    raise SecretoNoDisponible()
+
+            case "Mr Satterthwaite":
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
+                    raise SecretoNoEncontrado()
+                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                if not res:
+                    raise SecretoNoDisponible()
+
+                cartas_del_set = await self.sets.obtener_cartas_del_set(set_id) or []
+                tiene_wildcard = any(getattr(c, "nombre", "") == "Harley Quin Wildcard" for c in cartas_del_set)
+
+                if tiene_wildcard:
+                    res = await self.robar_secreto(partida_id, getattr(set_a_aplicar, "id_jugador", 0), secreto_id)
+                    if not res:
+                        raise SecretoNoDisponible()
+
+            case "Parker Pyne":
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
+                    raise SecretoNoEncontrado()
+                res = await self.ocultar_secreto(partida_id, jugador_id, secreto_id)
+                if not res:
+                    raise SecretoNoDisponible()
+
+            case "Lady Eileen \"Bundle\" Brent":
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
+                    raise SecretoNoEncontrado()
+                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                if not res:
+                    raise SecretoNoDisponible()
+
+            case "Beresford":
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
+                    raise SecretoNoEncontrado()
+                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                if not res:
+                    raise SecretoNoDisponible()

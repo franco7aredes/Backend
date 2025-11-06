@@ -1855,3 +1855,112 @@ async def test_verificar_seleccionar_mr_satterthwaite_ok_sin_posicion():
     s = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s, sets=repo_sets)
     # No debe lanzar porque este set no requiere posición
     await s.verificar_seleccionar_jugador_set(15, 23, 18, 46, None)
+
+async def test_aplicar_efectos_set_poirot_revela_ok():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Hercule Poirot"))
+    secreto = crear_secreto(id_secreto=7, id_partida=1, id_jugador=2, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
+    s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set, secretos=repo_s)
+    s.revelar_secreto = AsyncMock(return_value=object())
+    await s.aplicar_efectos_set(1, 2, 5, 7)
+    s.revelar_secreto.assert_awaited_once_with(1, 2, 7)
+
+@pytest.mark.asyncio
+async def test_aplicar_efectos_set_mr_satterthwaite_con_wildcard():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Mr Satterthwaite")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj, obtener_cartas_del_set_return=[type("C", (), {"nombre": "Harley Quin Wildcard"})()])
+    secreto = crear_secreto(id_secreto=7, id_partida=1, id_jugador=2, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
+    s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set, secretos=repo_s)
+    s.revelar_secreto = AsyncMock(return_value=object())
+    s.robar_secreto = AsyncMock(return_value=object())
+    await s.aplicar_efectos_set(1, 2, 5, 7)
+    s.revelar_secreto.assert_awaited_once_with(1, 2, 7)
+    s.robar_secreto.assert_awaited_once_with(1, 3, 7)
+
+@pytest.mark.asyncio
+async def test_aplicar_efectos_set_mr_satterthwaite_sin_wildcard():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Mr Satterthwaite")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj, obtener_cartas_del_set_return=[type("C", (), {"nombre": "Otra"})()])
+    secreto = crear_secreto(id_secreto=7, id_partida=1, id_jugador=2, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
+    s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set, secretos=repo_s)
+    s.revelar_secreto = AsyncMock(return_value=object())
+    s.robar_secreto = AsyncMock()
+    await s.aplicar_efectos_set(1, 2, 5, 7)
+    s.revelar_secreto.assert_awaited_once_with(1, 2, 7)
+    s.robar_secreto.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_aplicar_efectos_set_parker_pyne_oculta_objetivo():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Parker Pyne")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    # La lógica real oculta el secreto específico del jugador objetivo
+    secreto_revelado_objetivo = crear_secreto(id_secreto=7, id_partida=1, id_jugador=2, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto_revelado_objetivo)
+    s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set, secretos=repo_s)
+    s.ocultar_secreto = AsyncMock(return_value=object())
+    await s.aplicar_efectos_set(1, 2, 5, 7)
+    s.ocultar_secreto.assert_awaited_once_with(1, 2, 7)
+
+@pytest.mark.asyncio
+async def test_aplicar_efectos_set_parker_pyne_sin_revelados_lanza():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Parker Pyne")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=None, obtener_secretos_revelados_return=[])
+    s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set, secretos=repo_s)
+    with pytest.raises(SecretoNoEncontrado):
+        await s.aplicar_efectos_set(1, 2, 5, 7)
+
+@pytest.mark.asyncio
+async def test_aplicar_efectos_set_errores_basicos():
+    # Partida no encontrada
+    repo_p = crear_repo_partida_mock(obtener_return=None)
+    s = ServicioJuego(repo_p)
+    with pytest.raises(PartidaNoEncontrada):
+        await s.aplicar_efectos_set(1, 2, 5, 7)
+
+    # Set no encontrado
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=None)
+    s = ServicioJuego(repo_p, sets=repo_set)
+    with pytest.raises(SetNoEncontrado):
+        await s.aplicar_efectos_set(1, 2, 5, 7)
+
+    # Set no en partida
+    set_obj = crear_set(id_set=5, id_partida=99, id_jugador=3, nombre="Hercule Poirot")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    s = ServicioJuego(repo_p, sets=repo_set)
+    with pytest.raises(SetNoEnPartida):
+        await s.aplicar_efectos_set(1, 2, 5, 7)
+
+    # Jugador no encontrado
+    repo_j = crear_repo_jugador_mock(obtener_return=None)
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Hercule Poirot"))
+    s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set)
+    with pytest.raises(JugadorNoEncontrado):
+        await s.aplicar_efectos_set(1, 2, 5, 7)
+
+    # Jugador no en partida
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=99))
+    s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set)
+    with pytest.raises(JugadorNoEnPartida):
+        await s.aplicar_efectos_set(1, 2, 5, 7)
+
+    # Secreto no encontrado
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=None)
+    s = ServicioJuego(repo_p, jugadores=repo_j, sets=repo_set, secretos=repo_s)
+    with pytest.raises(SecretoNoEncontrado):
+        await s.aplicar_efectos_set(1, 2, 5, 7)
+
