@@ -2329,7 +2329,10 @@ async def test_preparar_evento_early_train_to_paddington_fin_de_partida():
     )
     repo_c.guardar = AsyncMock()
 
-    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+    secreto_asesino = crear_secreto(id_secreto=1, id_jugador=4, tipo=TipoSecreto.asesino)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_asesino_return=secreto_asesino)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
 
     resultado = await servicio.preparar_evento(
         partida_id=partida_id,
@@ -2341,6 +2344,7 @@ async def test_preparar_evento_early_train_to_paddington_fin_de_partida():
     assert resultado.tipo_evento == "Early Train To Paddington"
     assert resultado.cartas_descartadas == cartas_mazo
     assert resultado.fin_de_mazo is True
+    assert resultado.asesino_ganador == 4
     assert "El asesino ha ganado" in resultado.mensaje
     assert "La partida ha finalizado" in resultado.mensaje
     assert partida_finalizable.estado == EstadoPartida.Finalizada

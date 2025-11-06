@@ -1225,7 +1225,9 @@ class ServicioJuego:
                 await self.cartas.guardar(carta)
 
                 mensaje = f"{len(cartas_a_mover)} cartas fueron movidas del mazo al descarte"
+
                 fin_de_mazo = False
+                asesino_id = None
                 if hasattr(self.cartas, "contar_en_mazo"):
                     restantes = await self.cartas.contar_en_mazo(partida_id) 
                     if restantes == 0:
@@ -1233,10 +1235,13 @@ class ServicioJuego:
                         await self.partidas.guardar(cast(Any, partida))
                         if hasattr(self.partidas, "confirmar"):
                             await self.partidas.confirmar()  
-                        mensaje += ". El asesino ha ganado. La partida ha finalizado."
-                        fin_de_mazo = True
+                            mensaje += ". El asesino ha ganado. La partida ha finalizado."
+                            fin_de_mazo = True
 
-                return EventoResultado(tipo_evento="Early Train To Paddington", cartas_descartadas=cartas_a_mover, mensaje=mensaje, fin_de_mazo=fin_de_mazo, carta_evento_descartada=carta)
+                            asesino_resultado = await self.obtener_asesino(partida_id)
+                            asesino_id = asesino_resultado.asesino
+
+                return EventoResultado(tipo_evento="Early Train To Paddington", cartas_descartadas=cartas_a_mover, mensaje=mensaje, fin_de_mazo=fin_de_mazo, carta_evento_descartada=carta, asesino_ganador=asesino_id)
                 
             case _:
                 raise EventoNoImplementado()
