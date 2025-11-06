@@ -116,6 +116,10 @@ async def seleccionar_destino(
         raise HTTPException(status_code=400, detail="El set no corresponde al jugador seleccionado")
     except SecretoNoEncontrado:
         raise HTTPException(status_code=400, detail="El jugador seleccionado no tiene un secreto en la posición indicada")
+    except SetNoSoportaSeleccionDeJugador:
+        raise HTTPException(status_code=400, detail="El set no soporta la selección de un jugador como destino")
+    except PosicionSecretoNoProporcionada:
+        raise HTTPException(status_code=400, detail="No se proporcionó la posición del secreto")
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
     

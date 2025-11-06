@@ -63,6 +63,9 @@ async def test_elegir_jugador_ok_200_y_broadcast(async_client, servicio_mock_ove
         (NoPuedeAplicarseEfectosAsiMismo, 400, "No puede seleccionarse a si mismo para aplicar los efectos de su propio set"),
         (SetNoCorrespondeAlJugadorSeleccionado, 400, "El set no corresponde al jugador seleccionado"),
         (SecretoNoEncontrado, 400, "El jugador seleccionado no tiene un secreto en la posición indicada"),
+        (SetNoSoportaSeleccionDeJugador, 400, "El set no soporta la selección de un jugador como destino"),
+        (PosicionSecretoNoProporcionada, 400, "No se proporcionó la posición del secreto"),
+        (Exception, 500, "Error interno del servidor"),
     ],
 )
 @pytest.mark.asyncio

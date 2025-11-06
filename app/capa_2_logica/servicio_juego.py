@@ -1051,8 +1051,8 @@ class ServicioJuego:
         if getattr(set, "id_partida", None) != partida_id:
             raise SetNoEnPartida()
 
-        if getattr(set, "id_jugador", None) == id_seleccionado:
-            raise NoPuedeRobarSuPropioSet()
+        if getattr(set, "id_jugador", None) == id_seleccionado or set.nombre == "Parker Pyne":
+            raise NoPuedeAplicarseEfectosAsiMismo()
 
         jugador_seleccionado = await self.jugadores.obtener(id_seleccionado)
         if not jugador_seleccionado:
@@ -1064,6 +1064,27 @@ class ServicioJuego:
         if getattr(set, "id_jugador", None) != jugador_id:
             raise SetNoCorrespondeAlJugadorSeleccionado()
         
+        match set.nombre:
+            case "Miss Marple" | "Hercule Poirot":
+                if posicion_secreto is None:
+                    raise PosicionSecretoNoProporcionada()
+                
+            case "Mr Satterthwaite":
+                if posicion_secreto is not None:
+                    raise SetNoSoportaSeleccionDeJugador()
+                
+            case "Parker Pyne":
+                if posicion_secreto is None:
+                    raise PosicionSecretoNoProporcionada()
+                
+            case "Lady Eileen \"Bundle\" Brent":
+                if posicion_secreto is not None:
+                    raise SetNoSoportaSeleccionDeJugador()
+                
+            case "Beresford":
+                if posicion_secreto is not None:
+                    raise SetNoSoportaSeleccionDeJugador()
+
         secretos = await self.secretos.obtener_secretos(partida_id, id_seleccionado)
         if not secretos:
             raise SecretoNoEncontrado()
