@@ -63,3 +63,11 @@ class JugarSetRespuesta(BaseModel):
     set: SetDTO
 
     model_config = ConfigDict(from_attributes=True)
+
+class AgregarCartaASetRequest(BaseModel):
+    id_jugador: int
+    carta_id: int
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
