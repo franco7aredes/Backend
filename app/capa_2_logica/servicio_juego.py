@@ -1139,17 +1139,22 @@ class ServicioJuego:
         
         match nombre:
             case "cards off the table":
-                resultado = await self.descartar_not_so_fast(partida_id, jugador_objetivo_id) 
+                resultado = await self.descartar_not_so_fast(partida_id, jugador_objetivo_id)
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
                 if not resultado:
-                    return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=[], mensaje="El jugador no tiene cartas Not so Fast para descartar")
-                return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=resultado, mensaje=f"{len(resultado)} cartas descartadas del jugador objetivo")
+                    return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=[], mensaje="El jugador no tiene cartas Not so Fast para descartar", carta_evento_descartada=descartado.carta)
+    
+                return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=resultado, mensaje=f"{len(resultado)} cartas descartadas del jugador objetivo", carta_evento_descartada=descartado.carta)
 
             case "another victim":
                 try:
                     robado = await self.robar_set(partida_id, jugador_id, set_id)
                 except SetNoEncontrado:
-                    return EventoResultado(tipo_evento="Another Victim", mensaje="No se pudo robar el set")
-                return EventoResultado(tipo_evento="Another Victim", set_robado=robado.set, mensaje="Se robo un set con exito")
+                    descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                    return EventoResultado(tipo_evento="Another Victim", mensaje="No se pudo robar el set", carta_evento_descartada=descartado.carta)
+
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                return EventoResultado(tipo_evento="Another Victim", set_robado=robado.set, mensaje="Se robo un set con exito", carta_evento_descartada=descartado.carta)
 
             case "look into the ashes":
                 if not carta_descarte:
@@ -1164,25 +1169,23 @@ class ServicioJuego:
                 carta_objetivo.orden_en_descarte = None
                 await self.cartas.guardar(carta_objetivo)
 
-                carta.posicion = PosicionCarta.descarte
-                carta.id_jugador = None
-                cantidad_descartadas = await self.cartas.obtener_cantidad_descartadas(partida_id)
-                carta.orden_en_descarte = cantidad_descartadas + 1
-                await self.cartas.guardar(carta)
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
 
-                return EventoResultado(tipo_evento="Look Into The Ashes", cartas_agregadas=[carta_objetivo], mensaje=f"La carta {carta_objetivo.id_carta} fue recuperada del descarte")
+                return EventoResultado(tipo_evento="Look Into The Ashes", cartas_agregadas=[carta_objetivo], mensaje=f"La carta {carta_objetivo.id_carta} fue recuperada del descarte", carta_evento_descartada=descartado.carta)
 
             case "and then there was one more":
                 secreto = await self.ocultar_secreto(partida_id, jugador_objetivo_id, secreto_id)
                 if not secreto:
                     return EventoResultado(tipo_evento="And Then There Was One More", mensaje="No se pudo ocultar el secreto")
-                return EventoResultado(tipo_evento="And Then There Was One More", secreto_oculto=secreto, mensaje=f"Se ocultó el secreto {secreto.id_secreto}")
+                
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                return EventoResultado(tipo_evento="And Then There Was One More", secreto_oculto=secreto, mensaje=f"Se ocultó el secreto {secreto.id_secreto}", carta_evento_descartada=descartado.carta)
 
-            case "delay the murderer escape":
+            case "delay the murderer's espace!":
                 resultado = await self.ver_del_descarte(partida_id, jugador_id)
                 cartas_descarte = resultado.descarte
                 if not cartas_descarte:
-                    return EventoResultado(tipo_evento="Delay the murderer Escape", mensaje="No hay cartas para reintegrar al mazo")
+                    return EventoResultado(tipo_evento="Delay the murderer's espace!", mensaje="No hay cartas para reintegrar al mazo")
 
                 ultimo_orden_mazo = await self.cartas.contar_en_mazo(partida_id)
 
@@ -1194,20 +1197,16 @@ class ServicioJuego:
                     await self.cartas.guardar(c)
 
                 # descartar la carta que activo el evento
-                carta.posicion = PosicionCarta.descarte
-                carta.id_jugador = None
-                cantidad_descartadas = await self.cartas.obtener_cantidad_descartadas(partida_id)
-                carta.orden_en_descarte = cantidad_descartadas + 1
-                await self.cartas.guardar(carta)
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
 
-                return EventoResultado(tipo_evento="Delay the murderer Escape", cartas_agregadas=cartas_descarte, mensaje=f"{len(cartas_descarte)} cartas fueron reintegradas al mazo")
+                return EventoResultado(tipo_evento="Delay the murderer's espace!", cartas_agregadas=cartas_descarte, mensaje=f"{len(cartas_descarte)} cartas fueron reintegradas al mazo", carta_evento_descartada=descartado.carta)
 
             case "early train to paddington":
                 # obtener todas las cartas disponibles en el mazo (hasta 6)
                 cartas_a_mover = await self.cartas.obtener_primeras_de_mazo(partida_id)
                 if not cartas_a_mover:
                     return EventoResultado(tipo_evento="Early Train To Paddington", mensaje="No hay cartas en el mazo para mover al descarte")
-
+                
                 # obtener el orden actual del descarte
                 cantidad_en_descarte = await self.cartas.obtener_cantidad_descartadas(partida_id)
 
@@ -1237,7 +1236,7 @@ class ServicioJuego:
                         mensaje += ". El asesino ha ganado. La partida ha finalizado."
                         fin_de_mazo = True
 
-                return EventoResultado(tipo_evento="Early Train To Paddington", cartas_descartadas=cartas_a_mover, mensaje=mensaje, fin_de_mazo=fin_de_mazo)
+                return EventoResultado(tipo_evento="Early Train To Paddington", cartas_descartadas=cartas_a_mover, mensaje=mensaje, fin_de_mazo=fin_de_mazo, carta_evento_descartada=carta)
                 
             case _:
                 raise EventoNoImplementado()

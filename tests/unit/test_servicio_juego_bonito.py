@@ -1870,6 +1870,11 @@ async def test_preparar_evento_cards_off_the_table_exitoso():
     assert resultado.tipo_evento == "Cards off the table"
     assert len(resultado.cartas_descartadas) == 2
     assert resultado.mensaje == "2 cartas descartadas del jugador objetivo"
+    assert resultado.carta_evento_descartada is not None
+    assert resultado.carta_evento_descartada.id_carta == carta_evento.id_carta
+    assert resultado.carta_evento_descartada.posicion == PosicionCarta.descarte
+    assert resultado.carta_evento_descartada.id_jugador is None
+    assert resultado.carta_evento_descartada.orden_en_descarte is not None
 
 @pytest.mark.asyncio
 async def test_preparar_evento_cards_off_the_table_sin_cartas_validas():
@@ -1941,6 +1946,11 @@ async def test_preparar_evento_another_victim():
     assert resultado.set_robado.id_set == set_id
     assert resultado.set_robado.id_jugador == jugador_id
     assert resultado.mensaje == "Se robo un set con exito"
+    assert resultado.carta_evento_descartada is not None
+    assert resultado.carta_evento_descartada.id_carta == carta_evento.id_carta
+    assert resultado.carta_evento_descartada.posicion == PosicionCarta.descarte
+    assert resultado.carta_evento_descartada.id_jugador is None
+    assert resultado.carta_evento_descartada.orden_en_descarte is not None
 
 @pytest.mark.asyncio
 async def test_preparar_evento_another_victim_falla_por_set_invalido():
@@ -1972,6 +1982,11 @@ async def test_preparar_evento_another_victim_falla_por_set_invalido():
     assert resultado.tipo_evento == "Another Victim"
     assert resultado.set_robado is None
     assert resultado.mensaje == "No se pudo robar el set"
+    assert resultado.carta_evento_descartada is not None
+    assert resultado.carta_evento_descartada.id_carta == carta_evento.id_carta
+    assert resultado.carta_evento_descartada.posicion == PosicionCarta.descarte
+    assert resultado.carta_evento_descartada.id_jugador is None
+    assert resultado.carta_evento_descartada.orden_en_descarte is not None
 
 
 @pytest.mark.asyncio
@@ -2015,6 +2030,11 @@ async def test_preparar_evento_look_into_the_ashes_exitoso():
     assert resultado.cartas_agregadas[0].posicion == PosicionCarta.mano
     assert resultado.cartas_agregadas[0].id_jugador == jugador_id
     assert resultado.mensaje == f"La carta {carta_descarte_id} fue recuperada del descarte"
+    assert resultado.carta_evento_descartada is not None
+    assert resultado.carta_evento_descartada.id_carta == carta_evento.id_carta
+    assert resultado.carta_evento_descartada.posicion == PosicionCarta.descarte
+    assert resultado.carta_evento_descartada.id_jugador is None
+    assert resultado.carta_evento_descartada.orden_en_descarte is not None
 
     # verifica que se haya guardado la carta 
     repo_c.guardar.assert_awaited()
@@ -2153,7 +2173,7 @@ async def test_preparar_evento_delay_the_murderer_escape_exitoso():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
 
     carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "Delay the murderer Escape"
+    carta_evento.nombre = "Delay the murderer's espace!"
     carta_evento.tipo = TipoCarta.event
 
     cartas_descarte = [
@@ -2178,7 +2198,7 @@ async def test_preparar_evento_delay_the_murderer_escape_exitoso():
     )
 
     assert isinstance(resultado, EventoResultado)
-    assert resultado.tipo_evento == "Delay the murderer Escape"
+    assert resultado.tipo_evento == "Delay the murderer's espace!"
     assert resultado.cartas_agregadas == cartas_descarte
     assert resultado.mensaje == "2 cartas fueron reintegradas al mazo"
 
@@ -2201,7 +2221,7 @@ async def test_preparar_evento_delay_the_murderer_escape_sin_cartas_en_descarte(
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
 
     carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "Delay the murderer Escape"
+    carta_evento.nombre = "Delay the murderer's espace!"
     carta_evento.tipo = TipoCarta.event
 
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
@@ -2217,7 +2237,7 @@ async def test_preparar_evento_delay_the_murderer_escape_sin_cartas_en_descarte(
     )
 
     assert isinstance(resultado, EventoResultado)
-    assert resultado.tipo_evento == "Delay the murderer Escape"
+    assert resultado.tipo_evento == "Delay the murderer's espace!"
     assert resultado.cartas_agregadas is None or resultado.cartas_agregadas == []
     assert resultado.mensaje == "No hay cartas para reintegrar al mazo"
 
@@ -2265,6 +2285,11 @@ async def test_preparar_evento_early_train_to_paddington_exitoso():
     assert carta_evento.posicion == PosicionCarta.descarte
     assert carta_evento.id_jugador is None
     assert carta_evento.orden_en_descarte == 7 + len(cartas_mazo) + 1
+    assert resultado.carta_evento_descartada is not None
+    assert resultado.carta_evento_descartada.id_carta == carta_evento.id_carta
+    assert resultado.carta_evento_descartada.posicion == PosicionCarta.descarte
+    assert resultado.carta_evento_descartada.id_jugador is None
+    assert resultado.carta_evento_descartada.orden_en_descarte is not None
 
     repo_c.guardar.assert_awaited()
 
@@ -2319,6 +2344,11 @@ async def test_preparar_evento_early_train_to_paddington_fin_de_partida():
     assert "El asesino ha ganado" in resultado.mensaje
     assert "La partida ha finalizado" in resultado.mensaje
     assert partida_finalizable.estado == EstadoPartida.Finalizada
+    assert resultado.carta_evento_descartada is not None
+    assert resultado.carta_evento_descartada.id_carta == carta_evento.id_carta
+    assert resultado.carta_evento_descartada.posicion == PosicionCarta.descarte
+    assert resultado.carta_evento_descartada.id_jugador is None
+    assert resultado.carta_evento_descartada.orden_en_descarte is not None
 
     repo_p.guardar.assert_awaited_once()
     repo_p.confirmar.assert_awaited_once()

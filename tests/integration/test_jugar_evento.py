@@ -15,6 +15,7 @@ async def test_jugar_evento_exitoso(async_client):
         tipo_evento="Early Train To Paddington",
         mensaje="6 cartas fueron movidas del mazo al descarte",
         cartas_descartadas=[type("Carta", (), {"id_carta": i})() for i in range(1, 7)],
+        carta_evento_descartada=type("Carta", (), {"id_carta": 40})(),
         fin_de_mazo=False
     )
 
@@ -40,6 +41,7 @@ async def test_jugar_evento_exitoso(async_client):
     assert body["detalle"] == "6 cartas fueron movidas del mazo al descarte"
     assert body["cartas_descartadas"] == [1, 2, 3, 4, 5, 6]
     assert body["fin_de_mazo"] is False
+    assert body["carta_evento_descartada"] == 40
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 

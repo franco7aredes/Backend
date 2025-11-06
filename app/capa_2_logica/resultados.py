@@ -136,3 +136,4 @@ class EventoResultado:
     cartas_repuestas: Optional[List[CartaModelo]] = None
     mensaje: Optional[str] = None 
     fin_de_mazo: Optional[bool] = None
+    carta_evento_descartada: Optional[CartaModelo] = None
