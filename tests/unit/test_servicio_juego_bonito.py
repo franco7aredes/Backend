@@ -1778,10 +1778,10 @@ async def test_descartar_not_so_fast_exitoso():
     jugador_id = 2
 
     c1 = crear_carta(id_carta=1, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    c1.nombre, c1.tipo = "Not so Fast", TipoCarta.instant
+    c1.nombre, c1.tipo = "Not so fast", TipoCarta.instant
 
     c2 = crear_carta(id_carta=2, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    c2.nombre, c2.tipo = "Not so Fast", TipoCarta.instant
+    c2.nombre, c2.tipo = "Not so fast", TipoCarta.instant
 
     c3 = crear_carta(id_carta=3, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
     c3.nombre, c3.tipo = "Miss Marple", TipoCarta.detective
@@ -1857,7 +1857,7 @@ async def test_preparar_evento_cards_off_the_table_exitoso():
     carta_2 = crear_carta(id_carta=26, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.descarte)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
-    servicio.descartar_not_so_fast = AsyncMock(return_value=[carta_1, carta_2])
+    servicio.descartar_not_so_fast = AsyncMock(return_value=NotsoFastResultado(carta=[carta_1, carta_2]))
 
     resultado = await servicio.preparar_evento(
         partida_id=partida_id,
@@ -1875,6 +1875,7 @@ async def test_preparar_evento_cards_off_the_table_exitoso():
     assert resultado.carta_evento_descartada.posicion == PosicionCarta.descarte
     assert resultado.carta_evento_descartada.id_jugador is None
     assert resultado.carta_evento_descartada.orden_en_descarte is not None
+    assert resultado.cartas_descartadas == [carta_1, carta_2]
 
 @pytest.mark.asyncio
 async def test_preparar_evento_cards_off_the_table_sin_cartas_validas():
@@ -1893,7 +1894,7 @@ async def test_preparar_evento_cards_off_the_table_sin_cartas_validas():
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
-    servicio.descartar_not_so_fast = AsyncMock(return_value=[])
+    servicio.descartar_not_so_fast = AsyncMock(return_value=NotsoFastResultado(carta=[]))
 
     resultado = await servicio.preparar_evento(
         partida_id=partida_id,
@@ -2113,7 +2114,7 @@ async def test_preparar_evento_and_then_there_was_one_more_exitoso():
     secreto_ocultado = crear_secreto(id_partida=partida_id, id_secreto=secreto_id, id_jugador=jugador_objetivo_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
-    servicio.ocultar_secreto = AsyncMock(return_value=secreto_ocultado)
+    servicio.ocultar_secreto = AsyncMock(return_value=OcultarSecretoResultado(secreto=secreto_ocultado))
 
     resultado = await servicio.preparar_evento(
         partida_id=partida_id,
@@ -2127,6 +2128,7 @@ async def test_preparar_evento_and_then_there_was_one_more_exitoso():
     assert resultado.tipo_evento == "And Then There Was One More"
     assert resultado.secreto_oculto == secreto_ocultado
     assert resultado.mensaje == f"Se ocultó el secreto {secreto_id}"
+    
 
 @pytest.mark.asyncio
 async def test_preparar_evento_and_then_there_was_one_more_falla():

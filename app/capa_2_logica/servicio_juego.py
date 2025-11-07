@@ -1100,7 +1100,7 @@ class ServicioJuego:
         
         cartas_a_descartar = [
         carta for carta in cartas
-        if carta.nombre == "Not so Fast" and carta.tipo == TipoCarta.instant
+        if carta.nombre == "Not so fast" and carta.tipo == TipoCarta.instant
         ]
 
         if not cartas_a_descartar:
@@ -1142,10 +1142,10 @@ class ServicioJuego:
             case "cards off the table":
                 resultado = await self.descartar_not_so_fast(partida_id, jugador_objetivo_id)
                 descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
-                if not resultado:
+                if not resultado.carta:
                     return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=[], mensaje="El jugador no tiene cartas Not so Fast para descartar", carta_evento_descartada=descartado.carta)
     
-                return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=resultado, mensaje=f"{len(resultado)} cartas descartadas del jugador objetivo", carta_evento_descartada=descartado.carta)
+                return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=resultado.carta, mensaje=f"{len(resultado.carta)} cartas descartadas del jugador objetivo", carta_evento_descartada=descartado.carta)
 
             case "another victim":
                 try:
@@ -1180,7 +1180,7 @@ class ServicioJuego:
                     return EventoResultado(tipo_evento="And Then There Was One More", mensaje="No se pudo ocultar el secreto")
                 
                 descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
-                return EventoResultado(tipo_evento="And Then There Was One More", secreto_oculto=secreto, mensaje=f"Se ocultó el secreto {secreto.id_secreto}", carta_evento_descartada=descartado.carta)
+                return EventoResultado(tipo_evento="And Then There Was One More", secreto_oculto=secreto.secreto , mensaje=f"Se ocultó el secreto {secreto.secreto.id_secreto}", carta_evento_descartada=descartado.carta)
 
             case "delay the murderer's espace!":
                 resultado = await self.ver_del_descarte(partida_id, jugador_id)
