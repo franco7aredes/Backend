@@ -63,3 +63,7 @@ class JugarSetRespuesta(BaseModel):
     set: SetDTO
 
     model_config = ConfigDict(from_attributes=True)
+
+class AplicarEfectoSetSolicitud(BaseModel):
+    jugador_id: int
+    secreto_id: int
