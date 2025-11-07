@@ -155,7 +155,7 @@ class RepositorioCartaSQLAlchemy:
                 & (CartaModelo.posicion == PosicionCarta.descarte)
             )
             .order_by(desc(CartaModelo.orden_en_descarte))
-            .limit(7)
+            .limit(5)
         )
         res = await self.db.execute(stmt)
         return list(res.scalars().all())

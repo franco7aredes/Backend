@@ -2211,6 +2211,9 @@ async def test_preparar_evento_delay_the_murderer_escape_exitoso():
     assert carta_evento.posicion == PosicionCarta.descarte
     assert carta_evento.id_jugador is None
 
+    # Verifica que se haya llamado a guardar
+    repo_c.guardar.assert_awaited()
+
 @pytest.mark.asyncio
 async def test_preparar_evento_delay_the_murderer_escape_sin_cartas_en_descarte():
     partida_id = 5
@@ -2240,9 +2243,11 @@ async def test_preparar_evento_delay_the_murderer_escape_sin_cartas_en_descarte(
     assert resultado.tipo_evento == "Delay the murderer's espace!"
     assert resultado.cartas_agregadas is None or resultado.cartas_agregadas == []
     assert resultado.mensaje == "No hay cartas para reintegrar al mazo"
+    assert carta_evento.posicion == PosicionCarta.descarte
+    assert carta_evento.id_jugador is None
 
-    # Verifica que no se haya llamado a guardar
-    repo_c.guardar.assert_not_awaited()
+    # Verifica que se haya llamado a guardar
+    repo_c.guardar.assert_awaited()
 
 @pytest.mark.asyncio
 async def test_preparar_evento_early_train_to_paddington_exitoso():

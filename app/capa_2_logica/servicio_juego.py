@@ -1186,7 +1186,8 @@ class ServicioJuego:
                 resultado = await self.ver_del_descarte(partida_id, jugador_id)
                 cartas_descarte = resultado.descarte
                 if not cartas_descarte:
-                    return EventoResultado(tipo_evento="Delay the murderer's espace!", mensaje="No hay cartas para reintegrar al mazo")
+                    descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                    return EventoResultado(tipo_evento="Delay the murderer's espace!", mensaje="No hay cartas para reintegrar al mazo", carta_evento_descartada=descartado.carta)
 
                 ultimo_orden_mazo = await self.cartas.contar_en_mazo(partida_id)
 

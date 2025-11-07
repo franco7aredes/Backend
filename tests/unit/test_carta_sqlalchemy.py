@@ -139,3 +139,17 @@ async def test_obtener_primeras_de_descarte(db, carta_valida):
     repo = RepositorioCartaSQLAlchemy(db)
     res = await repo.obtener_primeras_de_descarte(1)
     assert res == [carta_valida]
+
+@pytest.mark.asyncio
+async def test_obtener_primeras_de_mazo(db, carta_valida):
+    db.execute.return_value.scalars = lambda: DummyScalars([carta_valida])
+    repo = RepositorioCartaSQLAlchemy(db)
+    res = await repo.obtener_primeras_de_mazo(partida_id=2)
+    assert res == [carta_valida]
+
+@pytest.mark.asyncio
+async def test_obtener_carta_id(db, carta_valida):
+    db.execute.return_value.scalars = lambda: MagicMock(first=lambda: carta_valida)
+    repo = RepositorioCartaSQLAlchemy(db)
+    res = await repo.obtener_carta_id(partida_id=2, carta_id=1)
+    assert res == carta_valida
