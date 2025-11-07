@@ -79,7 +79,7 @@ class ServicioJuego:
         self.secretos = secretos
         self.sets = sets
 
-    async def crear_partida(self, jugador_creador: str, fecha_nac: datetime, minimo: int, maximo: int) -> CrearPartidaResultado:
+    async def crear_partida(self, jugador_creador: str, fecha_nac: datetime, minimo: int, maximo: int, avatar_id: int) -> CrearPartidaResultado:
         """Crea una partida y su jugador inicial (retorna CrearPartidaResultado).
 
         - Inicializa la partida en espera
@@ -101,7 +101,7 @@ class ServicioJuego:
             nombre=jugador_creador,
             fecha_nacimiento=fecha_nac.date(),
             orden_turno=1,
-            id_avatar=1,
+            id_avatar=avatar_id,
         )
 
         # Crear el jugador usando el repo correspondiente; sin repo, no tocamos la BD desde la capa 2
