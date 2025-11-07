@@ -1008,7 +1008,7 @@ async def test_crear_partida_sin_repo_jugadores():
     repo_partida = crear_repo_partida_mock(crear_return=crear_partida_en_espera())
     s = ServicioJuego(partidas=repo_partida, jugadores=None)
     with pytest.raises(RuntimeError):
-        await s.crear_partida("Ana", datetime(2000,1,1), 2, 4)
+        await s.crear_partida("Ana", datetime(2000,1,1), 2, 4, 1)
 
 @pytest.mark.asyncio
 async def test_iniciar_partida_cambia_estado_y_guarda():
@@ -1675,7 +1675,7 @@ async def test_verificar_seleccionar_posicion_fuera_de_rango_lanza_excepcion():
 
     s = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s, sets=repo_sets)
     with pytest.raises(SecretoNoEncontrado):
-        await s.verificar_seleccionar_jugador_set(4, 13, 8, 26, 2)
+        await s.verificar_seleccionar_jugador_set(4, 13, 8, 26, 1)
 
 
 @pytest.mark.asyncio

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, status, Depends, HTTPException, Body
 
-from app.capa_3_api.dtos.set import SeleccionarDestinoSolicitud
 from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
-from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, AplicarEfectoSetSolicitud
+from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, 
+from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, SeleccionarDestinoSolicitud, AplicarEfectoSetSolicitud
 from app.capa_3_api.mapeadores import mapear_set_a_dto
 from app.capa_0_definicion_bd.models.secretos_modelos import TipoSecreto
 
