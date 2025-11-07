@@ -67,6 +67,25 @@ class _RepoSetProto(Protocol):
     async def guardar_set(self, set: SetModelo) -> None: ...
     async def obtener_cartas_del_set(self, set_id: int) -> List[CartaModelo]: ...
 
+
+async def _regla_nsf_es_cancelable_simple(tipo_accion: str, payload: Dict[str, Any]) -> bool:
+    """
+    Define si una accion es cancelable por su tipo
+    """
+    if tipo_accion == "jugar_evento":
+        nombre = str(payload.get("nombre", "")).lower()
+        if "cards off the table" in nombre:
+            return False
+        return True
+        
+    if tipo_accion == "jugar_set":
+        return True
+    if tipo_accion == "agregar_a_set":
+        return True
+    if tipo_accion == "jugar_nsf":
+        return True
+    return False
+
 class ServicioJuego:
     """Servicio de reglas de negocio del juego.
 
@@ -1182,3 +1201,33 @@ class ServicioJuego:
             raise SecretoNoEncontrado()
 
         return AplicarEfectoSetResultado(secreto_afectado=secreto, posicion_secreto=posicion_en_lista)
+
+
+    async def es_accion_cancelable_en_contexto(
+        self,
+        partida_id:int,
+        tipo_accion: str,
+        payload: Dict[str, Any],
+        id_jugador_accion: int
+    ) -> bool:
+        """
+        Verifica si una accion es cancelable, incluyendo las reglas complejas.
+        Devuelve Falso si NO es cancelable.
+        """
+
+        # regla Beresford
+        if tipo_accion == "jugar_set":
+            cartas_ids = list(map(int, (payload.get("cartas_id") or [])))
+            # usamos el id del jugador si no viene en el payload
+            jugador_id = int(payload.get("id_jugador", id_jugador_accion))
+            try:
+                res = await self.obtener_cartas_propias(partida_id, jugador_id)
+                nombres = {cast(Any, c).nombre.lower(): cast(Any,c).id_carta for c in res.cartas if cast(Any,c).id_carta in cartas_ids}
+                if len(nombres) == len(cartas_ids) and {"tommy beresford", "tuppence beresford"}.issubset(set(nombres.keys())) and len(cartas_ids) == 2:
+                    return False
+            except Exception:
+                    pass
+                
+        # si no es, lo paso por la ruta simple
+        return _regla_nsf_es_cancelable_simple(tipo_accion, payload)
+     
