@@ -50,6 +50,7 @@ class _RepoCartaProto(Protocol):
     async def mover_primera_carta_mazo_a_draft(self, partida_id: int) -> Optional[CartaModelo]: ...
     async def guardar_muchas(self, cartas: List[CartaModelo]) -> None: ...
     async def obtener_primeras_de_mazo(self, partida_id: int) -> List[CartaModelo]: ...
+    async def obtener_carta_id(self, partida_id: int, carta_id: int) -> CartaModelo: ... 
 
 @runtime_checkable
 class _RepoSecretoProto(Protocol):
@@ -1160,7 +1161,7 @@ class ServicioJuego:
                 if not carta_descarte:
                     raise ValueError("Debe especificarse una carta del descarte para este evento")
                 
-                carta_objetivo = await self.cartas.obtener_carta(carta_descarte)
+                carta_objetivo = await self.cartas.obtener_carta_id(partida_id, carta_descarte)
                 if not carta_objetivo or carta_objetivo.posicion != PosicionCarta.descarte:
                     raise ValueError("La carta seleccionada no esta en el descarte")
                 

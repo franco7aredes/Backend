@@ -273,6 +273,8 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
         "partida_id": partida_id,
         "jugador_id": datos.id_jugador,
         "tipo_evento": resultado.tipo_evento,
+        "cartas_descartadas": [c.id_carta for c in resultado.cartas_descartadas or []],
+        "cartas_agregadas": [c.id_carta for c in resultado.cartas_agregadas or []],
         "mensaje": resultado.mensaje,
         "fin_de_mazo": resultado.fin_de_mazo if resultado.fin_de_mazo is not None else None,
         "carta_evento_descartada": resultado.carta_evento_descartada.id_carta if resultado.carta_evento_descartada else None,
@@ -289,8 +291,8 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
         "detalle": resultado.mensaje,
         "cartas_descartadas": [c.id_carta for c in resultado.cartas_descartadas or []],
         "cartas_agregadas": [c.id_carta for c in resultado.cartas_agregadas or []],
-        "cartas_repuestas": [c.id_carta for c in resultado.cartas_repuestas or []],
         "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None,
         "fin_de_mazo": resultado.fin_de_mazo if resultado.fin_de_mazo is not None else None,
-        "carta_evento_descartada": resultado.carta_evento_descartada.id_carta if resultado.carta_evento_descartada else None
+        "carta_evento_descartada": resultado.carta_evento_descartada.id_carta if resultado.carta_evento_descartada else None,
+        "asesino_ganador": resultado.asesino_ganador if resultado.asesino_ganador is not None else None
     }

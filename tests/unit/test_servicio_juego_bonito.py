@@ -2007,12 +2007,10 @@ async def test_preparar_evento_look_into_the_ashes_exitoso():
     carta_objetivo = crear_carta(id_carta=carta_descarte_id, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.descarte)
 
     repo_c = crear_repo_carta_mock(
-        obtener_carta_return=None,
+        obtener_carta_return=carta_evento,
+        obtener_carta_id_return=carta_objetivo,
         obtener_cantidad_descartadas_return=7 
     )
-
-    # logica condicional para devolver la carta correcta
-    repo_c.obtener_carta = AsyncMock(side_effect=lambda *args: carta_evento if args == (partida_id, jugador_id, carta_evento_id) else carta_objetivo)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
 
@@ -2080,10 +2078,10 @@ async def test_preparar_evento_look_into_the_ashes_carta_no_en_descarte():
     carta_evento.nombre = "Look Into The Ashes"
     carta_evento.tipo = TipoCarta.event
 
-    carta_objetivo = crear_carta(id_carta=carta_descarte_id, id_partida=partida_id, id_jugador=None, posicion=PosicionCarta.mano)  # No esta en el descarte
+    carta_objetivo = crear_carta(id_carta=carta_descarte_id, id_partida=partida_id, id_jugador=3, posicion=PosicionCarta.mano)  # No esta en el descarte
 
-    repo_c = crear_repo_carta_mock(obtener_carta_return=None)
-    repo_c.obtener_carta = AsyncMock(side_effect=lambda *args: carta_evento if args == (partida_id, jugador_id, carta_evento_id) else carta_objetivo)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento, obtener_carta_id_return=carta_objetivo)
+    
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
 
