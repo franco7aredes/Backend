@@ -13,10 +13,10 @@ class ActivarNSFPedido(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class ActivarNSFRespuesta(BaseModel):
-    ventana_id: str
-    tiempo_ms: int
+    window_id: str
+    deadline_ms: int
 
-    model_config = ConfigDict(from_attributes=True)
+  model_config = ConfigDict(from_attributes=True)
 
 class JugarNSFPedido(BaseModel):
     id_jugador: int
@@ -27,7 +27,7 @@ class JugarNSFPedido(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class JugarNSFRespuesta(BaseModel):
-    ventana_id: str
-    tiempo_ms: int
+    window_id: str
+    deadline_ms: int
 
     model_config = ConfigDict(from_attributes=True)
