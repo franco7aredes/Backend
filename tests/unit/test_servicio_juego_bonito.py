@@ -1008,7 +1008,7 @@ async def test_crear_partida_sin_repo_jugadores():
     repo_partida = crear_repo_partida_mock(crear_return=crear_partida_en_espera())
     s = ServicioJuego(partidas=repo_partida, jugadores=None)
     with pytest.raises(RuntimeError):
-        await s.crear_partida("Ana", datetime(2000,1,1), 2, 4)
+        await s.crear_partida("Ana", datetime(2000,1,1), 2, 4, 1)
 
 @pytest.mark.asyncio
 async def test_iniciar_partida_cambia_estado_y_guarda():
