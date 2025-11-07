@@ -7,6 +7,7 @@ from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
 from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta
 from app.capa_3_api.mapeadores import mapear_set_a_dto
+from app.capa_0_definicion_bd.models.secretos_modelos import TipoSecreto
 
 set_router = APIRouter()
 
@@ -173,8 +174,10 @@ async def aplicar_efecto_set(
 ):
     jugador_id = datos.get("jugador_id")
     secreto_id = datos.get("secreto_id")
+    if jugador_id is None or secreto_id is None:
+        raise HTTPException(status_code=400, detail="jugador_id y secreto_id son requeridos")
     try:
-        await service.aplicar_efectos_set(partida_id, jugador_id, set_id, secreto_id)
+        resultado = await service.aplicar_efectos_set(partida_id, jugador_id, set_id, secreto_id)
     except PartidaNoEncontrada:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
     except JugadorNoEncontrado:
@@ -189,6 +192,29 @@ async def aplicar_efecto_set(
         raise HTTPException(status_code=404, detail="Secreto no encontrado")
     except SecretoNoDisponible:
         raise HTTPException(status_code=400, detail="El secreto no está disponible para esta acción")
+    except AsesinoRevelado:
+        # El servicio ya marcó la partida como finalizada. Difundimos evento especial y respondemos distinto.
+        try:
+            await administrador.difundir_a_partida(
+                partida_id,
+                {
+                    "evento": "asesino_revelado",
+                    "partida_id": partida_id,
+                    "set_id": set_id,
+                    "jugador_id": jugador_id,
+                    "secreto_id": secreto_id,
+                    "mensaje": "Se reveló el asesino. La partida finaliza.",
+                }
+            )
+        except Exception:
+            pass
+        return {
+            "mensaje": "Se reveló el asesino. La partida finaliza.",
+            "set_id": set_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "asesino": True
+        }
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
@@ -201,7 +227,10 @@ async def aplicar_efecto_set(
                 "partida_id": partida_id,
                 "set_id": set_id,
                 "jugador_id": jugador_id,
-                "secreto_id": secreto_id
+                "secreto_id": secreto_id,
+                "posicion_secreto": resultado.posicion_secreto,
+                "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
+                "asesino": (getattr(resultado.secreto_afectado, "tipo", None) == TipoSecreto.asesino)
             }
         )
     except Exception:
@@ -211,5 +240,8 @@ async def aplicar_efecto_set(
         "mensaje": "Efecto del set aplicado correctamente",
         "set_id": set_id,
         "jugador_id": jugador_id,
-        "secreto_id": secreto_id
+        "secreto_id": secreto_id,
+        "posicion_secreto": resultado.posicion_secreto,
+        "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
+        "asesino": (getattr(resultado.secreto_afectado, "tipo", None) == TipoSecreto.asesino)
     }

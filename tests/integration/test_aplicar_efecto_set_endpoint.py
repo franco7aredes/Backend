@@ -15,7 +15,14 @@ def servicio_mock_override():
             if self.next_exception:
                 exc = self.next_exception
                 raise exc() if isinstance(exc, type) else exc
-            return None
+            class Resultado:
+                def __init__(self):
+                    class Secreto:
+                        def __init__(self):
+                            self.tipo = None
+                    self.secreto_afectado = Secreto()
+                    self.posicion_secreto = 1
+            return Resultado()
 
     inst = ServicioMock()
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: inst
@@ -41,6 +48,7 @@ async def test_aplicar_efecto_set_ok_200_y_broadcast(async_client, servicio_mock
     assert data["set_id"] == 5
     assert data["jugador_id"] == 10
     assert data["secreto_id"] == 7
+    assert data["posicion_secreto"] == 1
     difundir_mock.assert_awaited_once()
 
 @pytest.mark.parametrize(

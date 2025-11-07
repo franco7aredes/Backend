@@ -1096,7 +1096,7 @@ class ServicioJuego:
                 raise SecretoNoEncontrado()
 
 
-    async def aplicar_efectos_set(self, partida_id: int, jugador_id: int, set_id: int, secreto_id: int) -> None:
+    async def aplicar_efectos_set(self, partida_id: int, jugador_id: int, set_id: int, secreto_id: int) -> AplicarEfectoSetResultado:
         """ Aplica los efectos del set jugado por otro jugador.
         jugador_id es a quien se le aplican los efectos."""
 
@@ -1118,6 +1118,17 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
+        # Calcular posición del secreto
+        secretos_ordenados = await self.secretos.obtener_secretos(partida_id, jugador_id)
+        posicion_en_lista = -1
+        for indice, s in enumerate(secretos_ordenados):
+            if getattr(s, "id_secreto", None) == secreto_id:
+                posicion_en_lista = indice
+                break
+        if posicion_en_lista == -1:
+            raise SecretoNoEncontrado()
+
+        secreto = None
         match set_a_aplicar.nombre:
             case "Hercule Poirot" | "Miss Marple":
                 secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
@@ -1166,3 +1177,8 @@ class ServicioJuego:
                 res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
                 if not res:
                     raise SecretoNoDisponible()
+
+        if not secreto:
+            raise SecretoNoEncontrado()
+
+        return AplicarEfectoSetResultado(secreto_afectado=secreto, posicion_secreto=posicion_en_lista)
