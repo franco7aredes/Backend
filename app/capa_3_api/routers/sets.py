@@ -1,11 +1,10 @@
-from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi import APIRouter, status, Depends, HTTPException, Body
 
-from app.capa_3_api.dtos.set import SeleccionarDestinoSolicitud
 from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
-from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta
+from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, SeleccionarDestinoSolicitud
 from app.capa_3_api.mapeadores import mapear_set_a_dto
 
 set_router = APIRouter()
@@ -110,12 +109,16 @@ async def seleccionar_destino(
         raise HTTPException(status_code=404, detail="Set no encontrado")
     except SetNoEnPartida:
         raise HTTPException(status_code=400, detail="El set no pertenece a la partida indicada")
-    except NoPuedeRobarSuPropioSet:
-        raise HTTPException(status_code=400, detail="No puede seleccionar su propio set")
+    except NoPuedeAplicarseEfectosAsiMismo:
+        raise HTTPException(status_code=400, detail="No puede seleccionarse a si mismo para aplicar los efectos de su propio set")
     except SetNoCorrespondeAlJugadorSeleccionado:
         raise HTTPException(status_code=400, detail="El set no corresponde al jugador seleccionado")
     except SecretoNoEncontrado:
         raise HTTPException(status_code=400, detail="El jugador seleccionado no tiene un secreto en la posición indicada")
+    except SetNoSoportaSeleccionDeJugador:
+        raise HTTPException(status_code=400, detail="El set no soporta la selección de un jugador como destino")
+    except PosicionSecretoNoProporcionada:
+        raise HTTPException(status_code=400, detail="No se proporcionó la posición del secreto")
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
     
@@ -157,4 +160,55 @@ async def seleccionar_destino(
         "jugador_id": jugador_id,
         "id_seleccionado": id_seleccionado,
         "secreto_posicion": posicion_secreto
+    }
+
+# Es un post porque puede tener efectos secundarios y no es idempotente
+@set_router.post("/partidas/{partida_id}/sets/{set_id}/aplicar_efecto", status_code=status.HTTP_200_OK)
+async def aplicar_efecto_set(
+    partida_id: int,
+    set_id: int,
+    datos: dict = Body(...),  # espera {"jugador_id": ..., "secreto_id": ...}
+    service: ServicioJuego = Depends(obtener_servicio_juego)
+):
+    jugador_id = datos.get("jugador_id")
+    secreto_id = datos.get("secreto_id")
+    try:
+        await service.aplicar_efectos_set(partida_id, jugador_id, set_id, secreto_id)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except JugadorNoEncontrado:
+        raise HTTPException(status_code=404, detail="Jugador no encontrado")
+    except JugadorNoEnPartida:
+        raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+    except SetNoEncontrado:
+        raise HTTPException(status_code=404, detail="Set no encontrado")
+    except SetNoEnPartida:
+        raise HTTPException(status_code=400, detail="El set no pertenece a la partida indicada")
+    except SecretoNoEncontrado:
+        raise HTTPException(status_code=404, detail="Secreto no encontrado")
+    except SecretoNoDisponible:
+        raise HTTPException(status_code=400, detail="El secreto no está disponible para esta acción")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+    try:
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "efecto_set_aplicado",
+                "partida_id": partida_id,
+                "set_id": set_id,
+                "jugador_id": jugador_id,
+                "secreto_id": secreto_id
+            }
+        )
+    except Exception:
+        pass
+
+    return {
+        "mensaje": "Efecto del set aplicado correctamente",
+        "set_id": set_id,
+        "jugador_id": jugador_id,
+        "secreto_id": secreto_id
     }

@@ -56,3 +56,12 @@ class CreadorNoPuedeAbandonarPartida(Exception):
 
 class SetNoCorrespondeAlJugadorSeleccionado(Exception):
     pass
+
+class NoPuedeAplicarseEfectosAsiMismo(Exception):
+    pass
+
+class PosicionSecretoNoProporcionada(Exception):
+    pass
+
+class SetNoSoportaSeleccionDeJugador(Exception):
+    pass
