@@ -64,7 +64,13 @@ class JugarSetRespuesta(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class AplicarEfectoSetSolicitud(BaseModel):
+    jugador_id: int
+    secreto_id: int
+
 class SeleccionarDestinoSolicitud(BaseModel):
     id_jugador: int
     id_seleccionado: int
     posicion_secreto: Optional[int] = Field(None, ge=0)
+

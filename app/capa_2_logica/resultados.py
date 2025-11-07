@@ -121,3 +121,8 @@ class AbandonarPartidaResultado:
     partida_id: int
     jugador_id: int
     cantidad_jugadores: int
+
+@dataclass(slots=True)
+class AplicarEfectoSetResultado:
+      secreto_afectado: SecretoDB
+      posicion_secreto: int
