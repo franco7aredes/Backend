@@ -203,6 +203,7 @@ async def aplicar_efecto_set(
                     "set_id": set_id,
                     "jugador_id": jugador_id,
                     "secreto_id": secreto_id,
+                    "secreto_tipo": resultado.secreto_afectado.tipo.name,
                     "mensaje": "Se reveló el asesino. La partida finaliza.",
                 }
             )
@@ -213,7 +214,7 @@ async def aplicar_efecto_set(
             "set_id": set_id,
             "jugador_id": jugador_id,
             "secreto_id": secreto_id,
-            "asesino": True
+            "secreto_tipo": resultado.secreto_afectado.tipo.name
         }
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
@@ -230,7 +231,7 @@ async def aplicar_efecto_set(
                 "secreto_id": secreto_id,
                 "posicion_secreto": resultado.posicion_secreto,
                 "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
-                "asesino": (getattr(resultado.secreto_afectado, "tipo", None) == TipoSecreto.asesino)
+                "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
             }
         )
     except Exception:
@@ -243,5 +244,5 @@ async def aplicar_efecto_set(
         "secreto_id": secreto_id,
         "posicion_secreto": resultado.posicion_secreto,
         "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
-        "asesino": (getattr(resultado.secreto_afectado, "tipo", None) == TipoSecreto.asesino)
+        "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
     }

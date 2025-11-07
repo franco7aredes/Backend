@@ -7,6 +7,7 @@ import app.capa_3_api.routers.sets as rsets
 
 @pytest.fixture
 def servicio_mock_override():
+
     class ServicioMock:
         def __init__(self):
             self.next_exception = None
@@ -15,11 +16,16 @@ def servicio_mock_override():
             if self.next_exception:
                 exc = self.next_exception
                 raise exc() if isinstance(exc, type) else exc
+            class Estado:
+                name = "revelado"
+            class Tipo:
+                name = "asesino"
+            class Secreto:
+                def __init__(self):
+                    self.tipo = Tipo()
+                    self.estado = Estado()
             class Resultado:
                 def __init__(self):
-                    class Secreto:
-                        def __init__(self):
-                            self.tipo = None
                     self.secreto_afectado = Secreto()
                     self.posicion_secreto = 1
             return Resultado()
@@ -49,6 +55,8 @@ async def test_aplicar_efecto_set_ok_200_y_broadcast(async_client, servicio_mock
     assert data["jugador_id"] == 10
     assert data["secreto_id"] == 7
     assert data["posicion_secreto"] == 1
+    assert data["secreto_estado"] == "revelado"
+    assert data["secreto_tipo"] == "asesino"
     difundir_mock.assert_awaited_once()
 
 @pytest.mark.parametrize(
@@ -84,4 +92,8 @@ async def test_aplicar_efecto_set_falla_broadcast_no_rompe(async_client, servici
         "secreto_id": 7
     }
     resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
+    data = resp.json()
     assert resp.status_code == 200
+    assert data["mensaje"] == "Efecto del set aplicado correctamente"
+    assert "secreto_estado" in data
+    assert "secreto_tipo" in data
