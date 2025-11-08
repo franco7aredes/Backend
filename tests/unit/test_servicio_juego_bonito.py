@@ -2085,3 +2085,110 @@ async def test_accion_cancelable_set_normal():
         )
 
     assert res == True
+
+@pytest.mark.asyncio
+async def test_es_carta_nsf_bonito():
+
+    partida = crear_partida_en_juego(id_partida=1)
+    jugador = crear_jugador(id_jugador=2, id_partida=1)
+    nsf = crear_carta(id_carta=12, nombre="Not So Fast")
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    try:
+        await s.es_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+    except Exception as e:
+        pytest.fail(f"fallo y no deberia haber pasado" {e}")
+
+    repo_j.obtener.assert_called_once_with(2)
+    repo_p.obtener.assert_called_once_with(1)
+    repo_c.obtener_carta.assert_called_once_with(1, 2, 12)
+
+@pytest.mark.asyncio
+async def test_es_carta_nsf_falla_no_es_nsf():
+        
+    partida = crear_partida_en_juego(id_partida=1)
+    jugador = crear_jugador(id_jugador=2, id_partida=1)
+    nsf = crear_carta(id_carta=12, nombre="Hercule Poirot")
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="no_es_nsf_pero_intento_actuar_como_nsf"):
+        await s.es_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+@pytest.mark.asyncio
+async def test_es_carta_nsf_jugador_no_en_partida():
+
+    partida = crear_partida_en_juego(id_partida=1)
+    jugador = crear_jugador(id_jugador=2, id_partida=2)
+    nsf = crear_carta(id_carta=12, nombre="Not So Fast")
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="jugador_no_en_partida"):
+        await s.es_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+    assert s.cartas.obtener_carta.called == False
+    
+@pytest.mark.asyncio
+async def test_es_carta_nsf_jugador_no_encontrado():
+    
+    partida = crear_partida_en_juego(id_partida=1)
+    nsf = crear_carta(id_carta=12, nombre="Not So Fast")
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock()
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="jugador_no_encontrado"):
+        await s.es_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+    assert s.cartas.obtener_carta.called == False
+
+@pytest.mark.asyncio
+async def test_es_carta_nsf_partida_no_encontrada():
+
+    jugador = crear_jugador(id_jugador=2, id_partida=2)
+    nsf = crear_carta(id_carta=12, nombre="Not So Fast")
+
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(PartidaNoEncontrada):
+        await s.es_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+    assert s.cartas.obtener_carta.called == False
+
+@pytest.mark.asyncio
+async def test_es_carta_nsf_no_hay_tal_carta():
+
+    partida = crear_partida_en_juego(id_partida=1)
+    jugador = crear_jugador(id_jugador=2, id_partida=2)
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_c = crear_repo_carta_mock()
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="no_hay_tal_carta"):
+        await s.es_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+    assert s.cartas.obtener_carta.called == True
