@@ -1,6 +1,7 @@
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, asyncio
+from typing import Any, Dict, Optional
+import asyncio
 
 @dataclass
 class VentanaNSFActiva:
