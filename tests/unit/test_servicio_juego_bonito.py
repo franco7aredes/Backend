@@ -2014,3 +2014,46 @@ async def test_aplicar_efectos_set_asesino_revelado_burbujea_excepcion():
     with pytest.raises(AsesinoRevelado):
         await s.aplicar_efectos_set(1, 2, 5, 7)
 
+@pytest.mark.asyncio
+async def test_revelar_secreto_exitoso_entrando_en_desgracia():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.oculto)
+    lista_secretos = [secreto]
+    jugador = crear_jugador(id_jugador=3, id_partida=1, secretos=lista_secretos)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=lista_secretos)
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    with pytest.raises(JugadorEnDesgraciaSocial):
+        await servicio.revelar_secreto(1, 3, 3)
+
+@pytest.mark.asyncio
+async def test_robar_secreto_sale_de_desgracia():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    sec1 = crear_secreto(id_secreto=1, id_partida=1, id_jugador=2, estado=EstadoSecreto.revelado)
+    sec2 = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.revelado)
+    lista_secretos_jugador = [sec1, sec2]
+    jugador = crear_jugador(id_jugador=2, id_partida=1, secretos=lista_secretos_jugador)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_s = crear_repo_secreto_mock(
+        obtener_secretos_return=lista_secretos_jugador,
+        obtener_secretos_revelados_return=[sec2],
+    )
+    # asegurar dos llamadas devuelven misma lista actualizable
+    repo_s.obtener_secretos.side_effect = [lista_secretos_jugador, lista_secretos_jugador]
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    with pytest.raises(JugadorSaleDeDesgraciaSocial):
+        await servicio.robar_secreto(1, 2, 3)
+
+@pytest.mark.asyncio
+async def test_ocultar_secreto_sale_de_desgracia():
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=2))
+    sec = crear_secreto(id_secreto=2, id_partida=2, id_jugador=3, estado=EstadoSecreto.revelado)
+    lista_secretos = [sec]
+    jugador = crear_jugador(id_jugador=3, id_partida=2, secretos=lista_secretos)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=sec, obtener_secretos_return=lista_secretos)
+    # dos llamadas para ocultar
+    repo_s.obtener_secretos.side_effect = [lista_secretos, lista_secretos]
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    with pytest.raises(JugadorSaleDeDesgraciaSocial):
+        await servicio.ocultar_secreto(2, 3, 2)

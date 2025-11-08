@@ -65,3 +65,9 @@ class PosicionSecretoNoProporcionada(Exception):
 
 class SetNoSoportaSeleccionDeJugador(Exception):
     pass
+
+class JugadorEnDesgraciaSocial(Exception):
+    pass
+
+class JugadorSaleDeDesgraciaSocial(Exception):
+    pass
