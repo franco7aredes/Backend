@@ -4,8 +4,7 @@ from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
-from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta
-from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, SeleccionarDestinoSolicitud, AplicarEfectoSetSolicitud
+from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, SeleccionarDestinoSolicitud, AplicarEfectoSetSolicitud, AgregarCartaASetRequest
 from app.capa_3_api.mapeadores import mapear_set_a_dto
 from app.capa_0_definicion_bd.models.secretos_modelos import TipoSecreto
 
@@ -259,3 +258,55 @@ async def aplicar_efecto_set(
         "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
         "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
     }
+
+@set_router.patch("/partidas/{partida_id}/sets/{set_id}/agregar_carta", response_model=JugarSetRespuesta, status_code=status.HTTP_200_OK)
+async def agregar_carta_a_set(
+    partida_id: int,
+    set_id: int,
+    datos: AgregarCartaASetRequest,
+    service: ServicioJuego = Depends(obtener_servicio_juego)
+):
+    try:
+        resultado = await service.agregar_carta_a_set_propio(partida_id, datos.id_jugador, datos.carta_id, set_id)
+        set_dto = mapear_set_a_dto(resultado.set)
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except JugadorNoEncontrado:
+        raise HTTPException(status_code=404, detail="Jugador no encontrado")
+    except JugadorNoEnPartida:
+        raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+    except SetNoEncontrado:
+        raise HTTPException(status_code=404, detail="Set no encontrado")
+    except SetNoCorrespondeAlJugadorSeleccionado:
+        raise HTTPException(status_code=400, detail="El set no corresponde al jugador seleccionado")
+    except CartaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Carta no encontrada")
+    except CartaNoEnMano:
+        raise HTTPException(status_code=400, detail="La carta no está en la mano del jugador")
+    except TipoCartaNoCompatibleConSet:
+        raise HTTPException(status_code=400, detail="Solo se pueden agregar cartas de tipo detective al set")
+    except CartaNoCompatibleConSet:
+        raise HTTPException(status_code=400, detail="La carta no es compatible con el set")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+    # Notificar a todos los jugadores de la partida (no bloqueante)
+    try:
+        await administrador.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "carta_agregada_a_set",
+                "partida_id": partida_id,
+                "id_jugador": datos.id_jugador,
+                "set_id": set_id,
+                "carta_id": datos.carta_id,
+                "set": set_dto.model_dump()
+            }
+        )
+    except Exception:
+        pass
+
+    return JugarSetRespuesta(
+        mensaje="Carta agregada al set correctamente",
+        set=set_dto
+    )

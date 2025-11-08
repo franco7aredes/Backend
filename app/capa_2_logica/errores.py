@@ -65,3 +65,15 @@ class PosicionSecretoNoProporcionada(Exception):
 
 class SetNoSoportaSeleccionDeJugador(Exception):
     pass
+
+class CartaNoEncontrada(Exception):
+    pass
+
+class CartaNoEnMano(Exception):
+    pass
+
+class CartaNoCompatibleConSet(Exception):
+    pass
+
+class TipoCartaNoCompatibleConSet(Exception):
+    pass
