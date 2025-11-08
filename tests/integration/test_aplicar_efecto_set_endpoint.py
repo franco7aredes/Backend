@@ -4,6 +4,7 @@ from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
 import app.capa_3_api.routers.sets as rsets
+from tests.mocks.repos_mocks import crear_repo_secreto_mock, crear_secreto, TipoSecreto
 
 @pytest.fixture
 def servicio_mock_override():
@@ -97,3 +98,23 @@ async def test_aplicar_efecto_set_falla_broadcast_no_rompe(async_client, servici
     assert data["mensaje"] == "Efecto del set aplicado correctamente"
     assert "secreto_estado" in data
     assert "secreto_tipo" in data
+
+@pytest.mark.asyncio
+async def test_aplicar_efecto_set_asesino_revelado_devuelve_200_y_broadcast(async_client, servicio_mock_override, difundir_mock):
+    servicio_mock_override.next_exception = AsesinoRevelado
+
+    # Repo de secretos mock: devolver un secreto asesino para reconstrucción
+    secreto_asesino = crear_secreto(id_secreto=7, id_partida=1, id_jugador=10, tipo=TipoSecreto.asesino)
+    repo_secretos = crear_repo_secreto_mock(obtener_secretos_return=[secreto_asesino])
+    servicio_mock_override.secretos = repo_secretos
+
+    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json={"jugador_id": 10, "secreto_id": 7})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "asesino" in (data["mensaje"].lower())
+    assert data["secreto_tipo"] == getattr(TipoSecreto.asesino, "name", "asesino") if hasattr(TipoSecreto.asesino, "name") else "asesino"
+    difundir_mock.assert_awaited_once()
+    args, _ = difundir_mock.await_args
+    assert args[1]["evento"] == "asesino_revelado"
+    assert args[1]["secreto_tipo"] == data["secreto_tipo"]
