@@ -4,7 +4,6 @@ from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
-from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, AgregarCartaASetRequest 
 from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, SeleccionarDestinoSolicitud, AplicarEfectoSetSolicitud, AgregarCartaASetRequest
 from app.capa_3_api.mapeadores import mapear_set_a_dto
 from app.capa_0_definicion_bd.models.secretos_modelos import TipoSecreto
@@ -191,7 +190,23 @@ async def aplicar_efecto_set(
     except SecretoNoDisponible:
         raise HTTPException(status_code=400, detail="El secreto no está disponible para esta acción")
     except AsesinoRevelado:
-        # El servicio ya marcó la partida como finalizada. Difundimos evento especial y respondemos distinto.
+        # Reconstruir datos sin 'resultado'
+        secreto_tipo = None
+        try:
+            # obtener lista ordenada para posición
+            secretos = await service.secretos.obtener_secretos(partida_id, jugador_id)
+            posicion_secreto = None
+            secreto_obj = None
+            for indice, s in enumerate(secretos or []):
+                if getattr(s, "id_secreto", None) == secreto_id:
+                    posicion_secreto = indice
+                    secreto_obj = s
+                    break
+            if secreto_obj:
+                secreto_tipo = getattr(getattr(secreto_obj, "tipo", None), "name", None)
+        except Exception:
+            posicion_secreto = None
+        # broadcast asesino_revelado
         try:
             await administrador.difundir_a_partida(
                 partida_id,
@@ -201,7 +216,7 @@ async def aplicar_efecto_set(
                     "set_id": set_id,
                     "jugador_id": jugador_id,
                     "secreto_id": secreto_id,
-                    "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None),
+                    "secreto_tipo": secreto_tipo,
                     "mensaje": "Se reveló el asesino. La partida finaliza.",
                 }
             )
@@ -212,7 +227,7 @@ async def aplicar_efecto_set(
             "set_id": set_id,
             "jugador_id": jugador_id,
             "secreto_id": secreto_id,
-            "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
+            "secreto_tipo": secreto_tipo
         }
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
@@ -243,7 +258,6 @@ async def aplicar_efecto_set(
         "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
         "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
     }
-
 
 @set_router.patch("/partidas/{partida_id}/sets/{set_id}/agregar_carta", response_model=JugarSetRespuesta, status_code=status.HTTP_200_OK)
 async def agregar_carta_a_set(
