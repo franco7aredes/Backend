@@ -274,3 +274,173 @@ async def test_jugar_nsf_error_no_es_nsf(async_client, monkeypatch):
     assert res.json()["detail"] == "Sos un vivo, esto no es una carta NSF"
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_jugar_nsf_error_partida_no_encontrada(async_client, monkeypatch):
+
+    existente = VentanaNSFActiva(
+        partida_id=1, ventana_id="ventana123", actor_id=2,
+        tipo_accion="jugar_set", payload={}, contador=0, tiempo_ms=9999999
+    )
+    nsf_router_modulo._VENTANAS[1] = existente
+
+    class S:
+        async def es_carta_nsf(self, *args, **kwargs):...
+    
+    mock_service = S()
+    async def raise_err( *_, **__):
+        raise PartidaNoEncontrada()
+
+    setattr(mock_service, "es_carta_nsf", raise_err)
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    
+    pedido = {
+        "id_jugador": 22,
+        "carta_id": 99,
+        "ventana_id": "ventana123"
+    }
+
+    res = await async_client.post("/partidas/1/nsf/jugar", json=pedido)
+
+    assert res.status_code == 404
+    assert res.json()["detail"] == "Partida no encontrada"
+
+@pytest.mark.asyncio
+async def test_jugar_nsf_error_jugador_no_encontrado(async_client, monkeypatch):
+
+    existente = VentanaNSFActiva(
+        partida_id=1, ventana_id="ventana123", actor_id=2,
+        tipo_accion="jugar_set", payload={}, contador=0, tiempo_ms=9999999
+    )
+    nsf_router_modulo._VENTANAS[1] = existente
+
+    class S:
+        async def es_carta_nsf(self, *args, **kwargs):...
+    
+    mock_service = S()
+    async def raise_err( *_, **__):
+        raise ValueError("jugador_no_encontrado")
+
+    setattr(mock_service, "es_carta_nsf", raise_err)
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    
+    pedido = {
+        "id_jugador": 22,
+        "carta_id": 99,
+        "ventana_id": "ventana123"
+    }
+
+    res = await async_client.post("/partidas/1/nsf/jugar", json=pedido)
+
+    assert res.status_code == 404
+    assert res.json()["detail"] == "Jugador no encontrado"
+
+@pytest.mark.asyncio
+async def test_jugar_nsf_error_jugador_no_en_partida(async_client, monkeypatch):
+
+    existente = VentanaNSFActiva(
+        partida_id=1, ventana_id="ventana123", actor_id=2,
+        tipo_accion="jugar_set", payload={}, contador=0, tiempo_ms=9999999
+    )
+    nsf_router_modulo._VENTANAS[1] = existente
+
+    class S:
+        async def es_carta_nsf(self, *args, **kwargs):...
+    
+    mock_service = S()
+    async def raise_err( *_, **__):
+        raise ValueError("jugador_no_en_partida")
+
+    setattr(mock_service, "es_carta_nsf", raise_err)
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    
+    pedido = {
+        "id_jugador": 22,
+        "carta_id": 99,
+        "ventana_id": "ventana123"
+    }
+
+    res = await async_client.post("/partidas/1/nsf/jugar", json=pedido)
+
+    assert res.status_code == 400
+    assert res.json()["detail"] == "El jugador no pertenece a la partida indicada"
+
+@pytest.mark.asyncio
+async def test_jugar_nsf_error_no_hay_tal_carta(async_client, monkeypatch):
+
+    existente = VentanaNSFActiva(
+        partida_id=1, ventana_id="ventana123", actor_id=2,
+        tipo_accion="jugar_set", payload={}, contador=0, tiempo_ms=9999999
+    )
+    nsf_router_modulo._VENTANAS[1] = existente
+
+    class S:
+        async def es_carta_nsf(self, *args, **kwargs):...
+    
+    mock_service = S()
+    async def raise_err( *_, **__):
+        raise ValueError("no_hay_tal_carta")
+
+    setattr(mock_service, "es_carta_nsf", raise_err)
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+
+    
+    pedido = {
+        "id_jugador": 22,
+        "carta_id": 99,
+        "ventana_id": "ventana123"
+    }
+
+    res = await async_client.post("/partidas/1/nsf/jugar", json=pedido)
+
+    assert res.status_code == 400
+    assert res.json()["detail"] == "La carta mandada no coincide con los datos guardados"
+
+@pytest.mark.asyncio
+async def test_jugar_nsf_error_no_hay_carta_para_descartar(async_client, monkeypatch):
+
+    existente = VentanaNSFActiva(
+        partida_id=1, ventana_id="ventana123", actor_id=2,
+        tipo_accion="jugar_set", payload={}, contador=0, tiempo_ms=9999999
+    )
+    nsf_router_modulo._VENTANAS[1] = existente
+
+    class S:
+        async def es_carta_nsf(self, *args, **kwargs):...
+        async def descartar_carta(self, *args, **kwargs):...
+    
+    mock_service = S()
+    async def raise_err( *_, **__):
+        raise Exception
+
+    setattr(mock_service, "es_carta_nsf", AsyncMock(return_value=None))
+    setattr(mock_service, "descartar_carta", raise_err)
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
+
+    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+
+    
+    pedido = {
+        "id_jugador": 22,
+        "carta_id": 99,
+        "ventana_id": "ventana123"
+    }
+
+    res = await async_client.post("/partidas/1/nsf/jugar", json=pedido)
+
+    mock_service.es_carta_nsf.assert_called_once_with(1, 22, 99)
+    assert res.status_code == 404
+    assert res.json()["detail"] == "No se encontro carta para descartar en esta partida"
