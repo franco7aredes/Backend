@@ -1,8 +1,9 @@
 import pytest
 from unittest.mock import AsyncMock
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 
+from app.capa_2_logica.servicio_juego import _regla_nsf_es_cancelable_simple
 from app.capa_2_logica.resultados import *
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.errores import *
@@ -2014,3 +2015,73 @@ async def test_aplicar_efectos_set_asesino_revelado_burbujea_excepcion():
     with pytest.raises(AsesinoRevelado):
         await s.aplicar_efectos_set(1, 2, 5, 7)
 
+
+# la funcion a testear es sincrona en realidad, asi que puedo hacer esto
+@pytest.mark.parametrize("tipo_accion, payload, esperado", [
+    ("jugar_evento", {"nombre": "Evento Normal"}, True),
+    ("jugar_evento", {"nombre": "cards off the table"}, False),
+    ("jugar_set", {}, True),
+    ("agregar_a_set", {}, True),
+    ("jugar_nsf", {}, True),
+    ("otra_cosa_loca", {}, False),
+    ("jugar_evento", {}, True), # el test de payload vacio
+ ])
+ def test_regla_nsf_cancelable_simple(tipo_accion: str, payload: Dict[str, Any], esperado: bool):
+    """
+    verifico los casos simples de cancelacion.
+    Para la funcion que testeo, no necesito mocks 
+    (pues es sincrona y no esta dentro de ninguna clase)
+    """
+
+    resultado = _regla_nsf_es_cancelable_simple(tipo_accion, payload)
+    assert resultado == esperado
+    
+
+@pytest.mark.asyncio
+async def test_accion_cancelable_beresford_en_set():
+    tommy = crear_carta(id_carta=100, nombre="Tommy Beresford")
+    tuppence = crear_carta(id_carta=101, nombre="Tuppence Beresford")
+
+    repo_c = crear_repo_carta_mock(obtener_cartas_propias_return=[tommy, tuppence])
+    
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        )
+    
+    payload = {"cartas_id": [100, 101], "id_jugador": 1} # no manejo el id del jugador en la funcion que testeo
+    
+    res = await s.es_accion_cancelable_en_contexto(
+        partida_id=1,
+        tipo_accion="jugar_set",
+        payload=payload,
+        id_jugador_accion=1
+        )
+
+    assert res == False
+    s.obtener_cartas_propias.assert_called_once_with(1,1)
+
+@pytest.mark.asyncio
+async def test_accion_cancelable_set_normal():
+
+    carta = crear_carta(id_carta=101, nombre="Hercule Poirot")
+
+    repo_c = crear_repo_carta_mock(obtener_cartas_propias_return=[carta])
+    
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        )
+    
+    payload = {"cartas_id": [101], "id_jugador": 1} 
+    
+    res = await s.es_accion_cancelable_en_contexto(
+        partida_id=1,
+        tipo_accion="jugar_set",
+        payload=payload,
+        id_jugador_accion=1
+        )
+
+    assert res == True
