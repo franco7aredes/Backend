@@ -71,3 +71,6 @@ class JugadorEnDesgraciaSocial(Exception):
 
 class JugadorSaleDeDesgraciaSocial(Exception):
     pass
+
+class FinPorDesgraciaSocial(Exception):
+    pass

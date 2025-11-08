@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo
 from app.capa_0_definicion_bd.models.partidas_modelos import Partida as PartidaModelo
@@ -126,3 +126,7 @@ class AbandonarPartidaResultado:
 class AplicarEfectoSetResultado:
       secreto_afectado: SecretoDB
       posicion_secreto: int
+
+@dataclass(slots=True)
+class FinPorDesgraciaResultado:
+      jugador_asesino_id: Optional[int] | None
