@@ -1,12 +1,13 @@
 from fastapi import APIRouter, status, Depends, HTTPException, Body
 
-from app.capa_3_api.dtos.set import SeleccionarDestinoSolicitud
 from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
-from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, AgregarCartaASetRequest
+from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, AgregarCartaASetRequest 
+from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, SeleccionarDestinoSolicitud, AplicarEfectoSetSolicitud, AgregarCartaASetRequest
 from app.capa_3_api.mapeadores import mapear_set_a_dto
+from app.capa_0_definicion_bd.models.secretos_modelos import TipoSecreto
 
 set_router = APIRouter()
 
@@ -168,13 +169,13 @@ async def seleccionar_destino(
 async def aplicar_efecto_set(
     partida_id: int,
     set_id: int,
-    datos: dict = Body(...),  # espera {"jugador_id": ..., "secreto_id": ...}
+    datos: AplicarEfectoSetSolicitud,
     service: ServicioJuego = Depends(obtener_servicio_juego)
 ):
-    jugador_id = datos.get("jugador_id")
-    secreto_id = datos.get("secreto_id")
+    jugador_id = datos.jugador_id
+    secreto_id = datos.secreto_id
     try:
-        await service.aplicar_efectos_set(partida_id, jugador_id, set_id, secreto_id)
+        resultado = await service.aplicar_efectos_set(partida_id, jugador_id, set_id, secreto_id)
     except PartidaNoEncontrada:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
     except JugadorNoEncontrado:
@@ -189,9 +190,32 @@ async def aplicar_efecto_set(
         raise HTTPException(status_code=404, detail="Secreto no encontrado")
     except SecretoNoDisponible:
         raise HTTPException(status_code=400, detail="El secreto no está disponible para esta acción")
+    except AsesinoRevelado:
+        # El servicio ya marcó la partida como finalizada. Difundimos evento especial y respondemos distinto.
+        try:
+            await administrador.difundir_a_partida(
+                partida_id,
+                {
+                    "evento": "asesino_revelado",
+                    "partida_id": partida_id,
+                    "set_id": set_id,
+                    "jugador_id": jugador_id,
+                    "secreto_id": secreto_id,
+                    "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None),
+                    "mensaje": "Se reveló el asesino. La partida finaliza.",
+                }
+            )
+        except Exception:
+            pass
+        return {
+            "mensaje": "Se reveló el asesino. La partida finaliza.",
+            "set_id": set_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
+        }
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
-
 
     try:
         await administrador.difundir_a_partida(
@@ -201,7 +225,10 @@ async def aplicar_efecto_set(
                 "partida_id": partida_id,
                 "set_id": set_id,
                 "jugador_id": jugador_id,
-                "secreto_id": secreto_id
+                "secreto_id": secreto_id,
+                "posicion_secreto": resultado.posicion_secreto,
+                "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
+                "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
             }
         )
     except Exception:
@@ -211,7 +238,10 @@ async def aplicar_efecto_set(
         "mensaje": "Efecto del set aplicado correctamente",
         "set_id": set_id,
         "jugador_id": jugador_id,
-        "secreto_id": secreto_id
+        "secreto_id": secreto_id,
+        "posicion_secreto": resultado.posicion_secreto,
+        "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
+        "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
     }
 
 
