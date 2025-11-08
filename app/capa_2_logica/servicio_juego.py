@@ -1230,4 +1230,30 @@ class ServicioJuego:
                 
         # si no es, lo paso por la ruta simple
         return _regla_nsf_es_cancelable_simple(tipo_accion, payload)
+    
+    async def es_carta_nsf(self, partida_id: int, jugador_id: int, carta_id: int) -> None:
+        """
+        Esta funcion busca revisar si la carta es nsf y compatible en sus datos.
+        En caso de que no lo sea, va a levantar alguna de las excepciones que tenemos,
+        y va a ser manejado por quien corresponda.
+        """
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if jugador is None:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if partida is None:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        carta = await self.cartas.obtener_carta(partida_id, jugador_id, carta_id)
+        if not carta:
+            raise ValueError("no_hay_tal_carta")
+        
+        if carta.nombre.lower() != "not so fast":
+            raise ValueError("no_es_nsf_pero_intento_actuar_como_nsf")
+
      

@@ -128,12 +128,16 @@ async def jugar_nsf(
         raise HTTPException(status_code=400, detail="iniciador_no_puede_primer_nsf")
 
     try:
+        # primero reviso si la carta es un NSF y es de un jugador de la misma partida
+        await service.es_carta_nsf(partida_id, datos.id_jugador, datos.carta_id)
+        # luego descarto
         res = await service.descartar_carta(partida_id, datos.id_jugador, datos.carta_id)
         if not getattr(res, "carta", None):
             # mejorar sobre estos errores
-            raise HTTPException(status_code=404, detail="carta_no_encontrada")
+            raise HTTPException(status_code=404, detail="No se encontro carta para descartar en esta partida")
+    # atrapo la excepcion del descartar_carta
     except Exception:
-            raise HTTPException(status_code=404, detail="carta_no_encontrada")
+            raise HTTPException(status_code=404, detail="No se encontro carta para descartar en esta partida")
 
     try:
         await administrador.difundir_a_partida(
