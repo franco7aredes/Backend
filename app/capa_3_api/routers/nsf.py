@@ -135,6 +135,18 @@ async def jugar_nsf(
         if not getattr(res, "carta", None):
             # mejorar sobre estos errores
             raise HTTPException(status_code=404, detail="No se encontro carta para descartar en esta partida")
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except ValueError as e:
+        if str(e) == "jugador_no_encontrado":
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+        if str(e) == "jugador_no_en_partida":
+            raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+        if str(e) == "no_hay_tal_carta":
+            raise HTTPException(status_code=400, detail="La carta mandada no coincide con los datos guardados")
+        if str(e) == "no_es_nsf_pero_intento_actuar_como_nsf":
+            raise HTTPException(status_code=400, detail="Sos un vivo, esto no es una carta NSF")
+        raise
     # atrapo la excepcion del descartar_carta
     except Exception:
             raise HTTPException(status_code=404, detail="No se encontro carta para descartar en esta partida")
