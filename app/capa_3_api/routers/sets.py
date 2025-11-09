@@ -1,12 +1,13 @@
-from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi import APIRouter, status, Depends, HTTPException, Body
 
-from app.capa_3_api.dtos.set import SeleccionarDestinoSolicitud
 from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
-from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta
+from app.capa_3_api.dtos.juego import JugarSetRequest, JugarSetRespuesta, SeleccionarDestinoSolicitud, AplicarEfectoSetSolicitud
 from app.capa_3_api.mapeadores import mapear_set_a_dto
+from app.capa_0_definicion_bd.models.secretos_modelos import TipoSecreto
+from app.capa_3_api.utilidades_asincronas import *
 
 set_router = APIRouter()
 
@@ -21,8 +22,10 @@ async def jugar_set(partida_id: int, datos: JugarSetRequest, service: ServicioJu
         raise HTTPException(status_code=404, detail="Partida no encontrada")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
-     # Notificar a todos los jugadores de la partida
+    except JugadorEnDesgraciaSocial:
+        raise HTTPException(status_code=400, detail="El jugador está en desgracia social")
+
+    # Notificar a todos los jugadores de la partida
     try:
         await administrador.difundir_a_partida(
             partida_id,
@@ -110,12 +113,16 @@ async def seleccionar_destino(
         raise HTTPException(status_code=404, detail="Set no encontrado")
     except SetNoEnPartida:
         raise HTTPException(status_code=400, detail="El set no pertenece a la partida indicada")
-    except NoPuedeRobarSuPropioSet:
-        raise HTTPException(status_code=400, detail="No puede seleccionar su propio set")
+    except NoPuedeAplicarseEfectosAsiMismo:
+        raise HTTPException(status_code=400, detail="No puede seleccionarse a si mismo para aplicar los efectos de su propio set")
     except SetNoCorrespondeAlJugadorSeleccionado:
         raise HTTPException(status_code=400, detail="El set no corresponde al jugador seleccionado")
     except SecretoNoEncontrado:
         raise HTTPException(status_code=400, detail="El jugador seleccionado no tiene un secreto en la posición indicada")
+    except SetNoSoportaSeleccionDeJugador:
+        raise HTTPException(status_code=400, detail="El set no soporta la selección de un jugador como destino")
+    except PosicionSecretoNoProporcionada:
+        raise HTTPException(status_code=400, detail="No se proporcionó la posición del secreto")
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
     
@@ -157,4 +164,108 @@ async def seleccionar_destino(
         "jugador_id": jugador_id,
         "id_seleccionado": id_seleccionado,
         "secreto_posicion": posicion_secreto
+    }
+
+# Es un post porque puede tener efectos secundarios y no es idempotente
+@set_router.post("/partidas/{partida_id}/sets/{set_id}/aplicar_efecto", status_code=status.HTTP_200_OK)
+async def aplicar_efecto_set(
+    partida_id: int,
+    set_id: int,
+    datos: AplicarEfectoSetSolicitud,
+    service: ServicioJuego = Depends(obtener_servicio_juego)
+):
+    jugador_id = datos.jugador_id
+    secreto_id = datos.secreto_id
+    try:
+        resultado = await service.aplicar_efectos_set(partida_id, jugador_id, set_id, secreto_id)
+
+    except PartidaNoEncontrada:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    except JugadorNoEncontrado:
+        raise HTTPException(status_code=404, detail="Jugador no encontrado")
+    except JugadorNoEnPartida:
+        raise HTTPException(status_code=400, detail="El jugador no pertenece a la partida indicada")
+    except SetNoEncontrado:
+        raise HTTPException(status_code=404, detail="Set no encontrado")
+    except SetNoEnPartida:
+        raise HTTPException(status_code=400, detail="El set no pertenece a la partida indicada")
+    except SecretoNoEncontrado:
+        raise HTTPException(status_code=404, detail="Secreto no encontrado")
+    except SecretoNoDisponible:
+        raise HTTPException(status_code=400, detail="El secreto no está disponible para esta acción")
+    except AsesinoRevelado as e:
+        secreto = getattr(e, "secreto_afectado", None)
+        posicion_secreto = getattr(e, "posicion_secreto", None)
+        secreto_tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
+        await notificar_asesino_revelado_detalle(
+            administrador, partida_id, set_id, jugador_id, secreto_id, posicion_secreto, secreto_tipo
+        )
+        return {
+            "mensaje": "Se reveló el asesino. La partida finaliza.",
+            "set_id": set_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion_secreto,
+            "secreto_tipo": secreto_tipo
+        }
+    except JugadorEnDesgraciaSocial as e:
+        secreto = getattr(e, "secreto_afectado", None)
+        posicion = getattr(e, "posicion_secreto", None)
+        secreto_estado = getattr(getattr(secreto, "estado", None), "name", None) if secreto else None
+        secreto_tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
+        await notificar_jugador_entra_en_desgracia_detalle(
+            administrador, partida_id, set_id, jugador_id, secreto_id, posicion, secreto_estado, secreto_tipo
+        )
+        return {
+            "mensaje": "Efecto del set aplicado correctamente",
+            "set_id": set_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion,
+            "secreto_estado": secreto_estado,
+            "secreto_tipo": secreto_tipo,
+            "jugador_entra_en_desgracia_social": True,
+            "causa": "revelacion_secreto"
+        }
+    except JugadorSaleDeDesgraciaSocial as e:
+        secreto = getattr(e, "secreto_afectado", None)
+        posicion = getattr(e, "posicion_secreto", None)
+        secreto_estado = getattr(getattr(secreto, "estado", None), "name", None) if secreto else None
+        secreto_tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
+        await notificar_jugador_sale_de_desgracia_detalle(
+            administrador, partida_id, set_id, jugador_id, secreto_id, posicion, secreto_estado, secreto_tipo
+        )
+        return {
+            "mensaje": "Efecto del set aplicado correctamente",
+            "set_id": set_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion,
+            "secreto_estado": secreto_estado,
+            "secreto_tipo": secreto_tipo,
+            "jugador_sale_de_desgracia_social": True
+        }
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+    # caso normal: solo eco de efecto aplicado
+    await notificar_efecto_set_aplicado(
+        administrador,
+        partida_id,
+        set_id,
+        jugador_id,
+        secreto_id,
+        resultado.posicion_secreto,
+        getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
+        getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None),
+    )
+
+    return {
+        "mensaje": "Efecto del set aplicado correctamente",
+        "set_id": set_id,
+        "jugador_id": jugador_id,
+        "secreto_id": secreto_id,
+        "posicion_secreto": resultado.posicion_secreto,
+        "secreto_estado": getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
+        "secreto_tipo": getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None)
     }

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 
 from app.capa_0_definicion_bd.models.cartas_modelos import PosicionCarta
@@ -64,6 +64,7 @@ class JugarSetRespuesta(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class JugarEventoDTO(BaseModel):
     id_jugador: int
     id_carta: int
@@ -77,3 +78,14 @@ class JugarEventoDTO(BaseModel):
         use_enum_values=True,
         extra="ignore"
     )
+
+
+class AplicarEfectoSetSolicitud(BaseModel):
+    jugador_id: int
+    secreto_id: int
+
+class SeleccionarDestinoSolicitud(BaseModel):
+    id_jugador: int
+    id_seleccionado: int
+    posicion_secreto: Optional[int] = Field(None, ge=0)
+

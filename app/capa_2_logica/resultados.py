@@ -137,3 +137,9 @@ class EventoResultado:
     fin_de_mazo: Optional[bool] = None
     carta_evento_descartada: Optional[CartaModelo] = None
     asesino_ganador: Optional[int] = None
+
+@dataclass(slots=True)
+class AplicarEfectoSetResultado:
+      secreto_afectado: SecretoDB
+      posicion_secreto: int
+

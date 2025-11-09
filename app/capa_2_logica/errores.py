@@ -61,4 +61,19 @@ class CartaNoEsEvento(Exception):
     pass
 
 class EventoNoImplementado(Exception):
+  pass
+
+class NoPuedeAplicarseEfectosAsiMismo(Exception):
+    pass
+
+class PosicionSecretoNoProporcionada(Exception):
+    pass
+
+class SetNoSoportaSeleccionDeJugador(Exception):
+    pass
+
+class JugadorEnDesgraciaSocial(Exception):
+    pass
+
+class JugadorSaleDeDesgraciaSocial(Exception):
     pass

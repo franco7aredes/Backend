@@ -76,6 +76,7 @@ async def crear_partida(partida: PartidaCrear, service: ServicioJuego = Depends(
             fecha_nac=partida.fecha_nac,
             minimo=partida.minimo,
             maximo=partida.maximo,
+            avatar_id=partida.id_avatar
         )
         nueva_partida, jugador = res.partida, res.jugador
 
