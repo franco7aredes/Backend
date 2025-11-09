@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.fabrica import obtener_servicio_juego
+from app.capa_2_logica.errores import *
 
 from app.capa_3_api.websockets.ApiWS import administrador
 from app.capa_3_api.dtos.nsf import (
@@ -61,7 +62,7 @@ async def activar_nsf(
     # creamos la ventana
 
     ventana_id = uuid.uuid4().hex
-    tiempo = tiempo_en_ms(5.0)
+    tiempo = await tiempo_en_ms(5.0)
 
     ventana = VentanaNSFActiva(
         partida_id=partida_id,
@@ -182,7 +183,7 @@ async def jugar_nsf(
 
     # orquestamos la tarea
     ventana.contador += 1
-    ventana.tiempo_ms = tiempo_en_ms(5.0) # renuevo el timer
+    ventana.tiempo_ms = await tiempo_en_ms(5.0) # renuevo el timer
 
     # reprogramo la resolucion de la ventana
     if ventana.tarea and not ventana.tarea.done():

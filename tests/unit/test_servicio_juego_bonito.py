@@ -2026,23 +2026,26 @@ async def test_aplicar_efectos_set_asesino_revelado_burbujea_excepcion():
     ("otra_cosa_loca", {}, False),
     ("jugar_evento", {}, True), # el test de payload vacio
  ])
- def test_regla_nsf_cancelable_simple(tipo_accion: str, payload: Dict[str, Any], esperado: bool):
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_simple(tipo_accion: str, payload: Dict[str, Any], esperado: bool):
     """
     verifico los casos simples de cancelacion.
     Para la funcion que testeo, no necesito mocks 
     (pues es sincrona y no esta dentro de ninguna clase)
     """
 
-    resultado = _regla_nsf_es_cancelable_simple(tipo_accion, payload)
+    resultado = await _regla_nsf_es_cancelable_simple(tipo_accion, payload)
     assert resultado == esperado
     
 
 @pytest.mark.asyncio
 async def test_accion_cancelable_beresford_en_set():
-    tommy = crear_carta(id_carta=100, nombre="Tommy Beresford")
-    tuppence = crear_carta(id_carta=101, nombre="Tuppence Beresford")
+    tommy = crear_carta(id_carta=100)
+    tommy.nombre = "Tommy Beresford"
+    tuppence = crear_carta(id_carta=101)
+    tuppence.nombre ="Tuppence Beresford"
 
-    repo_c = crear_repo_carta_mock(obtener_cartas_propias_return=[tommy, tuppence])
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[tommy, tuppence])
     
     s = ServicioJuego(
         partidas=crear_repo_partida_mock(),
@@ -2060,14 +2063,15 @@ async def test_accion_cancelable_beresford_en_set():
         )
 
     assert res == False
-    s.obtener_cartas_propias.assert_called_once_with(1,1)
+    s.cartas.obtener_cartas_en_mano.assert_called_once_with(1,1)
 
 @pytest.mark.asyncio
 async def test_accion_cancelable_set_normal():
 
-    carta = crear_carta(id_carta=101, nombre="Hercule Poirot")
+    carta = crear_carta(id_carta=101)
+    carta.nombre = "Hercule Poirot"
 
-    repo_c = crear_repo_carta_mock(obtener_cartas_propias_return=[carta])
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[carta])
     
     s = ServicioJuego(
         partidas=crear_repo_partida_mock(),
@@ -2091,7 +2095,8 @@ async def test_es_carta_nsf_bonito():
 
     partida = crear_partida_en_juego(id_partida=1)
     jugador = crear_jugador(id_jugador=2, id_partida=1)
-    nsf = crear_carta(id_carta=12, nombre="Not So Fast")
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Not So Fast"
 
     repo_p = crear_repo_partida_mock(obtener_return=partida)
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
@@ -2102,18 +2107,19 @@ async def test_es_carta_nsf_bonito():
     try:
         await s.es_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
     except Exception as e:
-        pytest.fail(f"fallo y no deberia haber pasado" {e}")
+        pytest.fail(f"fallo y no deberia haber pasado: {e}")
 
-    repo_j.obtener.assert_called_once_with(2)
-    repo_p.obtener.assert_called_once_with(1)
-    repo_c.obtener_carta.assert_called_once_with(1, 2, 12)
+    s.jugadores.obtener.assert_called_once_with(2)
+    s.partidas.obtener.assert_called_once_with(1)
+    s.cartas.obtener_carta.assert_called_once_with(1, 2, 12)
 
 @pytest.mark.asyncio
 async def test_es_carta_nsf_falla_no_es_nsf():
         
     partida = crear_partida_en_juego(id_partida=1)
     jugador = crear_jugador(id_jugador=2, id_partida=1)
-    nsf = crear_carta(id_carta=12, nombre="Hercule Poirot")
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Hercule Poirot"
 
     repo_p = crear_repo_partida_mock(obtener_return=partida)
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
@@ -2129,7 +2135,8 @@ async def test_es_carta_nsf_jugador_no_en_partida():
 
     partida = crear_partida_en_juego(id_partida=1)
     jugador = crear_jugador(id_jugador=2, id_partida=2)
-    nsf = crear_carta(id_carta=12, nombre="Not So Fast")
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Not So Fast"
 
     repo_p = crear_repo_partida_mock(obtener_return=partida)
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
@@ -2146,7 +2153,8 @@ async def test_es_carta_nsf_jugador_no_en_partida():
 async def test_es_carta_nsf_jugador_no_encontrado():
     
     partida = crear_partida_en_juego(id_partida=1)
-    nsf = crear_carta(id_carta=12, nombre="Not So Fast")
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Not So Fast"
 
     repo_p = crear_repo_partida_mock(obtener_return=partida)
     repo_j = crear_repo_jugador_mock()
@@ -2163,7 +2171,8 @@ async def test_es_carta_nsf_jugador_no_encontrado():
 async def test_es_carta_nsf_partida_no_encontrada():
 
     jugador = crear_jugador(id_jugador=2, id_partida=2)
-    nsf = crear_carta(id_carta=12, nombre="Not So Fast")
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Not so fast"
 
     repo_p = crear_repo_partida_mock()
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
@@ -2180,7 +2189,7 @@ async def test_es_carta_nsf_partida_no_encontrada():
 async def test_es_carta_nsf_no_hay_tal_carta():
 
     partida = crear_partida_en_juego(id_partida=1)
-    jugador = crear_jugador(id_jugador=2, id_partida=2)
+    jugador = crear_jugador(id_jugador=2, id_partida=1)
 
     repo_p = crear_repo_partida_mock(obtener_return=partida)
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)

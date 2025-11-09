@@ -1,12 +1,12 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from typing import Dict
 
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.servicio_juego import ServicioJuego
-from app.capa_2_logica.resultados import DescartarResultado, CantidadManoResultado
+from app.capa_2_logica.resultados import DescartarResultado, CantidadManosResultado
 from app.capa_2_logica.errores import PartidaNoEncontrada
 
 from app.capa_3_api.dtos.nsf import ActivarNSFPedido, JugarNSFPedido
@@ -34,13 +34,13 @@ async def test_activar_nsf_bonito(async_client, monkeypatch):
     mock_difundir = AsyncMock()
     mock_resolver = AsyncMock()
     mock_tiempo = AsyncMock(return_value=621877)
-    mock_uuid = AsyncMock()
+    mock_uuid = MagicMock()
     mock_uuid.return_value.hex = "ventana-test-uuid"
 
     monkeypatch.setattr(nsf_router_modulo.administrador, "difundir_a_partida", mock_difundir)
-    monkeypatch.setattr(nsf_router_modulo.administrador, "resolver_ventana", mock_resolver)
-    monkeypatch.setattr(nsf_router_modulo.administrador, "tiempo_en_ms", mock_tiempo)
-    monkeypatch.setattr(nsf_router_modulo.administrador, "uuid31", mock_uuid)
+    monkeypatch.setattr(nsf_router_modulo, "resolver_ventana", mock_resolver)
+    monkeypatch.setattr(nsf_router_modulo, "tiempo_en_ms", mock_tiempo)
+    monkeypatch.setattr(nsf_router_modulo.uuid, "uuid4", mock_uuid)
 
     pedido = {
         "id_jugador": 1,
@@ -50,8 +50,8 @@ async def test_activar_nsf_bonito(async_client, monkeypatch):
 
     res = await async_client.post("/partidas/1/nsf/activar", json=pedido)
 
-    assert res.status_code= == 201
-    cuerpo = resp.json()
+    assert res.status_code == 201
+    cuerpo = res.json()
     assert cuerpo["window_id"] == "ventana-test-uuid"
     assert cuerpo["deadline_ms"] == 621877
     
@@ -59,7 +59,7 @@ async def test_activar_nsf_bonito(async_client, monkeypatch):
     mock_service.es_accion_cancelable_en_contexto.assert_called_once_with(
         partida_id=1,
         tipo_accion="jugar_set",
-        "payload": {"juajua":"esto no se si importa para test"},
+        payload={"juajua":"esto no se si importa para test"},
         id_jugador_accion=1
     )
     mock_resolver.assert_called_once()
@@ -134,8 +134,8 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
     
     existente = VentanaNSFActiva(
         partida_id=2, ventana_id="ventana123", actor_id=3,
-        tipo_accion="jugar_set", payload={}, contador=0, tiempo_ms=99999,
-        tarea=AsyncMock() # la original
+        tipo_accion="jugar_set", payload={}, contador=0, tiempo_ms=99999999,
+        tarea=MagicMock() # la original
     )
 
     nsf_router_modulo._VENTANAS[2] = existente
@@ -148,7 +148,7 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
     mock_service = S()
     setattr(mock_service, "es_carta_nsf", AsyncMock(return_value=None))
     setattr(mock_service, "descartar_carta", AsyncMock(return_value=DescartarResultado(carta=object())))
-    setattr(mock_service, "obtener_cantidad_manos", AsyncMock(return_value=CantidadManoResultado(cartas_por_jugador={3: 5, 6: 4})))
+    setattr(mock_service, "obtener_cantidad_manos", AsyncMock(return_value=CantidadManosResultado(cartas_por_jugador={3: 5, 6: 4})))
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
@@ -182,7 +182,7 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
     # veo los mocks
     mock_service.es_carta_nsf.assert_called_once_with(2, 6, 99)
     mock_service.descartar_carta.assert_called_once_with(2, 6, 99)
-    existence.tarea.cancel.assert_called_once()
+    existente.tarea.cancel.assert_called_once()
     mock_resolver.assert_called_once()
 
     # veamos que se difundio 3 veces
@@ -217,6 +217,8 @@ async def test_jugar_nsf_falla_ventana_vencida(async_client, monkeypatch):
     assert res.status_code == 410
     assert res.json()["detail"] == "ventana_expirada"
 
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
 @pytest.mark.asyncio
 async def test_jugar_nsf_cancela_el_actor(async_client, monkeypatch):
 
@@ -240,6 +242,8 @@ async def test_jugar_nsf_cancela_el_actor(async_client, monkeypatch):
     assert res.status_code == 400
     assert res.json()["detail"] == "iniciador_no_puede_primer_nsf"
 
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
 @pytest.mark.asyncio
 async def test_jugar_nsf_error_no_es_nsf(async_client, monkeypatch):
 
@@ -260,7 +264,7 @@ async def test_jugar_nsf_error_no_es_nsf(async_client, monkeypatch):
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 100.0)
     
     pedido = {
         "id_jugador": 22,
@@ -295,7 +299,7 @@ async def test_jugar_nsf_error_partida_no_encontrada(async_client, monkeypatch):
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 100.0)
     
     pedido = {
         "id_jugador": 22,
@@ -307,6 +311,8 @@ async def test_jugar_nsf_error_partida_no_encontrada(async_client, monkeypatch):
 
     assert res.status_code == 404
     assert res.json()["detail"] == "Partida no encontrada"
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 @pytest.mark.asyncio
 async def test_jugar_nsf_error_jugador_no_encontrado(async_client, monkeypatch):
@@ -328,7 +334,7 @@ async def test_jugar_nsf_error_jugador_no_encontrado(async_client, monkeypatch):
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 100.0)
     
     pedido = {
         "id_jugador": 22,
@@ -340,6 +346,8 @@ async def test_jugar_nsf_error_jugador_no_encontrado(async_client, monkeypatch):
 
     assert res.status_code == 404
     assert res.json()["detail"] == "Jugador no encontrado"
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 @pytest.mark.asyncio
 async def test_jugar_nsf_error_jugador_no_en_partida(async_client, monkeypatch):
@@ -361,7 +369,7 @@ async def test_jugar_nsf_error_jugador_no_en_partida(async_client, monkeypatch):
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 100.0)
     
     pedido = {
         "id_jugador": 22,
@@ -373,6 +381,7 @@ async def test_jugar_nsf_error_jugador_no_en_partida(async_client, monkeypatch):
 
     assert res.status_code == 400
     assert res.json()["detail"] == "El jugador no pertenece a la partida indicada"
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 @pytest.mark.asyncio
 async def test_jugar_nsf_error_no_hay_tal_carta(async_client, monkeypatch):
@@ -394,7 +403,7 @@ async def test_jugar_nsf_error_no_hay_tal_carta(async_client, monkeypatch):
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 100.0)
 
     
     pedido = {
@@ -407,6 +416,7 @@ async def test_jugar_nsf_error_no_hay_tal_carta(async_client, monkeypatch):
 
     assert res.status_code == 400
     assert res.json()["detail"] == "La carta mandada no coincide con los datos guardados"
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
 @pytest.mark.asyncio
 async def test_jugar_nsf_error_no_hay_carta_para_descartar(async_client, monkeypatch):
@@ -430,7 +440,7 @@ async def test_jugar_nsf_error_no_hay_carta_para_descartar(async_client, monkeyp
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
-    monkeypatch.setattr(nsf_router_module.time, "time", lambda: 100.0)
+    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 100.0)
 
     
     pedido = {
@@ -444,3 +454,4 @@ async def test_jugar_nsf_error_no_hay_carta_para_descartar(async_client, monkeyp
     mock_service.es_carta_nsf.assert_called_once_with(1, 22, 99)
     assert res.status_code == 404
     assert res.json()["detail"] == "No se encontro carta para descartar en esta partida"
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

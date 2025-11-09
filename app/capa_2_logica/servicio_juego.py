@@ -1221,7 +1221,7 @@ class ServicioJuego:
             # usamos el id del jugador si no viene en el payload
             jugador_id = int(payload.get("id_jugador", id_jugador_accion))
             try:
-                res = await self.obtener_cartas_propias(partida_id, jugador_id)
+                res = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
                 nombres = {cast(Any, c).nombre.lower(): cast(Any,c).id_carta for c in res.cartas if cast(Any,c).id_carta in cartas_ids}
                 if len(nombres) == len(cartas_ids) and {"tommy beresford", "tuppence beresford"}.issubset(set(nombres.keys())) and len(cartas_ids) == 2:
                     return False
@@ -1229,7 +1229,7 @@ class ServicioJuego:
                     pass
                 
         # si no es, lo paso por la ruta simple
-        return _regla_nsf_es_cancelable_simple(tipo_accion, payload)
+        return await _regla_nsf_es_cancelable_simple(tipo_accion, payload)
     
     async def es_carta_nsf(self, partida_id: int, jugador_id: int, carta_id: int) -> None:
         """

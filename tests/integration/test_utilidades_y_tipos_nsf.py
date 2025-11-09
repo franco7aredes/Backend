@@ -8,12 +8,13 @@ from app.capa_3_api.nsf_tipos import VentanaNSFActiva, tiempo_en_ms
 from app.capa_3_api.utilidades_nsf import resolver_ventana
 import app.capa_3_api.websockets.ApiWS as wsmod
 
+@pytest.mark.asyncio
 @patch('time.time')
-def test_tiempo_en_ms_correcto(mock_time):
+async def test_tiempo_en_ms_correcto(mock_time):
 
     mock_time.return_value = 1000.0
 
-    resultado = tiempo_en_ms(segundos=5.0)
+    resultado = await tiempo_en_ms(segundos=5.0)
 
     assert resultado == 1005000
     mock_time.assert_called_once()
@@ -36,13 +37,14 @@ async def test_resolver_ventana_correcto(mock_sleep, monkeypatch):
 
     ventanas_dict: Dict[int, VentanaNSFActiva] = {1: ventana}
 
-    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", AsyncMock())
+    mock_difundir = AsyncMock()
+    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", mock_difundir)
 
     await resolver_ventana(ventana, ventanas_dict)
 
     mock_sleep.assert_called_once()
 
-    wsmod.administrador.difundir_a_partida.assert_called_once_with(
+    mock_difundir.assert_called_once_with(
         1,
         {
             "evento": "nsf_resolved",
@@ -59,7 +61,7 @@ async def test_resolver_ventana_correcto(mock_sleep, monkeypatch):
 
 @pytest.mark.asyncio
 @patch('app.capa_3_api.utilidades_nsf.asyncio.sleep', new_callable=AsyncMock)
-async def test_resolver_ventana_ventana_ya_no_valida(mock_sleep):
+async def test_resolver_ventana_ventana_ya_no_valida(mock_sleep, monkeypatch):
 
     antigua = VentanaNSFActiva(
         partida_id=1,
@@ -90,8 +92,10 @@ async def test_resolver_ventana_ventana_ya_no_valida(mock_sleep):
     
     mock_sleep.assert_called_once()
 
+    mock_difundir = AsyncMock()
+    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", mock_difundir)
     # no se tiene que haber mandado el mensaje, ni haber sacado la ventana actual
-    wsmod.administrador.assert_not_called()
+    mock_difundir.assert_not_called()
 
     assert 1 in ventanas_dict
     assert ventanas_dict[1].ventana_id == "ventana-x"
