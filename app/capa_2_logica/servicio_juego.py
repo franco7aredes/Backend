@@ -1237,8 +1237,8 @@ class ServicioJuego:
                 )
                 try:
                     secreto = await self.ocultar_secreto(partida_id, jugador_objetivo_id, secreto_id)
-                except (JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
-                    # Mapeo como en sets: adjunto contexto y re-lanzo
+                except (FinPorDesgraciaSocial, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                    # Mapeo como en sets: adjunto contexto y re-lanzo (sin set_id en eventos)
                     raise self._adjuntar_ctx_desgracia(
                         e,
                         secreto=secreto_ctx,

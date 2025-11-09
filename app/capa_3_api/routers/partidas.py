@@ -9,7 +9,8 @@ from app.capa_3_api.dtos.partidas import (
 from app.capa_3_api.dtos.juego import SecretoDTO, JugarEventoDTO
 from app.capa_3_api.websockets.ApiWS import administrador
 import app.capa_2_logica.constantes as C
-from app.capa_3_api.utilidades_asincronas import _notificar_jugadores_async, notificar_jugador_entra_en_desgracia_detalle, notificar_jugador_sale_de_desgracia_detalle
+from app.capa_3_api.utilidades_asincronas import (_notificar_jugadores_async, notificar_jugador_entra_en_desgracia_detalle,
+notificar_jugador_sale_de_desgracia_detalle, notificar_fin_por_desgracia_social_detalle)
 # Alias de compatibilidad para tests existentes que parchan este nombre
 _notify_players_async = _notificar_jugadores_async
 from app.capa_3_api.mapeadores import (
@@ -269,7 +270,6 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
     # Unificado: primero evaluamos si tiene contexto (secreto_afectado)
     except JugadorEnDesgraciaSocial as e:
         if not hasattr(e, "secreto_afectado"):
-            # Caso: el jugador que intenta jugar está ya en desgracia social
             raise HTTPException(status_code=400, detail="El jugador está en desgracia social y no puede jugar eventos")
         secreto = getattr(e, "secreto_afectado", None)
         posicion = getattr(e, "posicion_secreto", None)
@@ -293,6 +293,26 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
             "posicion_secreto": posicion,
             "secreto_estado": estado,
             "secreto_tipo": tipo,
+        }
+    except FinPorDesgraciaSocial as e:
+        # Contexto + notificación de fin (sin set_id en eventos)
+        secreto = getattr(e, "secreto_afectado", None)
+        posicion = getattr(e, "posicion_secreto", None)
+        secreto_tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
+        try:
+            asesino_res = await service.obtener_asesino(partida_id)
+            asesino_id = asesino_res.asesino
+        except Exception:
+            asesino_id = None
+        await notificar_fin_por_desgracia_social_detalle(administrador, partida_id, asesino_id)
+        return {
+            "mensaje": "La partida finaliza por desgracia social.",
+            "partida_id": partida_id,
+            "jugador_id": getattr(e, "jugador_id", getattr(datos, "jugador_objetivo_id", None)),
+            "secreto_id": getattr(secreto, "id_secreto", getattr(datos, "secreto_id", None)),
+            "posicion_secreto": posicion,
+            "secreto_tipo": secreto_tipo,
+            "asesinoId": asesino_id
         }
     except JugadorSaleDeDesgraciaSocial as e:
         secreto = getattr(e, "secreto_afectado", None)

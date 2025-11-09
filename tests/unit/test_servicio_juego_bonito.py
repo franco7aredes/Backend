@@ -2944,3 +2944,47 @@ async def test_revelar_secreto_no_llama_fin_global_si_no_entra_en_desgracia():
     res = await servicio.revelar_secreto(80, 9, 5)
     assert isinstance(res, RevelarSecretoResultado)
     repo_s.verificar_fin_de_desgracia_social.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_preparar_evento_and_then_there_was_one_more_fin_por_desgracia_social_ctx():
+    partida_id = 81
+    jugador_id = 5
+    jugador_objetivo_id = 9
+    carta_id = 321
+    secreto_id = 654
+
+    # Partida y jugador válidos
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    # Secreto revelado (requerido para poder ocultarlo) presente en la lista (índice 0)
+    secreto_revelado = crear_secreto(id_secreto=secreto_id, id_partida=partida_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_revelado])
+
+    # Carta de evento
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.tipo = TipoCarta.event
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
+
+    # Simular que ocultar el secreto dispara FinPorDesgraciaSocial
+    servicio.ocultar_secreto = AsyncMock(side_effect=FinPorDesgraciaSocial())
+
+    with pytest.raises(FinPorDesgraciaSocial) as exc:
+        await servicio.preparar_evento(
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            carta_id=carta_id,
+            secreto_id=secreto_id,
+            jugador_objetivo_id=jugador_objetivo_id
+        )
+
+    e = exc.value
+    # Contexto adjunto por _adjuntar_ctx_desgracia
+    assert getattr(e, "secreto_afectado", None) is not None
+    assert getattr(e.secreto_afectado, "id_secreto", None) == secreto_id
+    assert getattr(e, "posicion_secreto", None) == 0  # único secreto -> índice 0
+    # En eventos no debe incluir set_id
+    assert not hasattr(e, "set_id") or getattr(e, "set_id", None) is None
