@@ -1232,3 +1232,13 @@ class ServicioJuego:
         if hasattr(self.cartas, "guardar"):
             await self.cartas.guardar(carta)
         return JugarSetResultado(set=set_del_jugador)
+
+
+    async def obtener_nombre_set(self, set_id: int) -> ObtenerNombreSetResultado:
+
+        """Se busca obtener el nombre del set. Se usa despues de 
+        verificar_seleccionar_jugador_set"""
+
+        set = await self.sets.obtener_set_por_id(set_id)
+
+        return ObtenerNombreSetResultado(nombre=set.nombre)

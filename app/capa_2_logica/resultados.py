@@ -126,3 +126,7 @@ class AbandonarPartidaResultado:
 class AplicarEfectoSetResultado:
       secreto_afectado: SecretoDB
       posicion_secreto: int
+
+@dataclass(slots=True)
+class ObtenerNombreSetResultado:
+    nombre: str
