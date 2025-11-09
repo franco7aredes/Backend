@@ -49,6 +49,8 @@ class _RepoCartaProto(Protocol):
     async def obtener_draft_disponible(self, partida_id: int, carta_id: int) -> List[CartaModelo]: ...
     async def mover_primera_carta_mazo_a_draft(self, partida_id: int) -> Optional[CartaModelo]: ...
     async def guardar_muchas(self, cartas: List[CartaModelo]) -> None: ...
+    async def obtener_primeras_de_mazo(self, partida_id: int) -> List[CartaModelo]: ...
+    async def obtener_carta_id(self, partida_id: int, carta_id: int) -> CartaModelo: ... 
 
 @runtime_checkable
 class _RepoSecretoProto(Protocol):
@@ -227,6 +229,9 @@ class ServicioJuego:
 
         # Barajar el mazo global para el reparto aleatorio
         random.shuffle(mazo_cartas)
+        # Asignar orden en el mazo
+        for i, carta in enumerate(mazo_cartas):
+            carta.orden_en_mazo = i + 1 
 
         repartidas: Dict[int, List[CartaModelo]] = {}
         jugador_ids = [cast(Any, j).id_jugador for j in jugadores]
@@ -245,6 +250,7 @@ class ServicioJuego:
             cc = cast(Any, carta)
             cc.id_jugador = jid
             cc.posicion = PosicionCarta.mano
+            cc.orden_en_mazo = None  # limpiar orden
             repartidas[jid].append(carta)
 
         # Repartir el resto hasta completar num_cartas por jugador
@@ -256,6 +262,7 @@ class ServicioJuego:
                 cc = cast(Any, carta)
                 cc.id_jugador = jid
                 cc.posicion = PosicionCarta.mano
+                cc.orden_en_mazo = None  # limpiar orden
                 repartidas[jid].append(carta)
                 idx += 1
 
@@ -265,6 +272,7 @@ class ServicioJuego:
         cartas_draft = cartas_restantes_mazo[:3]
         for carta in cartas_draft:
             carta.posicion = PosicionCarta.draft
+            carta.orden_en_mazo = None  # limpiar orden
 
 
         # Persistir todas las cartas
@@ -440,6 +448,7 @@ class ServicioJuego:
             cc = cast(Any, c)
             cc.id_jugador = jugador_id
             cc.posicion = PosicionCarta.mano
+            cc.orden_en_mazo = None
         # Persistir cambios en cartas a través del repositorio (si existe el método)
         if hasattr(self.cartas, "guardar_muchas"):
             await self.cartas.guardar_muchas(disponibles)  # type: ignore[attr-defined]
@@ -1118,6 +1127,173 @@ class ServicioJuego:
             largo = await self.secretos.contar_secretos_jugador(partida_id, id_seleccionado)
             if posicion_secreto < 0 or posicion_secreto > largo - 1:
                 raise SecretoNoEncontrado()
+
+
+    async def descartar_not_so_fast(self, partida_id: int, jugador_id: int) -> NotsoFastResultado:
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+        
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+        
+        cartas = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
+        if not cartas:
+            raise ValueError("Cartas no encontradas")
+        
+        cartas_a_descartar = [
+        carta for carta in cartas
+        if carta.nombre == "Not so fast" and carta.tipo == TipoCarta.instant
+        ]
+
+        if not cartas_a_descartar:
+            return NotsoFastResultado(carta=[])
+
+        cantidad_descartadas = await self.cartas.obtener_cantidad_descartadas(partida_id)
+
+        for i, carta in enumerate(cartas_a_descartar, start=1):
+            carta.posicion = PosicionCarta.descarte
+            carta.id_jugador = None
+            carta.orden_en_descarte = cantidad_descartadas + i
+            await self.cartas.guardar(carta)
+
+        return NotsoFastResultado(carta=cartas_a_descartar)
+    
+    async def preparar_evento(self, partida_id: int, jugador_id: int, carta_id: int, carta_descarte: Optional[int] = None, secreto_id: Optional[int] = None, jugador_objetivo_id: Optional[int] = None, set_id: Optional[int] = None) -> EventoResultado:
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+        
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+        
+        
+        carta = await self.cartas.obtener_carta(partida_id, jugador_id, carta_id)
+        if not carta:
+            raise ValueError("Carta no encontrada")
+        
+        if carta.tipo != TipoCarta.event:
+            raise CartaNoEsEvento()
+            
+        nombre = carta.nombre.lower().strip()
+        
+        match nombre:
+            case "cards off the table":
+                resultado = await self.descartar_not_so_fast(partida_id, jugador_objetivo_id)
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                if not resultado.carta:
+                    return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=[], mensaje="El jugador no tiene cartas Not so Fast para descartar", carta_evento_descartada=descartado.carta)
+    
+                return EventoResultado(tipo_evento="Cards off the table", cartas_descartadas=resultado.carta, mensaje=f"{len(resultado.carta)} cartas descartadas del jugador objetivo", carta_evento_descartada=descartado.carta)
+
+            case "another victim":
+                try:
+                    robado = await self.robar_set(partida_id, jugador_id, set_id)
+                except SetNoEncontrado:
+                    descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                    return EventoResultado(tipo_evento="Another Victim", mensaje="No se pudo robar el set", carta_evento_descartada=descartado.carta)
+
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                return EventoResultado(tipo_evento="Another Victim", set_robado=robado.set, mensaje="Se robo un set con exito", carta_evento_descartada=descartado.carta)
+
+            case "look into the ashes":
+                if not carta_descarte:
+                    raise ValueError("Debe especificarse una carta del descarte para este evento")
+                
+                carta_objetivo = await self.cartas.obtener_carta_id(partida_id, carta_descarte)
+                if not carta_objetivo or carta_objetivo.posicion != PosicionCarta.descarte:
+                    raise ValueError("La carta seleccionada no esta en el descarte")
+                
+                carta_objetivo.posicion = PosicionCarta.mano
+                carta_objetivo.id_jugador = jugador_id
+                carta_objetivo.orden_en_descarte = None
+                await self.cartas.guardar(carta_objetivo)
+
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+
+                return EventoResultado(tipo_evento="Look Into The Ashes", cartas_agregadas=[carta_objetivo], mensaje=f"La carta {carta_objetivo.id_carta} fue recuperada del descarte", carta_evento_descartada=descartado.carta)
+
+            case "and then there was one more":
+                secreto = await self.ocultar_secreto(partida_id, jugador_objetivo_id, secreto_id)
+                if not secreto:
+                    return EventoResultado(tipo_evento="And Then There Was One More", mensaje="No se pudo ocultar el secreto")
+                
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                return EventoResultado(tipo_evento="And Then There Was One More", secreto_oculto=secreto.secreto , mensaje=f"Se ocultó el secreto {secreto.secreto.id_secreto}", carta_evento_descartada=descartado.carta)
+
+            case "delay the murderer's espace!":
+                resultado = await self.ver_del_descarte(partida_id, jugador_id)
+                cartas_descarte = resultado.descarte
+                if not cartas_descarte:
+                    descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                    return EventoResultado(tipo_evento="Delay the murderer's espace!", mensaje="No hay cartas para reintegrar al mazo", carta_evento_descartada=descartado.carta)
+
+                ultimo_orden_mazo = await self.cartas.contar_en_mazo(partida_id)
+
+                for i, c in enumerate(cartas_descarte, start=1):
+                    c.posicion = PosicionCarta.mazo
+                    c.id_jugador = None
+                    c.orden_en_descarte = None
+                    c.orden_en_mazo = ultimo_orden_mazo + i
+                    await self.cartas.guardar(c)
+
+                # descartar la carta que activo el evento
+                descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+
+                return EventoResultado(tipo_evento="Delay the murderer's espace!", cartas_agregadas=cartas_descarte, mensaje=f"{len(cartas_descarte)} cartas fueron reintegradas al mazo", carta_evento_descartada=descartado.carta)
+
+            case "early train to paddington":
+                # obtener todas las cartas disponibles en el mazo (hasta 6)
+                cartas_a_mover = await self.cartas.obtener_primeras_de_mazo(partida_id)
+                if not cartas_a_mover:
+                    return EventoResultado(tipo_evento="Early Train To Paddington", mensaje="No hay cartas en el mazo para mover al descarte")
+                
+                # obtener el orden actual del descarte
+                cantidad_en_descarte = await self.cartas.obtener_cantidad_descartadas(partida_id)
+
+                # mover las cartas al descarte
+                for i, c in enumerate(cartas_a_mover, start=1):
+                    c.posicion = PosicionCarta.descarte
+                    c.id_jugador = None
+                    c.orden_en_mazo = None
+                    c.orden_en_descarte = cantidad_en_descarte + i
+                    await self.cartas.guardar(c)
+
+                # descartar la carta que aplica el evento
+                carta.posicion = PosicionCarta.descarte
+                carta.id_jugador = None
+                carta.orden_en_descarte = cantidad_en_descarte + len(cartas_a_mover) + 1
+                await self.cartas.guardar(carta)
+
+                mensaje = f"{len(cartas_a_mover)} cartas fueron movidas del mazo al descarte"
+
+                fin_de_mazo = False
+                asesino_id = None
+                if hasattr(self.cartas, "contar_en_mazo"):
+                    restantes = await self.cartas.contar_en_mazo(partida_id) 
+                    if restantes == 0:
+                        cast(Any, partida).estado = EstadoPartida.Finalizada
+                        await self.partidas.guardar(cast(Any, partida))
+                        if hasattr(self.partidas, "confirmar"):
+                            await self.partidas.confirmar()  
+                            mensaje += ". El asesino ha ganado. La partida ha finalizado."
+                            fin_de_mazo = True
+
+                            asesino_resultado = await self.obtener_asesino(partida_id)
+                            asesino_id = asesino_resultado.asesino
+
+                return EventoResultado(tipo_evento="Early Train To Paddington", cartas_descartadas=cartas_a_mover, mensaje=mensaje, fin_de_mazo=fin_de_mazo, carta_evento_descartada=carta, asesino_ganador=asesino_id)
+                
+            case _:
+                raise EventoNoImplementado()
 
     async def _obtener_secreto_y_posicion(self, partida_id: int, jugador_id: int, secreto_id: int) -> tuple[SecretoDB, int]:
         """Resuelve el secreto y su índice dentro del orden del jugador. Lanza SecretoNoEncontrado."""
