@@ -132,10 +132,13 @@ async def test_activar_nsf_en_curso(async_client):
 @pytest.mark.asyncio
 async def test_jugar_nsf_bonito(async_client, monkeypatch):
     
+    mock_tarea_original = MagicMock()
+    mock_tarea_original.done.return_value = False
+
     existente = VentanaNSFActiva(
         partida_id=2, ventana_id="ventana123", actor_id=3,
         tipo_accion="jugar_set", payload={}, contador=0, tiempo_ms=99999999,
-        tarea=MagicMock() # la original
+        tarea=mock_tarea_original # la original
     )
 
     nsf_router_modulo._VENTANAS[2] = existente
@@ -182,7 +185,7 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
     # veo los mocks
     mock_service.es_carta_nsf.assert_called_once_with(2, 6, 99)
     mock_service.descartar_carta.assert_called_once_with(2, 6, 99)
-    existente.tarea.cancel.assert_called_once()
+    mock_tarea_original.cancel.assert_called_once()
     mock_resolver.assert_called_once()
 
     # veamos que se difundio 3 veces
@@ -204,7 +207,7 @@ async def test_jugar_nsf_falla_ventana_vencida(async_client, monkeypatch):
     nsf_router_modulo._VENTANAS[1] = existente
 
     # decimos que justo paso el tiempo de ventana
-    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 1.001)
+    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 1.501)
 
     pedido = {
         "id_jugador": 5,

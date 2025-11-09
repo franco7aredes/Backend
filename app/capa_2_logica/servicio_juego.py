@@ -1222,7 +1222,7 @@ class ServicioJuego:
             jugador_id = int(payload.get("id_jugador", id_jugador_accion))
             try:
                 res = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
-                nombres = {cast(Any, c).nombre.lower(): cast(Any,c).id_carta for c in res.cartas if cast(Any,c).id_carta in cartas_ids}
+                nombres = {cast(Any, c).nombre.lower(): cast(Any,c).id_carta for c in res if cast(Any,c).id_carta in cartas_ids}
                 if len(nombres) == len(cartas_ids) and {"tommy beresford", "tuppence beresford"}.issubset(set(nombres.keys())) and len(cartas_ids) == 2:
                     return False
             except Exception:
