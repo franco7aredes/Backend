@@ -68,24 +68,6 @@ class _RepoSetProto(Protocol):
     async def obtener_cartas_del_set(self, set_id: int) -> List[CartaModelo]: ...
 
 
-async def _regla_nsf_es_cancelable_simple(tipo_accion: str, payload: Dict[str, Any]) -> bool:
-    """
-    Define si una accion es cancelable por su tipo
-    """
-    if tipo_accion == "jugar_evento":
-        nombre = str(payload.get("nombre", "")).lower()
-        if "cards off the table" in nombre:
-            return False
-        return True
-        
-    if tipo_accion == "jugar_set":
-        return True
-    if tipo_accion == "agregar_a_set":
-        return True
-    if tipo_accion == "jugar_nsf":
-        return True
-    return False
-
 class ServicioJuego:
     """Servicio de reglas de negocio del juego.
 
@@ -1228,8 +1210,50 @@ class ServicioJuego:
                     pass
                 
         # si no es, lo paso por la ruta simple
-        return await _regla_nsf_es_cancelable_simple(tipo_accion, payload)
+        return await self._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
     
+    async def _regla_nsf_es_cancelable_tipo(self, tipo_accion: str, payload: Dict[str, Any], partida_id: int) -> bool:
+        """
+        Define si una accion es cancelable por su tipo
+        """
+        if tipo_accion == "jugar_evento":
+            nombre = str(payload.get("nombre", "")).lower()
+            if "cards off the table" in nombre:
+                return False
+            return True
+        
+        if tipo_accion == "jugar_set":
+            return True
+        if tipo_accion == "agregar_a_set":
+        # Aca, el payload tiene id_jugador, set_id, carta_id
+        # necesito ver el caso particular Beresford
+            id_jugador = payload.get("id_jugador")
+            id_de_carta = payload.get("carta_id")
+            set_involucrado_id = payload.get("set_id")
+        # todos los chequeos importantes se hacen en otras funciones, acá no puedo perder mucho tiempo
+            set_jugador = await self.sets.obtener_cartas_del_set(set_involucrado_id)
+            carta_involucrada = await self.cartas.obtener_carta(partida_id, id_jugador, id_de_carta)
+            beresford = {"tommy beresford", "tuppence beresford"}
+            nombre_carta = carta_involucrada.nombre.lower()
+
+            if nombre_carta not in beresford:
+                return True
+            
+            nombres_en_set = {carta.nombre.lower() for carta in set_jugador}
+            tiene_tommy = "tommy beresford" in nombres_en_set
+            tiene_tuppence = "tuppence beresford" in nombres_en_set
+            if tiene_tommy and tiene_tuppence:
+               return False
+
+            # el caso de si no estan mezclados
+            return True
+
+        if tipo_accion == "jugar_nsf":
+            return True
+        return False
+
+
+
     async def validar_carta_nsf(self, partida_id: int, jugador_id: int, carta_id: int) -> None:
         """
         Esta funcion busca revisar si la carta es nsf y compatible en sus datos.
