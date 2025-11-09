@@ -1196,7 +1196,6 @@ class ServicioJuego:
                 res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
                 if not res:
                     raise SecretoNoDisponible()
-
         if not secreto:
             raise SecretoNoEncontrado()
 
@@ -1257,3 +1256,52 @@ class ServicioJuego:
             raise ValueError("no_es_nsf_pero_intento_actuar_como_nsf")
 
      
+    async def agregar_carta_a_set_propio(self, partida_id: int, jugador_id: int, carta_id: int, set_id: int) -> JugarSetResultado:
+        """ Permite a un jugador agregar una carta de su mano a un set que ya posee."""
+        
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+
+        carta = await self.cartas.obtener_carta(partida_id, jugador_id, carta_id)
+        if not carta:
+            raise CartaNoEncontrada()
+
+        if carta.posicion != PosicionCarta.mano:
+            raise CartaNoEnMano()
+
+        set_del_jugador = await self.sets.obtener_set_por_id(set_id)
+        if not set_del_jugador:
+            raise SetNoEncontrado()
+
+        if getattr(set_del_jugador, "id_jugador", None) != jugador_id:
+            raise SetNoCorrespondeAlJugadorSeleccionado()
+
+        if carta.tipo != TipoCarta.detective:
+            raise TipoCartaNoCompatibleConSet()
+
+        # Compatibilidad de carta con el set
+        if carta.nombre != "Adriane Oliver":
+            if getattr(set_del_jugador, "nombre", None) == "Beresford":
+                # El set se llama "Beresford" pero acepta a ambos hermanos
+                permitidas_beresford = {"Tommy Beresford", "Tuppence Beresford"}
+                if carta.nombre not in permitidas_beresford:
+                    raise CartaNoCompatibleConSet()
+            else:
+                # Para el resto de los sets, el nombre de la carta debe coincidir con el del set
+                if carta.nombre != set_del_jugador.nombre:
+                    raise CartaNoCompatibleConSet()
+
+        # Agregar la carta al set
+        carta.posicion = PosicionCarta.set
+        carta.id_set = set_del_jugador.id_set
+        if hasattr(self.cartas, "guardar"):
+            await self.cartas.guardar(carta)
+        return JugarSetResultado(set=set_del_jugador)

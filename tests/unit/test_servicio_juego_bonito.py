@@ -1983,6 +1983,101 @@ async def test_aplicar_efectos_set_errores_basicos():
         await s.aplicar_efectos_set(1, 2, 5, 7)
 
 @pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_exito():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta.nombre = "Miss Marple"
+    carta.tipo = TipoCarta.detective
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    res = await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+    assert res.set == set_obj
+    assert carta.posicion == PosicionCarta.set
+    assert carta.id_set == set_obj.id_set
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_no_en_mano():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mazo)
+    carta.nombre = "Miss Marple"
+    carta.tipo = TipoCarta.detective
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    with pytest.raises(CartaNoEnMano):
+        await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_set_no_corresponde():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=99, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta.nombre = "Miss Marple"
+    carta.tipo = TipoCarta.detective
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    with pytest.raises(SetNoCorrespondeAlJugadorSeleccionado):
+        await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_tipo_no_detective():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta.nombre = "Miss Marple"
+    carta.tipo = TipoCarta.event
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    with pytest.raises(TipoCartaNoCompatibleConSet):
+        await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_no_compatible():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta.nombre = "Tommy Beresford"
+    carta.tipo = TipoCarta.detective
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    with pytest.raises(CartaNoCompatibleConSet):
+        await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_beresford_acepta_ambos():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Beresford")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    # Tommy
+    carta1 = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta1.nombre = "Tommy Beresford"
+    carta1.tipo = TipoCarta.detective
+    repo_carta1 = crear_repo_carta_mock(obtener_carta_return=carta1)
+    s1 = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta1, sets=repo_set)
+    res1 = await s1.agregar_carta_a_set_propio(1, 2, 5, 10)
+    assert res1.set == set_obj
+    # Tuppence
+    carta2 = crear_carta(id_carta=6, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta2.nombre = "Tuppence Beresford"
+    carta2.tipo = TipoCarta.detective
+    repo_carta2 = crear_repo_carta_mock(obtener_carta_return=carta2)
+    s2 = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta2, sets=repo_set)
+    res2 = await s2.agregar_carta_a_set_propio(1, 2, 6, 10)
+    assert res2.set == set_obj
+
+@pytest.mark.asyncio
 async def test_aplicar_efectos_set_posicion():
     """Verifica que posicion_secreto se tome el índice del secreto en la lista ordenada."""
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
