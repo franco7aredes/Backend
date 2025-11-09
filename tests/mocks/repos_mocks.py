@@ -104,6 +104,8 @@ def crear_repo_carta_mock(
     obtener_cantidad_descartadas_return: Any | None = None,
     obtener_primeras_de_descarte_return: Any | None = None,
     obtener_carta_return: Any | None = None,
+    obtener_primeras_de_mazo_return: Any | None = None,
+    obtener_carta_id_return: Any | None = None,
 ) -> MagicMock:
     
     repo = MagicMock()
@@ -126,6 +128,8 @@ def crear_repo_carta_mock(
     )
     repo.obtener_carta = _async_method(obtener_carta_return)
     repo.guardar = _async_method()
+    repo.obtener_primeras_de_mazo = _async_method(obtener_primeras_de_mazo_return if obtener_primeras_de_mazo_return is not None else [])
+    repo.obtener_carta_id = _async_method(obtener_carta_id_return)
     return repo
 
     

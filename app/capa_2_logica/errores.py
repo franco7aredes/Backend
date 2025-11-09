@@ -57,6 +57,12 @@ class CreadorNoPuedeAbandonarPartida(Exception):
 class SetNoCorrespondeAlJugadorSeleccionado(Exception):
     pass
 
+class CartaNoEsEvento(Exception):
+    pass
+
+class EventoNoImplementado(Exception):
+  pass
+
 class NoPuedeAplicarseEfectosAsiMismo(Exception):
     pass
 
