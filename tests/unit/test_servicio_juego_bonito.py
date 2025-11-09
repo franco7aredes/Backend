@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 
-from app.capa_2_logica.servicio_juego import _regla_nsf_es_cancelable_simple
 from app.capa_2_logica.resultados import *
 from app.capa_2_logica.servicio_juego import ServicioJuego
 from app.capa_2_logica.errores import *
@@ -2110,28 +2109,166 @@ async def test_aplicar_efectos_set_asesino_revelado_burbujea_excepcion():
     with pytest.raises(AsesinoRevelado):
         await s.aplicar_efectos_set(1, 2, 5, 7)
 
-
-# la funcion a testear es sincrona en realidad, asi que puedo hacer esto
-@pytest.mark.parametrize("tipo_accion, payload, esperado", [
-    ("jugar_evento", {"nombre": "Evento Normal"}, True),
-    ("jugar_evento", {"nombre": "cards off the table"}, False),
-    ("jugar_set", {}, True),
-    ("agregar_a_set", {}, True),
-    ("jugar_nsf", {}, True),
-    ("otra_cosa_loca", {}, False),
-    ("jugar_evento", {}, True), # el test de payload vacio
- ])
-@pytest.mark.asyncio
-async def test_regla_nsf_cancelable_simple(tipo_accion: str, payload: Dict[str, Any], esperado: bool):
-    """
-    verifico los casos simples de cancelacion.
-    Para la funcion que testeo, no necesito mocks 
-    (pues es sincrona y no esta dentro de ninguna clase)
-    """
-
-    resultado = await _regla_nsf_es_cancelable_simple(tipo_accion, payload)
-    assert resultado == esperado
     
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_agregar_beresford_mixto():
+
+    payload = {"id_jugador": 1, "set_id": 10, "carta_id": 120}
+    partida_id = 2
+    tipo_accion = "agregar_a_set"
+
+    tommy = crear_carta(id_carta=100)
+    tommy.nombre = "Tommy Beresford"
+    tuppence = crear_carta(id_carta=101)
+    tuppence.nombre ="Tuppence Beresford"
+
+    repo_set = crear_repo_set_mock(obtener_cartas_del_set_return=[tommy, tuppence])
+
+    nueva = crear_carta(id_carta=120)
+    nueva.nombre = "Tommy Beresford"
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nueva)
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        sets=repo_set
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == False
+    s.cartas.obtener_carta.assert_called_with(partida_id, 1, 120)
+    s.sets.obtener_cartas_del_set.assert_called_with(10)
+        
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_agregar_beresford_puro():
+
+    payload = {"id_jugador": 1, "set_id": 10, "carta_id": 120}
+    partida_id = 2
+    tipo_accion = "agregar_a_set"
+
+    tommy = crear_carta(id_carta=100)
+    tommy.nombre = "Tommy Beresford"
+    tommy2 = crear_carta(id_carta=101)
+    tommy2.nombre = "Tommy Beresford"
+
+    repo_set = crear_repo_set_mock(obtener_cartas_del_set_return=[tommy, tommy2])
+
+    nueva = crear_carta(id_carta=120)
+    nueva.nombre = "Tommy Beresford"
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nueva)
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        sets=repo_set
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == True
+    s.cartas.obtener_carta.assert_called_with(partida_id, 1, 120)
+    s.sets.obtener_cartas_del_set.assert_called_with(10)
+ 
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_agregar_no_es_beresford():
+
+    payload = {"id_jugador": 1, "set_id": 10, "carta_id": 120}
+    partida_id = 2
+    tipo_accion = "agregar_a_set"
+
+
+    nueva = crear_carta(id_carta=120)
+    nueva.nombre = "Hercule Poirot"
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nueva)
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        sets=crear_repo_set_mock()
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == True
+    s.cartas.obtener_carta.assert_called_with(partida_id, 1, 120)
+    s.sets.obtener_cartas_del_set.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_jugar_nsf():
+
+    payload = {}
+    partida_id = 2
+    tipo_accion = "jugar_nsf"
+
+
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == True
+
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_jugar_cards_off():
+
+    payload = {"nombre": "Cards OFF the table"}
+    partida_id = 2
+    tipo_accion = "jugar_evento"
+
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == False
+   
+    
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_jugar_evento_cualquiera():
+
+    payload = {"nombre": "aca que me importa si dice cards of o que"}
+    partida_id = 2
+    tipo_accion = "jugar_evento"
+
+
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == True
+   
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_jugar_cualquiera():
+
+    payload = {}
+    partida_id = 2
+    tipo_accion = "me_metiste_basura_aca"
+
+
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == False
+   
 
 @pytest.mark.asyncio
 async def test_accion_cancelable_beresford_en_set():

@@ -1229,9 +1229,7 @@ class ServicioJuego:
         # necesito ver el caso particular Beresford
             id_jugador = payload.get("id_jugador")
             id_de_carta = payload.get("carta_id")
-            set_involucrado_id = payload.get("set_id")
         # todos los chequeos importantes se hacen en otras funciones, acá no puedo perder mucho tiempo
-            set_jugador = await self.sets.obtener_cartas_del_set(set_involucrado_id)
             carta_involucrada = await self.cartas.obtener_carta(partida_id, id_jugador, id_de_carta)
             beresford = {"tommy beresford", "tuppence beresford"}
             nombre_carta = carta_involucrada.nombre.lower()
@@ -1239,6 +1237,8 @@ class ServicioJuego:
             if nombre_carta not in beresford:
                 return True
             
+            set_involucrado_id = payload.get("set_id")
+            set_jugador = await self.sets.obtener_cartas_del_set(set_involucrado_id)
             nombres_en_set = {carta.nombre.lower() for carta in set_jugador}
             tiene_tommy = "tommy beresford" in nombres_en_set
             tiene_tuppence = "tuppence beresford" in nombres_en_set
