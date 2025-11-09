@@ -960,7 +960,7 @@ class ServicioJuego:
         return RevelarSecretoResultado(secreto=secreto)
 
 
-    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> None:
+    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> RobarSecretoResultado:
 
         jugador = await self.jugadores.obtener(jugador_id)
         if not jugador:
@@ -997,6 +997,8 @@ class ServicioJuego:
         # Si estaba en desgracia y ahora ya no (tiene oculto) -> sale
         if previo_en_desgracia and (not posterior_en_desgracia):
             raise JugadorSaleDeDesgraciaSocial()
+        
+        return RevelarSecretoResultado(secreto=secreto)
     
     async def abandonar_partida(self, partida_id: int, jugador_id: int) -> AbandonarPartidaResultado:
         """Permite a un jugador abandonar la partida."""
@@ -1221,13 +1223,13 @@ class ServicioJuego:
 
                 return EventoResultado(tipo_evento="Look Into The Ashes", cartas_agregadas=[carta_objetivo], mensaje=f"La carta {carta_objetivo.id_carta} fue recuperada del descarte", carta_evento_descartada=descartado.carta)
 
-            case "and then there was one more":
-                secreto = await self.ocultar_secreto(partida_id, jugador_objetivo_id, secreto_id)
+            case "and then there was one more...":
+                secreto = await self.robar_secreto(partida_id, jugador_objetivo_id, secreto_id)
                 if not secreto:
-                    return EventoResultado(tipo_evento="And Then There Was One More", mensaje="No se pudo ocultar el secreto")
+                    return EventoResultado(tipo_evento="And Then There Was One More...", mensaje="No se pudo ocultar el secreto")
                 
                 descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
-                return EventoResultado(tipo_evento="And Then There Was One More", secreto_oculto=secreto.secreto , mensaje=f"Se ocultó el secreto {secreto.secreto.id_secreto}", carta_evento_descartada=descartado.carta)
+                return EventoResultado(tipo_evento="And Then There Was One More...", secreto_oculto=secreto.secreto , mensaje=f"Se ocultó el secreto {secreto.secreto.id_secreto}", carta_evento_descartada=descartado.carta, jugador_que_recibe_secreto=jugador_objetivo_id)
 
             case "delay the murderer's espace!":
                 resultado = await self.ver_del_descarte(partida_id, jugador_id)

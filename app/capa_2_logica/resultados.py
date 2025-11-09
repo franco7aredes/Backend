@@ -117,6 +117,10 @@ class OcultarSecretoResultado:
     secreto: SecretoDB
 
 @dataclass(slots=True)
+class RobarSecretoResultado:
+    secreto: SecretoDB
+
+@dataclass(slots=True)
 class AbandonarPartidaResultado:
     partida_id: int
     jugador_id: int
@@ -133,6 +137,7 @@ class EventoResultado:
     cartas_agregadas: Optional[List[CartaModelo]] = None
     set_robado: Optional[SetModelo] = None
     secreto_oculto: Optional[SecretoDB] = None
+    jugador_que_recibe_secreto: Optional[int] = None  # ← nuevo campo
     mensaje: Optional[str] = None 
     fin_de_mazo: Optional[bool] = None
     carta_evento_descartada: Optional[CartaModelo] = None

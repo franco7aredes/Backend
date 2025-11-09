@@ -2098,57 +2098,25 @@ async def test_preparar_evento_look_into_the_ashes_carta_no_en_descarte():
 async def test_preparar_evento_and_then_there_was_one_more_exitoso():
     partida_id = 5
     jugador_id = 3
-    carta_id = 54 
-    secreto_id = 77
-    jugador_objetivo_id = 8
-
-    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
-    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
-
-    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
-    carta_evento.tipo = TipoCarta.event
-
-    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
-
-    secreto_ocultado = crear_secreto(id_partida=partida_id, id_secreto=secreto_id, id_jugador=jugador_objetivo_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto)
-
-    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
-    servicio.ocultar_secreto = AsyncMock(return_value=OcultarSecretoResultado(secreto=secreto_ocultado))
-
-    resultado = await servicio.preparar_evento(
-        partida_id=partida_id,
-        jugador_id=jugador_id,
-        carta_id=carta_id,
-        secreto_id=secreto_id,
-        jugador_objetivo_id=jugador_objetivo_id
-    )
-
-    assert isinstance(resultado, EventoResultado)
-    assert resultado.tipo_evento == "And Then There Was One More"
-    assert resultado.secreto_oculto == secreto_ocultado
-    assert resultado.mensaje == f"Se ocultó el secreto {secreto_id}"
-    
-
-@pytest.mark.asyncio
-async def test_preparar_evento_and_then_there_was_one_more_falla():
-    partida_id = 5
-    jugador_id = 3
     carta_id = 54
     secreto_id = 77
     jugador_objetivo_id = 8
 
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
-
+    
     carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.nombre = "And Then There Was One More..."
     carta_evento.tipo = TipoCarta.event
 
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
 
-    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
-    servicio.ocultar_secreto = AsyncMock(return_value=None) 
+    secreto_ocultado = crear_secreto(id_partida=partida_id, id_secreto=secreto_id, id_jugador=jugador_objetivo_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[secreto_ocultado])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
+    servicio.robar_secreto = AsyncMock(return_value=RobarSecretoResultado(secreto=secreto_ocultado))
+    servicio.descartar_carta = AsyncMock(return_value=type("Descartado", (), {"carta": carta_evento})())
 
     resultado = await servicio.preparar_evento(
         partida_id=partida_id,
@@ -2159,10 +2127,47 @@ async def test_preparar_evento_and_then_there_was_one_more_falla():
     )
 
     assert isinstance(resultado, EventoResultado)
-    assert resultado.tipo_evento == "And Then There Was One More"
+    assert resultado.tipo_evento == "And Then There Was One More..."
+    assert resultado.secreto_oculto == secreto_ocultado
+    assert resultado.jugador_que_recibe_secreto == jugador_objetivo_id
+    assert resultado.mensaje == f"Se ocultó el secreto {secreto_id}"
+    assert resultado.carta_evento_descartada.id_carta == carta_id
+
+@pytest.mark.asyncio
+async def test_preparar_evento_and_then_there_was_one_more_falla():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 54
+    secreto_id = 77
+    jugador_objetivo_id = 8
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "And Then There Was One More..."
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
+    servicio.robar_secreto = AsyncMock(return_value=None)
+    servicio.descartar_carta = AsyncMock(return_value=type("Descartado", (), {"carta": carta_evento})())
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_evento_id,
+        secreto_id=secreto_id,
+        jugador_objetivo_id=jugador_objetivo_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "And Then There Was One More..."
     assert resultado.secreto_oculto is None
     assert resultado.mensaje == "No se pudo ocultar el secreto"
-
+    
 @pytest.mark.asyncio
 async def test_preparar_evento_delay_the_murderer_escape_exitoso():
     partida_id = 5
