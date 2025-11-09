@@ -5,6 +5,7 @@ from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.resultados import EventoResultado
 from app.capa_2_logica.errores import PartidaNoEncontrada, JugadorNoEncontrado, JugadorNoEnPartida
+from app.capa_2_logica.errores import JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial
 
 @pytest.mark.asyncio
 async def test_jugar_evento_exitoso(async_client):
@@ -182,3 +183,112 @@ async def test_jugar_evento_jugador_no_en_partida(async_client):
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
+@pytest.mark.asyncio
+async def test_jugar_evento_entra_en_desgracia_sin_set_id_notificacion(async_client, monkeypatch):
+    import app.capa_3_api.routers.partidas as rpartidas
+
+    llamadas = []
+
+    async def fake_notificar_entra(*_, **kwargs):
+        llamadas.append(kwargs)
+
+    monkeypatch.setattr(rpartidas, "notificar_jugador_entra_en_desgracia_detalle", fake_notificar_entra, raising=True)
+
+    class ServicioMock:
+        async def preparar_evento(self, *_, **__):
+            e = JugadorEnDesgraciaSocial()
+            # contexto simulado
+            secreto = type("Se", (), {
+                "id_secreto": 77,
+                "estado": type("E", (), {"name": "oculto"})(),
+                "tipo": type("T", (), {"name": "otro"})()
+            })()
+            setattr(e, "secreto_afectado", secreto)
+            setattr(e, "posicion_secreto", 1)
+            setattr(e, "jugador_id", 8)
+            setattr(e, "partida_id", 1)
+            raise e
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: ServicioMock()
+
+    payload = {
+        "id_jugador": 3,
+        "id_carta": 40,
+        "id_carta_descarte": None,
+        "id_secreto": 77,
+        "id_jugador_objetivo": 8,
+        "id_set": None
+    }
+
+    resp = await async_client.post("/partidas/1/eventos", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["jugador_entra_en_desgracia_social"] is True
+    assert data["secreto_id"] == 77
+    # Verificación notificación
+    assert len(llamadas) == 1
+    kw = llamadas[0]
+    assert "set_id" not in kw
+    assert kw["partida_id"] == 1
+    assert kw["jugador_id"] == 8
+    assert kw["secreto_id"] == 77
+    assert kw["posicion_secreto"] == 1
+    assert kw["secreto_estado"] == "oculto"
+    assert kw["secreto_tipo"] == "otro"
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+
+@pytest.mark.asyncio
+async def test_jugar_evento_sale_de_desgracia_sin_set_id_notificacion(async_client, monkeypatch):
+    import app.capa_3_api.routers.partidas as rpartidas
+
+    llamadas = []
+
+    async def fake_notificar_sale(*_, **kwargs):
+        llamadas.append(kwargs)
+
+    monkeypatch.setattr(rpartidas, "notificar_jugador_sale_de_desgracia_detalle", fake_notificar_sale, raising=True)
+
+    class ServicioMock:
+        async def preparar_evento(self, *_, **__):
+            e = JugadorSaleDeDesgraciaSocial()
+            secreto = type("Se", (), {
+                "id_secreto": 99,
+                "estado": type("E", (), {"name": "revelado"})(),
+                "tipo": type("T", (), {"name": "otro"})()
+            })()
+            setattr(e, "secreto_afectado", secreto)
+            setattr(e, "posicion_secreto", 0)
+            setattr(e, "jugador_id", 10)
+            setattr(e, "partida_id", 2)
+            raise e
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: ServicioMock()
+
+    payload = {
+        "id_jugador": 4,
+        "id_carta": 60,
+        "id_carta_descarte": None,
+        "id_secreto": 99,
+        "id_jugador_objetivo": 10,
+        "id_set": None
+    }
+
+    resp = await async_client.post("/partidas/2/eventos", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["jugador_sale_de_desgracia_social"] is True
+    assert data["secreto_id"] == 99
+
+    assert len(llamadas) == 1
+    kw = llamadas[0]
+    assert "set_id" not in kw
+    assert kw["partida_id"] == 2
+    assert kw["jugador_id"] == 10
+    assert kw["secreto_id"] == 99
+    assert kw["posicion_secreto"] == 0
+    assert kw["secreto_estado"] == "revelado"
+    assert kw["secreto_tipo"] == "otro"
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

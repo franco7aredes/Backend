@@ -9,7 +9,7 @@ from app.capa_3_api.dtos.partidas import (
 from app.capa_3_api.dtos.juego import SecretoDTO, JugarEventoDTO
 from app.capa_3_api.websockets.ApiWS import administrador
 import app.capa_2_logica.constantes as C
-from app.capa_3_api.utilidades_asincronas import _notificar_jugadores_async
+from app.capa_3_api.utilidades_asincronas import _notificar_jugadores_async, notificar_jugador_entra_en_desgracia_detalle, notificar_jugador_sale_de_desgracia_detalle
 # Alias de compatibilidad para tests existentes que parchan este nombre
 _notify_players_async = _notificar_jugadores_async
 from app.capa_3_api.mapeadores import (
@@ -266,6 +266,58 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
         raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    # Unificado: primero evaluamos si tiene contexto (secreto_afectado)
+    except JugadorEnDesgraciaSocial as e:
+        if not hasattr(e, "secreto_afectado"):
+            # Caso: el jugador que intenta jugar está ya en desgracia social
+            raise HTTPException(status_code=400, detail="El jugador está en desgracia social y no puede jugar eventos")
+        secreto = getattr(e, "secreto_afectado", None)
+        posicion = getattr(e, "posicion_secreto", None)
+        estado = getattr(getattr(secreto, "estado", None), "name", None) if secreto else None
+        tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
+        await notificar_jugador_entra_en_desgracia_detalle(
+            administrador,
+            partida_id=partida_id,
+            jugador_id=getattr(e, "jugador_id", getattr(datos, "jugador_objetivo_id", None)),
+            secreto_id=getattr(secreto, "id_secreto", getattr(datos, "secreto_id", None)),
+            posicion_secreto=posicion,
+            secreto_estado=estado,
+            secreto_tipo=tipo,
+        )
+        return {
+            "mensaje": "Evento produjo desgracia social",
+            "jugador_entra_en_desgracia_social": True,
+            "partida_id": partida_id,
+            "jugador_id": getattr(e, "jugador_id", getattr(datos, "jugador_objetivo_id", None)),
+            "secreto_id": getattr(secreto, "id_secreto", getattr(datos, "secreto_id", None)),
+            "posicion_secreto": posicion,
+            "secreto_estado": estado,
+            "secreto_tipo": tipo,
+        }
+    except JugadorSaleDeDesgraciaSocial as e:
+        secreto = getattr(e, "secreto_afectado", None)
+        posicion = getattr(e, "posicion_secreto", None)
+        estado = getattr(getattr(secreto, "estado", None), "name", None) if secreto else None
+        tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
+        await notificar_jugador_sale_de_desgracia_detalle(
+            administrador,
+            partida_id=partida_id,
+            jugador_id=getattr(e, "jugador_id", getattr(datos, "jugador_objetivo_id", None)),
+            secreto_id=getattr(secreto, "id_secreto", getattr(datos, "secreto_id", None)),
+            posicion_secreto=posicion,
+            secreto_estado=estado,
+            secreto_tipo=tipo,
+        )
+        return {
+            "mensaje": "Evento hizo salir de desgracia social",
+            "jugador_sale_de_desgracia_social": True,
+            "partida_id": partida_id,
+            "jugador_id": getattr(e, "jugador_id", getattr(datos, "jugador_objetivo_id", None)),
+            "secreto_id": getattr(secreto, "id_secreto", getattr(datos, "secreto_id", None)),
+            "posicion_secreto": posicion,
+            "secreto_estado": estado,
+            "secreto_tipo": tipo,
+        }
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
@@ -274,31 +326,29 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
         "partida_id": partida_id,
         "jugador_id": datos.id_jugador,
         "tipo_evento": resultado.tipo_evento,
-        "cartas_descartadas": [c.id_carta for c in resultado.cartas_descartadas or []],
-        "cartas_agregadas": [c.id_carta for c in resultado.cartas_agregadas or []],
+        "cartas_descartadas": [c.id_carta for c in (resultado.cartas_descartadas or [])],
+        "cartas_agregadas": [c.id_carta for c in (resultado.cartas_agregadas or [])],
         "mensaje": resultado.mensaje,
         "fin_de_mazo": resultado.fin_de_mazo if resultado.fin_de_mazo is not None else None,
         "carta_evento_descartada": resultado.carta_evento_descartada.id_carta if resultado.carta_evento_descartada else None,
         "asesino_ganador": resultado.asesino_ganador if resultado.asesino_ganador is not None else None,
         "set_robado": resultado.set_robado.id_set if resultado.set_robado else None,
         "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None,
-        "tipo_evento": resultado.tipo_evento
     }
     try:
         await administrador.difundir_a_partida(partida_id, mensaje)
     except Exception:
-        pass  
+        pass
 
     return {
         "mensaje": "Evento jugado con éxito",
         "tipo_evento": resultado.tipo_evento,
         "detalle": resultado.mensaje,
-        "cartas_descartadas": [c.id_carta for c in resultado.cartas_descartadas or []],
-        "cartas_agregadas": [c.id_carta for c in resultado.cartas_agregadas or []],
+        "cartas_descartadas": [c.id_carta for c in (resultado.cartas_descartadas or [])],
+        "cartas_agregadas": [c.id_carta for c in (resultado.cartas_agregadas or [])],
         "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None,
         "fin_de_mazo": resultado.fin_de_mazo if resultado.fin_de_mazo is not None else None,
         "carta_evento_descartada": resultado.carta_evento_descartada.id_carta if resultado.carta_evento_descartada else None,
         "asesino_ganador": resultado.asesino_ganador if resultado.asesino_ganador is not None else None,
-        "set_robado": resultado.set_robado.id_set if resultado.set_robado else None,
-        "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None
+        "set_robado": resultado.set_robado.id_set if resultado.set_robado else None
     }

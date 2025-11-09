@@ -1168,6 +1168,9 @@ class ServicioJuego:
         if not jugador:
             raise JugadorNoEncontrado()
 
+        if getattr(jugador, "en_desgracia_social", False):
+            raise JugadorEnDesgraciaSocial()
+
         partida = await self.partidas.obtener(partida_id)
         if not partida:
             raise PartidaNoEncontrada()
@@ -1222,12 +1225,31 @@ class ServicioJuego:
                 return EventoResultado(tipo_evento="Look Into The Ashes", cartas_agregadas=[carta_objetivo], mensaje=f"La carta {carta_objetivo.id_carta} fue recuperada del descarte", carta_evento_descartada=descartado.carta)
 
             case "and then there was one more":
-                secreto = await self.ocultar_secreto(partida_id, jugador_objetivo_id, secreto_id)
+                # Preparo contexto por si el ocultar dispara excepciones de desgracia social
+                secreto_ctx, posicion_ctx = await self._obtener_secreto_y_posicion(
+                    partida_id, jugador_objetivo_id, secreto_id
+                )
+                try:
+                    secreto = await self.ocultar_secreto(partida_id, jugador_objetivo_id, secreto_id)
+                except (JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                    # Mapeo como en sets: adjunto contexto y re-lanzo
+                    raise self._adjuntar_ctx_desgracia(
+                        e,
+                        secreto=secreto_ctx,
+                        posicion=posicion_ctx,
+                        partida_id=partida_id,
+                        jugador_id=jugador_objetivo_id,
+                    )
                 if not secreto:
                     return EventoResultado(tipo_evento="And Then There Was One More", mensaje="No se pudo ocultar el secreto")
                 
                 descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
-                return EventoResultado(tipo_evento="And Then There Was One More", secreto_oculto=secreto.secreto , mensaje=f"Se ocultó el secreto {secreto.secreto.id_secreto}", carta_evento_descartada=descartado.carta)
+                return EventoResultado(
+                    tipo_evento="And Then There Was One More",
+                    secreto_oculto=secreto.secreto,
+                    mensaje=f"Se ocultó el secreto {secreto.secreto.id_secreto}",
+                    carta_evento_descartada=descartado.carta
+                )
 
             case "delay the murderer's espace!":
                 resultado = await self.ver_del_descarte(partida_id, jugador_id)
@@ -1318,12 +1340,21 @@ class ServicioJuego:
             raise SecretoNoEncontrado()
 
     @staticmethod
-    def _adjuntar_ctx_desgracia(e: Exception, *, secreto: SecretoDB, posicion: int, partida_id: int, jugador_id: int, set_id: int) -> Exception:
+    def _adjuntar_ctx_desgracia(
+        e: Exception,
+        *,
+        secreto: SecretoDB,
+        posicion: int,
+        partida_id: int,
+        jugador_id: int,
+        set_id: Optional[int] = None
+    ) -> Exception:
         setattr(e, "secreto_afectado", secreto)
         setattr(e, "posicion_secreto", posicion)
         setattr(e, "jugador_id", jugador_id)
-        setattr(e, "set_id", set_id)
         setattr(e, "partida_id", partida_id)
+        if set_id is not None:  # solo se agrega si tiene sentido
+            setattr(e, "set_id", set_id)
         return e
 
 
