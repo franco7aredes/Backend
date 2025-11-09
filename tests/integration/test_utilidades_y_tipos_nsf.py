@@ -5,7 +5,7 @@ import asyncio
 from typing import Dict
 
 from app.capa_3_api.nsf_tipos import VentanaNSFActiva, tiempo_en_ms
-from app.capa_3_api.utilidades_nsf import resolver_ventana
+from app.capa_3_api.utilidades_nsf import gestionar_fin_ventana
 import app.capa_3_api.websockets.ApiWS as wsmod
 
 @pytest.mark.asyncio
@@ -22,7 +22,7 @@ async def test_tiempo_en_ms_correcto(mock_time):
 
 @pytest.mark.asyncio
 @patch('app.capa_3_api.utilidades_nsf.asyncio.sleep', new_callable=AsyncMock)
-async def test_resolver_ventana_correcto(mock_sleep, monkeypatch):
+async def test_gestionar_fin_ventana_correcto(mock_sleep, monkeypatch):
 
     ventana = VentanaNSFActiva(
         partida_id=1,
@@ -40,7 +40,7 @@ async def test_resolver_ventana_correcto(mock_sleep, monkeypatch):
     mock_difundir = AsyncMock()
     monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", mock_difundir)
 
-    await resolver_ventana(ventana, ventanas_dict)
+    await gestionar_fin_ventana(ventana, ventanas_dict)
 
     mock_sleep.assert_called_once()
 
@@ -61,7 +61,7 @@ async def test_resolver_ventana_correcto(mock_sleep, monkeypatch):
 
 @pytest.mark.asyncio
 @patch('app.capa_3_api.utilidades_nsf.asyncio.sleep', new_callable=AsyncMock)
-async def test_resolver_ventana_ventana_ya_no_valida(mock_sleep, monkeypatch):
+async def test_gestionar_fin_ventana_ventana_ya_no_valida(mock_sleep, monkeypatch):
 
     antigua = VentanaNSFActiva(
         partida_id=1,
@@ -88,7 +88,7 @@ async def test_resolver_ventana_ventana_ya_no_valida(mock_sleep, monkeypatch):
 
     ventanas_dict: Dict[int, VentanaNSFActiva] = {1: nueva}
 
-    await resolver_ventana(antigua, ventanas_dict)
+    await gestionar_fin_ventana(antigua, ventanas_dict)
     
     mock_sleep.assert_called_once()
 

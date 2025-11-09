@@ -25,10 +25,10 @@ def limpiar_estado_global_ventanas():
 @pytest.mark.asyncio
 async def test_activar_nsf_bonito(async_client, monkeypatch):
     class S:
-        async def es_accion_cancelable_en_contexto(self, *args, **kwargs):...
+        async def permite_nsf(self, *args, **kwargs):...
 
     mock_service = S()
-    setattr(mock_service, "es_accion_cancelable_en_contexto", AsyncMock(return_value=True))
+    setattr(mock_service, "permite_nsf", AsyncMock(return_value=True))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     mock_difundir = AsyncMock()
@@ -38,7 +38,7 @@ async def test_activar_nsf_bonito(async_client, monkeypatch):
     mock_uuid.return_value.hex = "ventana-test-uuid"
 
     monkeypatch.setattr(nsf_router_modulo.administrador, "difundir_a_partida", mock_difundir)
-    monkeypatch.setattr(nsf_router_modulo, "resolver_ventana", mock_resolver)
+    monkeypatch.setattr(nsf_router_modulo, "gestionar_fin_ventana", mock_resolver)
     monkeypatch.setattr(nsf_router_modulo, "tiempo_en_ms", mock_tiempo)
     monkeypatch.setattr(nsf_router_modulo.uuid, "uuid4", mock_uuid)
 
@@ -56,7 +56,7 @@ async def test_activar_nsf_bonito(async_client, monkeypatch):
     assert cuerpo["deadline_ms"] == 621877
     
     # ahora veo si se llamaron los mocks
-    mock_service.es_accion_cancelable_en_contexto.assert_called_once_with(
+    mock_service.permite_nsf.assert_called_once_with(
         partida_id=1,
         tipo_accion="jugar_set",
         payload={"juajua":"esto no se si importa para test"},
@@ -77,10 +77,10 @@ async def test_activar_nsf_bonito(async_client, monkeypatch):
 async def test_activar_nsf_no_cancelable(async_client):
 
     class S:
-        async def es_accion_cancelable_en_contexto(self, *args, **kwargs):...
+        async def permite_nsf(self, *args, **kwargs):...
 
     mock_service = S()
-    setattr(mock_service, "es_accion_cancelable_en_contexto", AsyncMock(return_value=False))
+    setattr(mock_service, "permite_nsf", AsyncMock(return_value=False))
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     pedido = {
@@ -106,13 +106,13 @@ async def test_activar_nsf_en_curso(async_client):
     nsf_router_modulo._VENTANAS[1] = ventana_presente
 
     class S:
-        async def es_accion_cancelable_en_contexto(self, *args, **kwargs):...
+        async def permite_nsf(self, *args, **kwargs):...
 
     mock_service = S()
     # voy a revisar si llama a la funcion del servicio, por eso esto no lo hacia antes
     mock_es_cancelable = AsyncMock(return_value=True)
 
-    setattr(mock_service, "es_accion_cancelable_en_contexto", mock_es_cancelable)
+    setattr(mock_service, "permite_nsf", mock_es_cancelable)
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     pedido = {
@@ -144,12 +144,12 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
     nsf_router_modulo._VENTANAS[2] = existente
 
     class S:
-        async def es_carta_nsf(self, *args, **kwargs):...
+        async def validar_carta_nsf(self, *args, **kwargs):...
         async def descartar_carta(self, *args, **kwargs):...
         async def obtener_cantidad_manos(self, *args, **kwargs):...
 
     mock_service = S()
-    setattr(mock_service, "es_carta_nsf", AsyncMock(return_value=None))
+    setattr(mock_service, "validar_carta_nsf", AsyncMock(return_value=None))
     setattr(mock_service, "descartar_carta", AsyncMock(return_value=DescartarResultado(carta=object())))
     setattr(mock_service, "obtener_cantidad_manos", AsyncMock(return_value=CantidadManosResultado(cartas_por_jugador={3: 5, 6: 4})))
 
@@ -162,7 +162,7 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
     mock_sleep = AsyncMock()
 
     monkeypatch.setattr(nsf_router_modulo.administrador, "difundir_a_partida", mock_difundir)
-    monkeypatch.setattr(nsf_router_modulo, "resolver_ventana", mock_resolver)
+    monkeypatch.setattr(nsf_router_modulo, "gestionar_fin_ventana", mock_resolver)
     monkeypatch.setattr(nsf_router_modulo, "tiempo_en_ms", mock_tiempo)
     monkeypatch.setattr(nsf_router_modulo.asyncio, "sleep", mock_sleep)
     monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 1000.0) # para que no se me acabe el tiempo
@@ -183,7 +183,7 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
     assert cuerpo["deadline_ms"] == 55555
 
     # veo los mocks
-    mock_service.es_carta_nsf.assert_called_once_with(2, 6, 99)
+    mock_service.validar_carta_nsf.assert_called_once_with(2, 6, 99)
     mock_service.descartar_carta.assert_called_once_with(2, 6, 99)
     mock_tarea_original.cancel.assert_called_once()
     mock_resolver.assert_called_once()
@@ -257,13 +257,13 @@ async def test_jugar_nsf_error_no_es_nsf(async_client, monkeypatch):
     nsf_router_modulo._VENTANAS[1] = existente
 
     class S:
-        async def es_carta_nsf(self, *args, **kwargs):...
+        async def validar_carta_nsf(self, *args, **kwargs):...
     
     mock_service = S()
     async def raise_err( *_, **__):
         raise ValueError("no_es_nsf_pero_intento_actuar_como_nsf")
 
-    setattr(mock_service, "es_carta_nsf", raise_err)
+    setattr(mock_service, "validar_carta_nsf", raise_err)
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
@@ -292,13 +292,13 @@ async def test_jugar_nsf_error_partida_no_encontrada(async_client, monkeypatch):
     nsf_router_modulo._VENTANAS[1] = existente
 
     class S:
-        async def es_carta_nsf(self, *args, **kwargs):...
+        async def validar_carta_nsf(self, *args, **kwargs):...
     
     mock_service = S()
     async def raise_err( *_, **__):
         raise PartidaNoEncontrada()
 
-    setattr(mock_service, "es_carta_nsf", raise_err)
+    setattr(mock_service, "validar_carta_nsf", raise_err)
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
@@ -327,13 +327,13 @@ async def test_jugar_nsf_error_jugador_no_encontrado(async_client, monkeypatch):
     nsf_router_modulo._VENTANAS[1] = existente
 
     class S:
-        async def es_carta_nsf(self, *args, **kwargs):...
+        async def validar_carta_nsf(self, *args, **kwargs):...
     
     mock_service = S()
     async def raise_err( *_, **__):
         raise ValueError("jugador_no_encontrado")
 
-    setattr(mock_service, "es_carta_nsf", raise_err)
+    setattr(mock_service, "validar_carta_nsf", raise_err)
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
@@ -362,13 +362,13 @@ async def test_jugar_nsf_error_jugador_no_en_partida(async_client, monkeypatch):
     nsf_router_modulo._VENTANAS[1] = existente
 
     class S:
-        async def es_carta_nsf(self, *args, **kwargs):...
+        async def validar_carta_nsf(self, *args, **kwargs):...
     
     mock_service = S()
     async def raise_err( *_, **__):
         raise ValueError("jugador_no_en_partida")
 
-    setattr(mock_service, "es_carta_nsf", raise_err)
+    setattr(mock_service, "validar_carta_nsf", raise_err)
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
@@ -396,13 +396,13 @@ async def test_jugar_nsf_error_no_hay_tal_carta(async_client, monkeypatch):
     nsf_router_modulo._VENTANAS[1] = existente
 
     class S:
-        async def es_carta_nsf(self, *args, **kwargs):...
+        async def validar_carta_nsf(self, *args, **kwargs):...
     
     mock_service = S()
     async def raise_err( *_, **__):
         raise ValueError("no_hay_tal_carta")
 
-    setattr(mock_service, "es_carta_nsf", raise_err)
+    setattr(mock_service, "validar_carta_nsf", raise_err)
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
@@ -431,14 +431,14 @@ async def test_jugar_nsf_error_no_hay_carta_para_descartar(async_client, monkeyp
     nsf_router_modulo._VENTANAS[1] = existente
 
     class S:
-        async def es_carta_nsf(self, *args, **kwargs):...
+        async def validar_carta_nsf(self, *args, **kwargs):...
         async def descartar_carta(self, *args, **kwargs):...
     
     mock_service = S()
     async def raise_err( *_, **__):
         raise Exception
 
-    setattr(mock_service, "es_carta_nsf", AsyncMock(return_value=None))
+    setattr(mock_service, "validar_carta_nsf", AsyncMock(return_value=None))
     setattr(mock_service, "descartar_carta", raise_err)
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
@@ -454,7 +454,7 @@ async def test_jugar_nsf_error_no_hay_carta_para_descartar(async_client, monkeyp
 
     res = await async_client.post("/partidas/1/nsf/jugar", json=pedido)
 
-    mock_service.es_carta_nsf.assert_called_once_with(1, 22, 99)
+    mock_service.validar_carta_nsf.assert_called_once_with(1, 22, 99)
     assert res.status_code == 404
     assert res.json()["detail"] == "No se encontro carta para descartar en esta partida"
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)

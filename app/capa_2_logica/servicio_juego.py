@@ -1203,7 +1203,7 @@ class ServicioJuego:
         return AplicarEfectoSetResultado(secreto_afectado=secreto, posicion_secreto=posicion_en_lista)
 
 
-    async def es_accion_cancelable_en_contexto(
+    async def permite_nsf(
         self,
         partida_id:int,
         tipo_accion: str,
@@ -1231,7 +1231,7 @@ class ServicioJuego:
         # si no es, lo paso por la ruta simple
         return await _regla_nsf_es_cancelable_simple(tipo_accion, payload)
     
-    async def es_carta_nsf(self, partida_id: int, jugador_id: int, carta_id: int) -> None:
+    async def validar_carta_nsf(self, partida_id: int, jugador_id: int, carta_id: int) -> None:
         """
         Esta funcion busca revisar si la carta es nsf y compatible en sus datos.
         En caso de que no lo sea, va a levantar alguna de las excepciones que tenemos,

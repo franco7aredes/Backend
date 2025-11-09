@@ -19,7 +19,7 @@ from app.capa_3_api.dtos.nsf import (
 )
 
 from app.capa_3_api.nsf_tipos import VentanaNSFActiva, tiempo_en_ms
-from app.capa_3_api.utilidades_nsf import resolver_ventana
+from app.capa_3_api.utilidades_nsf import gestionar_fin_ventana
 
 
 nsf_router = APIRouter()
@@ -48,7 +48,7 @@ async def activar_nsf(
         raise HTTPException(status_code=409, detail="nsf_en_curso")
     
     # veo la logica de reglas
-    es_cancelable = await service.es_accion_cancelable_en_contexto(
+    es_cancelable = await service.permite_nsf(
         partida_id=partida_id,
         tipo_accion=datos.tipo_accion,
         payload=datos.payload,
@@ -77,7 +77,7 @@ async def activar_nsf(
 
     # orquestamos la tarea
     ventana.tarea = asyncio.create_task(
-        resolver_ventana(ventana, _VENTANAS)
+        gestionar_fin_ventana(ventana, _VENTANAS)
     )
 
     # Difundo a los jugadores
@@ -131,7 +131,7 @@ async def jugar_nsf(
 
     try:
         # primero reviso si la carta es un NSF y es de un jugador de la misma partida
-        await service.es_carta_nsf(partida_id, datos.id_jugador, datos.carta_id)
+        await service.validar_carta_nsf(partida_id, datos.id_jugador, datos.carta_id)
         # luego descarto
         res = await service.descartar_carta(partida_id, datos.id_jugador, datos.carta_id)
         if not getattr(res, "carta", None):
@@ -194,7 +194,7 @@ async def jugar_nsf(
             pass
    
     ventana.tarea = asyncio.create_task(
-        resolver_ventana(ventana, _VENTANAS)
+        gestionar_fin_ventana(ventana, _VENTANAS)
     )
 
     # difundo lo que acaba de pasar

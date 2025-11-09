@@ -4,7 +4,7 @@ from typing import Dict
 from .nsf_tipos import VentanaNSFActiva
 from .websockets.ApiWS import administrador
 
-async def resolver_ventana(
+async def gestionar_fin_ventana(
     ventana: VentanaNSFActiva,
     ventanas_dict: Dict[int, VentanaNSFActiva]
 ):
