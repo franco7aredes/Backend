@@ -11,6 +11,7 @@ def servicio_mock_override():
     class ServicioMock:
         def __init__(self):
             self.next_exception = None
+            self.asesino_id = 99  # valor por defecto para el endpoint
 
         async def aplicar_efectos_set(self, partida_id, jugador_id, set_id, secreto_id):
             if self.next_exception:
@@ -29,6 +30,12 @@ def servicio_mock_override():
                     self.secreto_afectado = Secreto()
                     self.posicion_secreto = 1
             return Resultado()
+
+        async def obtener_asesino(self, partida_id):
+            class R:
+                def __init__(self, asesino):
+                    self.asesino = asesino
+            return R(self.asesino_id)
 
     inst = ServicioMock()
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: inst
@@ -143,3 +150,40 @@ async def test_aplicar_efecto_set_broadcast_falla_en_desgracia_no_rompe(async_cl
     assert resp.status_code == 200
     data = resp.json()
     assert data["mensaje"] == "Efecto del set aplicado correctamente"
+
+@pytest.mark.asyncio
+async def test_aplicar_efecto_set_fin_por_desgracia_200_y_broadcast(async_client, servicio_mock_override, difundir_mock):
+    # el servicio lanzará la excepción de fin global
+    servicio_mock_override.next_exception = FinPorDesgraciaSocial()
+    servicio_mock_override.asesino_id = 42
+    body = {"jugador_id": 10, "secreto_id": 7}
+
+    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mensaje"] == "La partida finaliza por desgracia social."
+    assert data["asesinoId"] == 42
+
+    # Se notifica una sola vez a la partida con el evento fin_por_desgracia_social
+    difundir_mock.assert_awaited_once()
+    # Validar payload mínimo del broadcast
+    args, kwargs = difundir_mock.await_args
+    assert args[0] == 1  # partida_id
+    payload = args[1]
+    assert payload["evento"] == "fin_por_desgracia_social"
+    assert payload["asesinoId"] == 42
+
+@pytest.mark.asyncio
+async def test_aplicar_efecto_set_fin_por_desgracia_broadcast_falla_no_rompe(async_client, servicio_mock_override, monkeypatch):
+    servicio_mock_override.next_exception = FinPorDesgraciaSocial()
+    servicio_mock_override.asesino_id = 7
+    boom = AsyncMock(side_effect=Exception("ws ex"))
+    # forzamos fallo del broadcast del fin por desgracia social
+    monkeypatch.setattr(rsets.administrador, "difundir_a_partida", boom)
+
+    body = {"jugador_id": 10, "secreto_id": 7}
+    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mensaje"] == "La partida finaliza por desgracia social."
+    assert data["asesinoId"] == 7

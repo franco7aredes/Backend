@@ -143,3 +143,20 @@ async def notificar_efecto_set_aplicado(
         await admin.difundir_a_partida(partida_id, payload)
     except Exception:
         pass
+
+async def notificar_fin_por_desgracia_social_detalle(
+    admin,
+    partida_id: int,
+    asesino_id: int
+) -> None:
+    try:
+        await admin.difundir_a_partida(
+            partida_id,
+            {
+                "evento": "fin_por_desgracia_social",
+                "partida_id": partida_id,
+                "asesinoId": asesino_id,
+            }
+        )
+    except Exception:
+        pass

@@ -2819,3 +2819,128 @@ async def test_preparar_evento_and_then_there_was_one_more_excepcion_sin_set_id_
     assert getattr(e.secreto_afectado, "id_secreto", None) == secreto_id
     # Confirmamos ausencia de set_id
     assert not hasattr(e, "set_id") or getattr(e, "set_id", None) is None
+
+@pytest.mark.asyncio 
+async def test_revelar_secreto_fin_por_desgracia_social():
+    """Al revelar el último secreto oculto y el repo indica fin global -> FinPorDesgraciaSocial."""
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=50))
+    secreto = crear_secreto(id_secreto=3, id_partida=50, id_jugador=7, estado=EstadoSecreto.oculto)
+    lista_secretos = [secreto]
+    jugador = crear_jugador(id_jugador=7, id_partida=50, secretos=lista_secretos)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=lista_secretos)
+    repo_s.verificar_fin_de_desgracia_social = AsyncMock(return_value=True)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    with pytest.raises(FinPorDesgraciaSocial):
+        await servicio.revelar_secreto(50, 7, 3)
+    repo_s.verificar_fin_de_desgracia_social.assert_awaited_once_with(50)
+
+
+@pytest.mark.asyncio
+async def test_revelar_secreto_entrando_en_desgracia_sin_fin_global():
+    """Último secreto oculto revela -> JugadorEnDesgraciaSocial si fin global False."""
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=51))
+    secreto = crear_secreto(id_secreto=5, id_partida=51, id_jugador=8, estado=EstadoSecreto.oculto)
+    lista_secretos = [secreto]
+    jugador = crear_jugador(id_jugador=8, id_partida=51, secretos=lista_secretos)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=lista_secretos)
+    repo_s.verificar_fin_de_desgracia_social = AsyncMock(return_value=False)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    with pytest.raises(JugadorEnDesgraciaSocial):
+        await servicio.revelar_secreto(51, 8, 5)
+    repo_s.verificar_fin_de_desgracia_social.assert_awaited_once_with(51)
+
+
+@pytest.mark.asyncio
+async def test_verificar_fin_por_desgracia_social_finaliza():
+    """Todos los inocentes en desgracia -> retorna asesino y finaliza partida."""
+    partida_id = 70
+    asesino_id = 10
+    repo_partidas = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=70, estado=EstadoPartida.en_juego))
+    repo_jugadores = crear_repo_jugador_mock(
+        listar_por_partida_return=[
+            crear_jugador(id_jugador=asesino_id, id_partida=70),
+            crear_jugador(id_jugador=20, id_partida=70),
+            crear_jugador(id_jugador=30, id_partida=70),
+        ]
+    )
+    # asesino + secretos inocentes todos revelados
+    secreto_asesino = crear_secreto(id_secreto=1, id_partida=70, id_jugador=asesino_id, estado=EstadoSecreto.oculto, tipo=TipoSecreto.asesino)
+    secretos_20 = [
+        crear_secreto(id_secreto=2, id_partida=70, id_jugador=20, estado=EstadoSecreto.revelado),
+        crear_secreto(id_secreto=3, id_partida=70, id_jugador=20, estado=EstadoSecreto.revelado),
+    ]
+    secretos_30 = [
+        crear_secreto(id_secreto=4, id_partida=70, id_jugador=30, estado=EstadoSecreto.revelado),
+    ]
+
+    repo_secretos = crear_repo_secreto_mock(
+        obtener_secreto_asesino_return=secreto_asesino
+    )
+    async def _obtener_secretos_side_effect(pid, jid):
+        if jid == 20:
+            return secretos_20
+        if jid == 30:
+            return secretos_30
+        return []  # asesino u otros (no se usan en la lógica)
+    repo_secretos.obtener_secretos.side_effect = _obtener_secretos_side_effect
+
+    servicio = ServicioJuego(partidas=repo_partidas, jugadores=repo_jugadores, secretos=repo_secretos)
+    ganador = await servicio.verificar_fin_por_desgracia_social(partida_id)
+    assert ganador == asesino_id
+    assert repo_partidas.obtener.return_value.estado == EstadoPartida.Finalizada
+    repo_partidas.guardar.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_verificar_fin_por_desgracia_social_no_finaliza_si_inocente_no_revelado():
+    partida_id = 71
+    asesino_id = 11
+    repo_partidas = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=71, estado=EstadoPartida.en_juego))
+    repo_jugadores = crear_repo_jugador_mock(
+        listar_por_partida_return=[
+            crear_jugador(id_jugador=asesino_id, id_partida=71),
+            crear_jugador(id_jugador=22, id_partida=71),
+        ]
+    )
+    secreto_asesino = crear_secreto(id_secreto=1, id_partida=71, id_jugador=asesino_id, estado=EstadoSecreto.oculto, tipo=TipoSecreto.asesino)
+    secretos_22 = [
+        crear_secreto(id_secreto=2, id_partida=71, id_jugador=22, estado=EstadoSecreto.revelado),
+        crear_secreto(id_secreto=3, id_partida=71, id_jugador=22, estado=EstadoSecreto.oculto),
+    ]
+    repo_secretos = crear_repo_secreto_mock(obtener_secreto_asesino_return=secreto_asesino)
+    async def _obtener_secretos_side_effect(pid, jid):
+        if jid == 22:
+            return secretos_22
+        return []
+    repo_secretos.obtener_secretos.side_effect = _obtener_secretos_side_effect
+
+    servicio = ServicioJuego(partidas=repo_partidas, jugadores=repo_jugadores, secretos=repo_secretos)
+    ganador = await servicio.verificar_fin_por_desgracia_social(partida_id)
+    assert ganador is None
+    assert repo_partidas.obtener.return_value.estado == EstadoPartida.en_juego
+    repo_partidas.guardar.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_revelar_secreto_no_llama_fin_global_si_no_entra_en_desgracia():
+    """Si el jugador aún no queda con todos revelados, no consulta verificar_fin_de_desgracia_social."""
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=80))
+    # jugador con 2 secretos: uno oculto (el que se revela) y otro ya revelado -> después ambos revelados -> entra en desgracia (sí llama)
+    # Ajustamos para que NO entre en desgracia: deja otro oculto
+    sec_obj = crear_secreto(id_secreto=5, id_partida=80, id_jugador=9, estado=EstadoSecreto.oculto)
+    sec_otro = crear_secreto(id_secreto=6, id_partida=80, id_jugador=9, estado=EstadoSecreto.oculto)
+    lista_secretos = [sec_obj, sec_otro]
+    jugador = crear_jugador(id_jugador=9, id_partida=80, secretos=lista_secretos)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=lista_secretos)
+    repo_s.verificar_fin_de_desgracia_social = AsyncMock(return_value=False)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
+    # Revelar sec_obj no deja todos revelados (sec_otro sigue oculto) -> no debe entrar en desgracia social
+    res = await servicio.revelar_secreto(80, 9, 5)
+    assert isinstance(res, RevelarSecretoResultado)
+    repo_s.verificar_fin_de_desgracia_social.assert_not_awaited()
