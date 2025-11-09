@@ -282,6 +282,7 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
         "asesino_ganador": resultado.asesino_ganador if resultado.asesino_ganador is not None else None,
         "set_robado": resultado.set_robado.id_set if resultado.set_robado else None,
         "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None,
+        "jugador_que_recibe_secreto": resultado.jugador_que_recibe_secreto if resultado.jugador_que_recibe_secreto is not None else None,
         "tipo_evento": resultado.tipo_evento
     }
     try:
@@ -300,5 +301,6 @@ async def jugar_evento(partida_id: int, datos: JugarEventoDTO, service: Servicio
         "carta_evento_descartada": resultado.carta_evento_descartada.id_carta if resultado.carta_evento_descartada else None,
         "asesino_ganador": resultado.asesino_ganador if resultado.asesino_ganador is not None else None,
         "set_robado": resultado.set_robado.id_set if resultado.set_robado else None,
-        "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None
+        "secreto_oculto": resultado.secreto_oculto.id_secreto if resultado.secreto_oculto else None,
+        "jugador_que_recibe_secreto": resultado.jugador_que_recibe_secreto if resultado.jugador_que_recibe_secreto is not None else None
     }

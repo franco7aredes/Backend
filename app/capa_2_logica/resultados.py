@@ -137,7 +137,7 @@ class EventoResultado:
     cartas_agregadas: Optional[List[CartaModelo]] = None
     set_robado: Optional[SetModelo] = None
     secreto_oculto: Optional[SecretoDB] = None
-    jugador_que_recibe_secreto: Optional[int] = None  # ← nuevo campo
+    jugador_que_recibe_secreto: Optional[int] = None 
     mensaje: Optional[str] = None 
     fin_de_mazo: Optional[bool] = None
     carta_evento_descartada: Optional[CartaModelo] = None
