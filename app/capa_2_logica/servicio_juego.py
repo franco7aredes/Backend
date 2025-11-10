@@ -939,7 +939,7 @@ class ServicioJuego:
 
         secreto.estado = EstadoSecreto.revelado
         # Ahora actualizo la base de datos
-        self.secretos.guardar(secreto)
+        await self.secretos.guardar(secreto)
 
         # ahora, manejo el caso en que se revela el asesino
         if secreto.tipo == TipoSecreto.asesino:
@@ -989,7 +989,7 @@ class ServicioJuego:
         secreto.id_jugador = jugador_id
 
         # Ahora actualizo la base de datos
-        self.secretos.guardar(secreto)
+        await self.secretos.guardar(secreto)
 
         posterior_en_desgracia = getattr(jugador, "en_desgracia_social", False)
         # Si estaba en desgracia y ahora ya no (tiene oculto) -> sale
@@ -1058,7 +1058,7 @@ class ServicioJuego:
         
         secreto.estado = EstadoSecreto.oculto
         # Ahora actualizo la base de datos
-        self.secretos.guardar(secreto)
+        await self.secretos.guardar(secreto)
 
         posterior_en_desgracia = getattr(jugador, "en_desgracia_social", False)
         if previo_en_desgracia and (not posterior_en_desgracia):

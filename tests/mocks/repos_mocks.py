@@ -142,6 +142,7 @@ def crear_repo_secreto_mock(
     contar_secretos_jugador_return: Any | None = None,
     obtener_secretos_revelados_return: Any | None = None,
     obtener_secreto_revelado_return: Any | None = None,
+    guardar_return: Any | None = None,
 ) -> MagicMock:
     repo = MagicMock()
     repo.db = object()
@@ -152,6 +153,7 @@ def crear_repo_secreto_mock(
     repo.contar_secretos_jugador = _async_method(contar_secretos_jugador_return)
     repo.obtener_secretos_revelados = _async_method(obtener_secretos_revelados_return)
     repo.obtener_secreto_revelado = _async_method(obtener_secreto_revelado_return)
+    repo.guardar = _async_method(guardar_return)
     return repo
 
 def crear_repo_set_mock(
@@ -250,7 +252,6 @@ def crear_jugador(
             self.id_partida = id_partida
             self.nombre = nombre
             self.fecha_nacimiento = fecha_nacimiento
-            # flag opcional (si quisieras persistir), pero la lógica usa la property
             self._flag_desgracia = en_desgracia_social
             self.secretos = secretos
 
