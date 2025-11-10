@@ -108,3 +108,18 @@ async def test_guardar_ok(db, secreto_valido):
     await repo.guardar(secreto_valido)
     db.add.assert_called()
     db.flush.assert_awaited()
+
+@pytest.mark.asyncio
+async def test_obtener_secreto_ok(db, secreto_valido):
+    db.execute.return_value.scalar_one_or_none = lambda: secreto_valido
+    repo = RepositorioSecretoSQLAlchemy(db)
+    res = await repo.obtener_secreto(partida_id=2, jugador_id=3, secreto_id=1)
+    assert res == secreto_valido
+
+@pytest.mark.asyncio
+async def test_obtener_secreto_revelado_ok(db, secreto_valido_revelado):
+    db.execute.return_value.scalar_one_or_none = lambda: secreto_valido_revelado
+    repo = RepositorioSecretoSQLAlchemy(db)
+    res = await repo.obtener_secreto_revelado(partida_id=2, jugador_id=3, secreto_id=1)
+    assert res == secreto_valido_revelado
+    assert res.estado == EstadoSecreto.revelado
