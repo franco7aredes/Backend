@@ -6,11 +6,13 @@ from app.capa_3_api.utilidades_asincronas import _notificar_asesino_revelado
 
 @pytest.mark.asyncio
 async def test_notificar_asesino_revelado(monkeypatch):
-    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", AsyncMock())
+    mock_difundir = AsyncMock()
+    monkeypatch.setattr(wsmod.administrador, "difundir_a_partida", mock_difundir)
+
     await _notificar_asesino_revelado(1)
 
     # veo si se hizo la difusion
-    wsmod.administrador.difundir_a_partida.assert_any_call(
+    mock_difundir.assert_called_once_with(
         1,
         {"evento": "asesino revelado"}
         )
