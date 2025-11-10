@@ -60,7 +60,7 @@ async def activar_nsf(
         return Response(status_code=204)
     
     # esto devuelve la ventana
-    res = await activar_ventana_nsf(datos.tipo_accion, datos.id_jugador, partida_id, _VENTANAS, payload)
+    res = await activar_ventana_nsf(datos.tipo_accion, datos.id_jugador, partida_id, _VENTANAS, datos.payload)
 
     # Difundo a los jugadores
     try:
@@ -78,7 +78,7 @@ async def activar_nsf(
     except Exception:
         pass  #No fallar si falla la difusion
     
-    return ActivarNSFRespuesta(window_id=ventana_id, deadline_ms=tiempo)
+    return ActivarNSFRespuesta(window_id=res.ventana_id, deadline_ms=res.tiempo_ms)
 
 @nsf_router.post(
     "/partidas/{partida_id}/nsf/jugar",

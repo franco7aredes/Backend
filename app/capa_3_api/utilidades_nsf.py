@@ -1,7 +1,7 @@
 import asyncio
 import time
 from typing import Dict, Any
-from .nsf_tipos import VentanaNSFActiva
+from .nsf_tipos import VentanaNSFActiva, tiempo_en_ms
 from .websockets.ApiWS import administrador
 
 async def gestionar_fin_ventana(
