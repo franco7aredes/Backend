@@ -57,6 +57,12 @@ class CreadorNoPuedeAbandonarPartida(Exception):
 class SetNoCorrespondeAlJugadorSeleccionado(Exception):
     pass
 
+class CartaNoEsEvento(Exception):
+    pass
+
+class EventoNoImplementado(Exception):
+  pass
+
 class NoPuedeAplicarseEfectosAsiMismo(Exception):
     pass
 
@@ -64,6 +70,12 @@ class PosicionSecretoNoProporcionada(Exception):
     pass
 
 class SetNoSoportaSeleccionDeJugador(Exception):
+    pass
+
+class JugadorEnDesgraciaSocial(Exception):
+    pass
+
+class JugadorSaleDeDesgraciaSocial(Exception):
     pass
 
 class CartaNoEncontrada(Exception):
@@ -77,3 +89,4 @@ class CartaNoCompatibleConSet(Exception):
 
 class TipoCartaNoCompatibleConSet(Exception):
     pass
+

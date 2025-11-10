@@ -33,6 +33,7 @@ class Carta(Base):
     tipo = Column(Enum(TipoCarta), nullable=False)
     # esto es dato interno, nunca se debe pasar al front
     orden_en_descarte = Column(Integer, nullable=True)
+    orden_en_mazo = Column(Integer, nullable=True)
 
     __table_args__ = (
         # Clave Foránea Compuesta: (id_set, id_partida) referencias sets(id_set, id_partida)

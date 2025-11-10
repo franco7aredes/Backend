@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 # Enums y modelos (solo para tipos/valores por defecto)
 try:
     from app.capa_0_definicion_bd.models.partidas_modelos import EstadoPartida
-    from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, Tiposecreto
+    from app.capa_0_definicion_bd.models.secretos_modelos import SecretoDB, EstadoSecreto, TipoSecreto
     from app.capa_0_definicion_bd.models.cartas_modelos import Carta as CartaModelo, PosicionCarta
     from app.capa_0_definicion_bd.models.sets_modelos import Set as SetModelo
 except Exception:  # pragma: no cover - los tests pueden no necesitar estos imports
@@ -104,6 +104,8 @@ def crear_repo_carta_mock(
     obtener_cantidad_descartadas_return: Any | None = None,
     obtener_primeras_de_descarte_return: Any | None = None,
     obtener_carta_return: Any | None = None,
+    obtener_primeras_de_mazo_return: Any | None = None,
+    obtener_carta_id_return: Any | None = None,
 ) -> MagicMock:
     
     repo = MagicMock()
@@ -126,6 +128,8 @@ def crear_repo_carta_mock(
     )
     repo.obtener_carta = _async_method(obtener_carta_return)
     repo.guardar = _async_method()
+    repo.obtener_primeras_de_mazo = _async_method(obtener_primeras_de_mazo_return if obtener_primeras_de_mazo_return is not None else [])
+    repo.obtener_carta_id = _async_method(obtener_carta_id_return)
     return repo
 
     
@@ -228,19 +232,35 @@ def crear_partida_finalizada(*, id_partida: int = 1) -> Any:
     )()
 
 
-def crear_jugador(*, id_jugador: int = 1, orden_turno: Optional[int] = 1, id_partida: int = 1, nombre: str = "Jugador", fecha_nacimiento: Optional[Any] = None) -> Any:
-    return type(
-        "JugadorDummy",
-        (),
-        {
-            "id_jugador": id_jugador,
-            "orden_turno": orden_turno,
-            "id_partida": id_partida,
-            "nombre": nombre,
-            "fecha_nacimiento": fecha_nacimiento
-        },
-    )()
+def crear_jugador(
+    *,
+    id_jugador: int = 1,
+    orden_turno: Optional[int] = 1,
+    id_partida: int = 1,
+    nombre: str = "Jugador",
+    fecha_nacimiento: Optional[Any] = None,
+    en_desgracia_social: bool = False,
+    secretos: Optional[list] = None
+) -> Any:
+    secretos = secretos or []
+    class JugadorDummy:
+        def __init__(self):
+            self.id_jugador = id_jugador
+            self.orden_turno = orden_turno
+            self.id_partida = id_partida
+            self.nombre = nombre
+            self.fecha_nacimiento = fecha_nacimiento
+            # flag opcional (si quisieras persistir), pero la lógica usa la property
+            self._flag_desgracia = en_desgracia_social
+            self.secretos = secretos
 
+        @property
+        def en_desgracia_social(self) -> bool:
+            if not self.secretos:
+                return False
+            return all(getattr(s, "estado", None) == EstadoSecreto.revelado for s in self.secretos)
+
+    return JugadorDummy()
 
 def crear_carta(
     *, id_carta: int = 1, id_partida: int = 1, id_jugador: Optional[int] = None, posicion: Any | None = None, orden_en_descarte: Optional[int] = None

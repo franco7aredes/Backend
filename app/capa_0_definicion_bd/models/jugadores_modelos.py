@@ -1,6 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Date
 from app.capa_0_definicion_bd.base_datos_sqlalchemy import Base
 from sqlalchemy.orm import relationship
+from app.capa_0_definicion_bd.models.secretos_modelos import EstadoSecreto
 
 
 class Jugador(Base):
@@ -17,6 +18,23 @@ class Jugador(Base):
 
     cartas = relationship("Carta", back_populates="jugador")
 
-    secretos = relationship("SecretoDB", back_populates="jugador")
+    secretos = relationship("SecretoDB", back_populates="jugador", lazy="selectin")
 
     sets = relationship("Set", back_populates="jugador")
+
+    @property
+    def en_desgracia_social(self) -> bool:
+        """
+        True si TODOS sus secretos están revelados.
+        False si tiene 0 secretos o al menos uno está oculto.
+        """
+
+        secretos = getattr(self, "secretos", None) or []
+        if not secretos:
+            return False  # inicio de partida o sin secretos -> no en desgracia
+
+        if EstadoSecreto is None:
+            # considerar revelado si atributo 'estado' == 'revelado' y consideracion para tests
+            return all(getattr(s, "estado", None) in (getattr(s, "REVELADO", "revelado"), "revelado") for s in secretos)
+
+        return all(getattr(s, "estado", None) == EstadoSecreto.revelado for s in secretos)
