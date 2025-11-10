@@ -2808,14 +2808,13 @@ async def test_preparar_evento_and_then_there_was_one_more_contexto_excepcion():
     secreto_existente = crear_secreto(id_secreto=secreto_id, id_partida=partida_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
     repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_existente])
     carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.nombre = "And Then There Was One More..."
     carta_evento.tipo = TipoCarta.event
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
 
-    # Simular que al ocultar se dispara desgracia social (jugador entra o sale)
-    servicio.ocultar_secreto = AsyncMock(side_effect=JugadorSaleDeDesgraciaSocial())
+    servicio.robar_secreto = AsyncMock(side_effect=JugadorSaleDeDesgraciaSocial())
 
     with pytest.raises(JugadorSaleDeDesgraciaSocial) as exc:
         await servicio.preparar_evento(
@@ -2885,12 +2884,12 @@ async def test_preparar_evento_and_then_there_was_one_more_excepcion_sin_set_id_
     secreto_existente = crear_secreto(id_secreto=secreto_id, id_partida=partida_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
     repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_existente])
     carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.nombre = "And Then There Was One More..."
     carta_evento.tipo = TipoCarta.event
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
-    servicio.ocultar_secreto = AsyncMock(side_effect=JugadorEnDesgraciaSocial())
+    servicio.robar_secreto = AsyncMock(side_effect=JugadorEnDesgraciaSocial())
 
     with pytest.raises(JugadorEnDesgraciaSocial) as exc:
         await servicio.preparar_evento(
