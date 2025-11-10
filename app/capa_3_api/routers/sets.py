@@ -98,8 +98,11 @@ async def seleccionar_destino(
     jugador_id = datos.id_jugador
     id_seleccionado = datos.id_seleccionado
     posicion_secreto = datos.posicion_secreto
+    set_nombre = None
     try:
         await service.verificar_seleccionar_jugador_set(partida_id, jugador_id, set_id, id_seleccionado, posicion_secreto)
+        set_info = await service.obtener_nombre_set(set_id)
+        set_nombre = set_info.nombre 
     except PartidaNoEncontrada:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
     except JugadorNoEncontrado:
@@ -133,7 +136,8 @@ async def seleccionar_destino(
                 "set_id": set_id,
                 "jugador_id": jugador_id,
                 "id_seleccionado": id_seleccionado,
-                "secreto_posicion": posicion_secreto
+                "secreto_posicion": posicion_secreto,
+                "set_nombre": set_nombre
             }
         )
     except Exception:
