@@ -61,6 +61,7 @@ class _RepoSecretoProto(Protocol):
     async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]: ...
     async def guardar(self, secreto: SecretoDB) -> None: ...
     async def obtener_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> Optional[SecretoDB]: ...
+    async def obtener_secreto_revelado(self, partida_id: int, jugador_id: int, secreto_id: int) -> SecretoDB: ...
 
 @runtime_checkable
 class _RepoSetProto(Protocol):
@@ -68,6 +69,7 @@ class _RepoSetProto(Protocol):
     async def obtener_set_por_id(self, set_id: int) -> Optional[SetModelo]: ...
     async def guardar_set(self, set: SetModelo) -> None: ...
     async def obtener_cartas_del_set(self, set_id: int) -> List[CartaModelo]: ...
+
 
 class ServicioJuego:
     """Servicio de reglas de negocio del juego.
@@ -926,13 +928,8 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
         
-        secretos = await self.secretos.obtener_secretos(partida_id, jugador_id)
-        secreto = None
-        for s in secretos:
-            if getattr(s, "id_secreto", None) == secreto_id:
-                secreto = s
-                break
-        if secreto is None:
+        secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+        if not secreto:
             raise SecretoNoEncontrado()
         
         if getattr(secreto, "estado", None) != EstadoSecreto.oculto:
@@ -966,7 +963,7 @@ class ServicioJuego:
         return RevelarSecretoResultado(secreto=secreto)
 
 
-    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> None:
+    async def robar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> RobarSecretoResultado:
 
         jugador = await self.jugadores.obtener(jugador_id)
         if not jugador:
@@ -979,13 +976,8 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
-        secretos = await self.secretos.obtener_secretos_revelados(partida_id)
-        secreto = None
-        for s in secretos:
-            if getattr(s, "id_secreto", None) == secreto_id:
-                secreto = s
-                break
-        if secreto is None:
+        secreto = await self.secretos.obtener_secreto_revelado(partida_id, jugador_id, secreto_id)
+        if not secreto:
             raise SecretoNoEncontrado()
         
         if getattr(secreto, "estado", None) != EstadoSecreto.revelado:
@@ -1003,6 +995,8 @@ class ServicioJuego:
         # Si estaba en desgracia y ahora ya no (tiene oculto) -> sale
         if previo_en_desgracia and (not posterior_en_desgracia):
             raise JugadorSaleDeDesgraciaSocial()
+        
+        return RevelarSecretoResultado(secreto=secreto)
     
     async def abandonar_partida(self, partida_id: int, jugador_id: int) -> AbandonarPartidaResultado:
         """Permite a un jugador abandonar la partida."""
@@ -1247,7 +1241,7 @@ class ServicioJuego:
                         jugador_id=jugador_objetivo_id,
                     )
                 if not secreto:
-                    return EventoResultado(tipo_evento="And Then There Was One More", mensaje="No se pudo ocultar el secreto")
+                    return EventoResultado(tipo_evento="And Then There Was One More...", mensaje="No se pudo ocultar el secreto")
                 
                 descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
                 return EventoResultado(
@@ -1367,6 +1361,7 @@ class ServicioJuego:
     async def aplicar_efectos_set(self, partida_id: int, jugador_id: int, set_id: int, secreto_id: int) -> AplicarEfectoSetResultado:
         """ Aplica los efectos del set jugado por otro jugador.
         jugador_id es a quien se le aplican los efectos."""
+
         partida = await self.partidas.obtener(partida_id)
         if not partida:
             raise PartidaNoEncontrada()
@@ -1374,23 +1369,33 @@ class ServicioJuego:
         set_a_aplicar = await self.sets.obtener_set_por_id(set_id)
         if not set_a_aplicar:
             raise SetNoEncontrado()
+
         if getattr(set_a_aplicar, "id_partida", None) != partida_id:
             raise SetNoEnPartida()
 
         jugador = await self.jugadores.obtener(jugador_id)
         if not jugador:
             raise JugadorNoEncontrado()
+
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
-        # Resolver secreto y posición con helper
-        secreto, posicion_en_lista = await self._obtener_secreto_y_posicion(partida_id, jugador_id, secreto_id)
+        # Calcular posición del secreto
+        secretos_ordenados = await self.secretos.obtener_secretos(partida_id, jugador_id)
+        posicion_en_lista = -1
+        for indice, s in enumerate(secretos_ordenados):
+            if getattr(s, "id_secreto", None) == secreto_id:
+                posicion_en_lista = indice
+                break
+        if posicion_en_lista == -1:
+            raise SecretoNoEncontrado()
 
+        secreto = None
         match set_a_aplicar.nombre:
             case "Hercule Poirot" | "Miss Marple":
                 try:
                     res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
-                except (AsesinoRevelado, FinPorDesgraciaSocial, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                except (AsesinoRevelado, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
                     raise self._adjuntar_ctx_desgracia(e, secreto=secreto, posicion=posicion_en_lista,
                                                        partida_id=partida_id, jugador_id=jugador_id, set_id=set_id)
                 if not res:
@@ -1399,68 +1404,210 @@ class ServicioJuego:
             case "Mr Satterthwaite":
                 try:
                     res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
-                except (AsesinoRevelado, FinPorDesgraciaSocial, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                except (AsesinoRevelado, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
                     raise self._adjuntar_ctx_desgracia(e, secreto=secreto, posicion=posicion_en_lista,
                                                        partida_id=partida_id, jugador_id=jugador_id, set_id=set_id)
                 if not res:
                     raise SecretoNoDisponible()
+
                 cartas_del_set = await self.sets.obtener_cartas_del_set(set_id) or []
                 tiene_wildcard = any(getattr(c, "nombre", "") == "Harley Quin Wildcard" for c in cartas_del_set)
+
                 if tiene_wildcard:
-                    try:
-                        res = await self.robar_secreto(partida_id, getattr(set_a_aplicar, "id_jugador", 0), secreto_id)
-                    except (JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
-                        raise self._adjuntar_ctx_desgracia(e, secreto=secreto, posicion=posicion_en_lista,
-                                                           partida_id=partida_id, jugador_id=jugador_id, set_id=set_id)
+                    res = await self.robar_secreto(partida_id, getattr(set_a_aplicar, "id_jugador", 0), secreto_id)
                     if not res:
                         raise SecretoNoDisponible()
 
             case "Parker Pyne":
-                try:
-                    res = await self.ocultar_secreto(partida_id, jugador_id, secreto_id)
-                except (JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
-                    raise self._adjuntar_ctx_desgracia(e, secreto=secreto, posicion=posicion_en_lista,
-                                                       partida_id=partida_id, jugador_id=jugador_id, set_id=set_id)
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
+                    raise SecretoNoEncontrado()
+                res = await self.ocultar_secreto(partida_id, jugador_id, secreto_id)
                 if not res:
                     raise SecretoNoDisponible()
 
             case "Lady Eileen \"Bundle\" Brent" | "Beresford":
                 try:
                     res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
-                except (AsesinoRevelado, FinPorDesgraciaSocial, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                except (AsesinoRevelado, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
                     raise self._adjuntar_ctx_desgracia(e, secreto=secreto, posicion=posicion_en_lista,
                                                        partida_id=partida_id, jugador_id=jugador_id, set_id=set_id)
+            case "Lady Eileen \"Bundle\" Brent":
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
+                    raise SecretoNoEncontrado()
+                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
                 if not res:
                     raise SecretoNoDisponible()
 
+            case "Beresford":
+                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+                if not secreto:
+                    raise SecretoNoEncontrado()
+                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                if not res:
+                    raise SecretoNoDisponible()
+        if not secreto:
+            raise SecretoNoEncontrado()
+
         return AplicarEfectoSetResultado(secreto_afectado=secreto, posicion_secreto=posicion_en_lista)
 
-    async def verificar_fin_por_desgracia_social(self, partida_id: int) -> Optional[int]:
-        """Si todos los inocentes (no asesino ni cómplice) están en desgracia social:
-        - cambia la partida a Finalizada
-        - retorna el id del asesino
-        Caso contrario retorna None.
+    async def permite_nsf(
+        self,
+        partida_id:int,
+        tipo_accion: str,
+        payload: Dict[str, Any],
+        id_jugador_accion: int
+    ) -> bool:
         """
+        Verifica si una accion es cancelable, incluyendo las reglas complejas.
+        Devuelve Falso si NO es cancelable.
+        """
+
+        # regla Beresford
+        if tipo_accion == "jugar_set":
+            cartas_ids = list(map(int, (payload.get("cartas_id") or [])))
+            # usamos el id del jugador si no viene en el payload
+            jugador_id = int(payload.get("id_jugador", id_jugador_accion))
+            try:
+                res = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
+                nombres = {cast(Any, c).nombre.lower(): cast(Any,c).id_carta for c in res if cast(Any,c).id_carta in cartas_ids}
+                if len(nombres) == len(cartas_ids) and {"tommy beresford", "tuppence beresford"}.issubset(set(nombres.keys())) and len(cartas_ids) == 2:
+                    return False
+            except Exception:
+                    pass
+                
+        # si no es, lo paso por la ruta simple
+        return await self._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+    
+    async def _regla_nsf_es_cancelable_tipo(self, tipo_accion: str, payload: Dict[str, Any], partida_id: int) -> bool:
+        """
+        Define si una accion es cancelable por su tipo
+        """
+        if tipo_accion == "jugar_evento":
+            nombre = str(payload.get("nombre", "")).lower()
+            if "cards off the table" in nombre:
+                return False
+            return True
+        
+        if tipo_accion == "jugar_set":
+            return True
+        if tipo_accion == "agregar_a_set":
+        # Aca, el payload tiene id_jugador, set_id, carta_id
+        # necesito ver el caso particular Beresford
+            id_jugador = payload.get("id_jugador")
+            id_de_carta = payload.get("carta_id")
+        # todos los chequeos importantes se hacen en otras funciones, acá no puedo perder mucho tiempo
+            carta_involucrada = await self.cartas.obtener_carta(partida_id, id_jugador, id_de_carta)
+            beresford = {"tommy beresford", "tuppence beresford"}
+            nombre_carta = carta_involucrada.nombre.lower()
+
+            if nombre_carta not in beresford:
+                return True
+            
+            set_involucrado_id = payload.get("set_id")
+            set_jugador = await self.sets.obtener_cartas_del_set(set_involucrado_id)
+            nombres_en_set = {carta.nombre.lower() for carta in set_jugador}
+            tiene_tommy = "tommy beresford" in nombres_en_set
+            tiene_tuppence = "tuppence beresford" in nombres_en_set
+            if tiene_tommy and tiene_tuppence:
+               return False
+
+            # el caso de si no estan mezclados
+            return True
+
+        if tipo_accion == "jugar_nsf":
+            return True
+        return False
+
+
+
+    async def validar_carta_nsf(self, partida_id: int, jugador_id: int, carta_id: int) -> None:
+        """
+        Esta funcion busca revisar si la carta es nsf y compatible en sus datos.
+        En caso de que no lo sea, va a levantar alguna de las excepciones que tenemos,
+        y va a ser manejado por quien corresponda.
+        """
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if jugador is None:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if partida is None:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        carta = await self.cartas.obtener_carta(partida_id, jugador_id, carta_id)
+        if not carta:
+            raise ValueError("no_hay_tal_carta")
+        
+        if carta.nombre.lower() != "not so fast":
+            raise ValueError("no_es_nsf_pero_intento_actuar_como_nsf")
+
+     
+    async def agregar_carta_a_set_propio(self, partida_id: int, jugador_id: int, carta_id: int, set_id: int) -> JugarSetResultado:
+        """ Permite a un jugador agregar una carta de su mano a un set que ya posee."""
+        
+        jugador = await self.jugadores.obtener(jugador_id)
+        if not jugador:
+            raise JugadorNoEncontrado()
+
         partida = await self.partidas.obtener(partida_id)
         if not partida:
             raise PartidaNoEncontrada()
-        secreto_asesino = await self.secretos.obtener_secreto_asesino(partida_id)
-        if not secreto_asesino:
-            return None
-        asesino_id = getattr(secreto_asesino, "id_jugador", None)
-        jugadores = await self.jugadores.listar_por_partida(partida_id) or []
-        if not jugadores:
-            return None
-        for j in jugadores:
-            jj = cast(Any, j)
-            if jj.id_jugador == asesino_id:
-                continue
-            secretos_jugador = await self.secretos.obtener_secretos(partida_id, jj.id_jugador) or []
-            if any(getattr(s, "tipo", None) == TipoSecreto.complice for s in secretos_jugador):
-                continue
-            if (not secretos_jugador) or (not all(getattr(s, "estado", None) == EstadoSecreto.revelado for s in secretos_jugador)):
-                return None
-        partida.estado = EstadoPartida.Finalizada
-        await self.partidas.guardar(partida)
-        return asesino_id if asesino_id is not None else None
 
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise JugadorNoEnPartida()
+
+        carta = await self.cartas.obtener_carta(partida_id, jugador_id, carta_id)
+        if not carta:
+            raise CartaNoEncontrada()
+
+        if carta.posicion != PosicionCarta.mano:
+            raise CartaNoEnMano()
+
+        set_del_jugador = await self.sets.obtener_set_por_id(set_id)
+        if not set_del_jugador:
+            raise SetNoEncontrado()
+
+        if getattr(set_del_jugador, "id_jugador", None) != jugador_id:
+            raise SetNoCorrespondeAlJugadorSeleccionado()
+
+        if carta.tipo != TipoCarta.detective:
+            raise TipoCartaNoCompatibleConSet()
+
+        # Compatibilidad de carta con el set
+        if carta.nombre != "Adriane Oliver":
+            if getattr(set_del_jugador, "nombre", None) == "Beresford":
+                # El set se llama "Beresford" pero acepta a ambos hermanos
+                permitidas_beresford = {"Tommy Beresford", "Tuppence Beresford"}
+                if carta.nombre not in permitidas_beresford:
+                    raise CartaNoCompatibleConSet()
+            else:
+                # Para el resto de los sets, el nombre de la carta debe coincidir con el del set
+                if carta.nombre != set_del_jugador.nombre:
+                    raise CartaNoCompatibleConSet()
+
+        # Agregar la carta al set
+        carta.posicion = PosicionCarta.set
+        carta.id_set = set_del_jugador.id_set
+        if hasattr(self.cartas, "guardar"):
+            await self.cartas.guardar(carta)
+        return JugarSetResultado(set=set_del_jugador)
+
+
+    async def obtener_nombre_set(self, set_id: int) -> ObtenerNombreSetResultado:
+
+        """Se busca obtener el nombre del set. Se usa despues de 
+        verificar_seleccionar_jugador_set"""
+
+        set = await self.sets.obtener_set_por_id(set_id)
+
+        if set is None:
+            resultado = "Desconocido"
+        else:
+            resultado = set.nombre
+        return ObtenerNombreSetResultado(nombre=resultado)
