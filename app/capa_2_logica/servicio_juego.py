@@ -1241,4 +1241,8 @@ class ServicioJuego:
 
         set = await self.sets.obtener_set_por_id(set_id)
 
-        return ObtenerNombreSetResultado(nombre=set.nombre)
+        if set is None:
+            resultado = "Desconocido"
+        else:
+            resultado = set.nombre
+        return ObtenerNombreSetResultado(nombre=resultado)

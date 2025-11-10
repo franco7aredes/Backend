@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
+from app.capa_2_logica.resultados import ObtenerNombreSetResultado
 import app.capa_3_api.routers.sets as rsets
 
 @pytest.fixture
@@ -16,6 +17,9 @@ def servicio_mock_override():
                 exc = self.next_exception
                 raise exc() if isinstance(exc, type) else exc
             return None
+
+        async def obtener_nombre_set(self, set_id: int):
+            return ObtenerNombreSetResultado(nombre="prueba")
 
     inst = ServicioMock()
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: inst

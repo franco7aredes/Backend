@@ -2109,3 +2109,36 @@ async def test_aplicar_efectos_set_asesino_revelado_burbujea_excepcion():
     with pytest.raises(AsesinoRevelado):
         await s.aplicar_efectos_set(1, 2, 5, 7)
 
+
+
+@pytest.mark.asyncio
+async def test_obtener_nombre_set_bonito():
+    
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Hercule Poirot"))
+
+    s = ServicioJuego(
+    partidas=crear_repo_partida_mock(),
+    jugadores=crear_repo_jugador_mock(),
+    sets=repo_set
+    )
+
+    res = await s.obtener_nombre_set(5)
+
+    assert res.nombre == "Hercule Poirot"
+    s.sets.obtener_set_por_id.assert_called_once_with(5)
+
+@pytest.mark.asyncio
+async def test_obtener_nombre_set_none():
+    
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=None)
+
+    s = ServicioJuego(
+    partidas=crear_repo_partida_mock(),
+    jugadores=crear_repo_jugador_mock(),
+    sets=repo_set
+    )
+
+    res = await s.obtener_nombre_set(5)
+
+    assert res.nombre == "Desconocido"
+    s.sets.obtener_set_por_id.assert_called_once_with(5)
