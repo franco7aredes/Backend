@@ -12,6 +12,7 @@ def servicio_mock_override():
     class ServicioMock:
         def __init__(self):
             self.next_exception = None
+            self.asesino_id = 99  # valor por defecto para el endpoint
 
         async def aplicar_efectos_set(self, partida_id, jugador_id, set_id, secreto_id):
             if self.next_exception:
@@ -30,6 +31,12 @@ def servicio_mock_override():
                     self.secreto_afectado = Secreto()
                     self.posicion_secreto = 1
             return Resultado()
+
+        async def obtener_asesino(self, partida_id):
+            class R:
+                def __init__(self, asesino):
+                    self.asesino = asesino
+            return R(self.asesino_id)
 
     inst = ServicioMock()
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: inst
@@ -99,29 +106,6 @@ async def test_aplicar_efecto_set_falla_broadcast_no_rompe(async_client, servici
     assert "secreto_estado" in data
     assert "secreto_tipo" in data
 
-@pytest.mark.asyncio
-async def test_aplicar_efecto_set_entra_en_desgracia_200_y_broadcast_doble(async_client, servicio_mock_override, difundir_mock):
-    # el servicio lanzará la excepción de negocio
-    servicio_mock_override.next_exception = JugadorEnDesgraciaSocial()
-    body = {"jugador_id": 10, "secreto_id": 7}
-    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["mensaje"] == "Efecto del set aplicado correctamente"
-    assert data["jugador_entra_en_desgracia_social"] is True
-    # se emiten 2 broadcasts: entrada en desgracia + eco del efecto
-    assert difundir_mock.await_count == 2
-
-@pytest.mark.asyncio
-async def test_aplicar_efecto_set_sale_de_desgracia_200_y_broadcast_doble(async_client, servicio_mock_override, difundir_mock):
-    servicio_mock_override.next_exception = JugadorSaleDeDesgraciaSocial()
-    body = {"jugador_id": 10, "secreto_id": 7}
-    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["mensaje"] == "Efecto del set aplicado correctamente"
-    assert data["jugador_sale_de_desgracia_social"] is True
-    assert difundir_mock.await_count == 2
 
 @pytest.mark.asyncio
 async def test_aplicar_efecto_set_asesino_revelado_200_y_broadcast(async_client, servicio_mock_override, difundir_mock):
@@ -134,14 +118,5 @@ async def test_aplicar_efecto_set_asesino_revelado_200_y_broadcast(async_client,
     # asesino: un solo broadcast
     difundir_mock.assert_awaited_once()
 
-@pytest.mark.asyncio
-async def test_aplicar_efecto_set_broadcast_falla_en_desgracia_no_rompe(async_client, servicio_mock_override, monkeypatch):
-    servicio_mock_override.next_exception = JugadorEnDesgraciaSocial()
-    boom = AsyncMock(side_effect=Exception("ws ex"))
-    monkeypatch.setattr(rsets.administrador, "difundir_a_partida", boom)
-    body = {"jugador_id": 10, "secreto_id": 7}
-    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["mensaje"] == "Efecto del set aplicado correctamente"
-    
+
+

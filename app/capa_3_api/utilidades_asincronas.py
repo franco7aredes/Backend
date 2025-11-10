@@ -18,134 +18,145 @@ async def _notificar_asesino_revelado(partida_id: int) -> None:
 async def notificar_asesino_revelado_detalle(
     admin,
     partida_id: int,
-    set_id: int,
     jugador_id: int,
     secreto_id: int,
-    posicion_secreto: Optional[int],
-    secreto_tipo: Optional[str],
+    posicion_secreto: str,
+    secreto_tipo: str,
+    set_id: Optional[int] | None = None,
 ) -> None:
     try:
-        await admin.difundir_a_partida(
-            partida_id,
-            {
-                "evento": "asesino_revelado",
-                "partida_id": partida_id,
-                "set_id": set_id,
-                "jugador_id": jugador_id,
-                "secreto_id": secreto_id,
-                "posicion_secreto": posicion_secreto,
-                "secreto_tipo": secreto_tipo,
-                "mensaje": "Se reveló el asesino. La partida finaliza.",
-            },
-        )
+        payload = {
+            "evento": "asesino_revelado",
+            "partida_id": partida_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion_secreto,
+            "secreto_tipo": secreto_tipo,
+            "mensaje": "Se reveló el asesino. La partida finaliza.",
+        }
+        if set_id is not None:
+            payload["set_id"] = set_id
+        await admin.difundir_a_partida(partida_id, payload)
     except Exception:
         pass
 
 async def notificar_jugador_entra_en_desgracia_detalle(
     admin,
     partida_id: int,
-    set_id: int,
     jugador_id: int,
     secreto_id: int,
-    posicion_secreto: Optional[int],
-    secreto_estado: Optional[str],
-    secreto_tipo: Optional[str],
+    posicion_secreto: str,
+    secreto_estado: str,
+    secreto_tipo: str,
+    set_id: Optional[int] | None = None,
 ) -> None:
-    # evento de entrada en desgracia
     try:
-        await admin.difundir_a_partida(
-            partida_id,
-            {
-                "evento": "jugador_entra_en_desgracia_social",
-                "partida_id": partida_id,
-                "jugador_id": jugador_id,
-                "causa": "revelacion_secreto",
-                "secreto_id": secreto_id,
-                "posicion_secreto": posicion_secreto,
-                "secreto_tipo": secreto_tipo,
-            },
-        )
+        payload1 = {
+            "evento": "jugador_entra_en_desgracia_social",
+            "partida_id": partida_id,
+            "jugador_id": jugador_id,
+            "causa": "revelacion_secreto",
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion_secreto,
+            "secreto_tipo": secreto_tipo,
+        }
+        if set_id is not None:
+            payload1["set_id"] = set_id
+        await admin.difundir_a_partida(partida_id, payload1)
     except Exception:
         pass
-    # eco del efecto aplicado
     try:
-        await admin.difundir_a_partida(
-            partida_id,
-            {
-                "evento": "efecto_set_aplicado",
-                "partida_id": partida_id,
-                "set_id": set_id,
-                "jugador_id": jugador_id,
-                "secreto_id": secreto_id,
-                "posicion_secreto": posicion_secreto,
-                "secreto_estado": secreto_estado,
-                "secreto_tipo": secreto_tipo,
-            },
-        )
+        payload2 = {
+            "evento": "efecto_set_aplicado",
+            "partida_id": partida_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion_secreto,
+            "secreto_estado": secreto_estado,
+            "secreto_tipo": secreto_tipo,
+        }
+        if set_id is not None:
+            payload2["set_id"] = set_id
+        await admin.difundir_a_partida(partida_id, payload2)
     except Exception:
         pass
 
 async def notificar_jugador_sale_de_desgracia_detalle(
     admin,
     partida_id: int,
-    set_id: int,
     jugador_id: int,
     secreto_id: int,
-    posicion_secreto: Optional[int],
-    secreto_estado: Optional[str],
-    secreto_tipo: Optional[str],
+    posicion_secreto: str,
+    secreto_estado: str,
+    secreto_tipo: str,
+    set_id: Optional[int] | None = None,
 ) -> None:
     try:
-        await admin.difundir_a_partida(
-            partida_id,
-            {
-                "evento": "jugador_sale_de_desgracia_social",
-                "partida_id": partida_id,
-                "jugador_id": jugador_id,
-            },
-        )
+        payload1 = {
+            "evento": "jugador_sale_de_desgracia_social",
+            "partida_id": partida_id,
+            "jugador_id": jugador_id,
+        }
+        if set_id is not None:
+            payload1["set_id"] = set_id
+        await admin.difundir_a_partida(partida_id, payload1)
     except Exception:
         pass
     try:
-        await admin.difundir_a_partida(
-            partida_id,
-            {
-                "evento": "efecto_set_aplicado",
-                "partida_id": partida_id,
-                "set_id": set_id,
-                "jugador_id": jugador_id,
-                "secreto_id": secreto_id,
-                "posicion_secreto": posicion_secreto,
-                "secreto_estado": secreto_estado,
-                "secreto_tipo": secreto_tipo,
-            },
-        )
+        payload2 = {
+            "evento": "efecto_set_aplicado",
+            "partida_id": partida_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion_secreto,
+            "secreto_estado": secreto_estado,
+            "secreto_tipo": secreto_tipo,
+        }
+        if set_id is not None:
+            payload2["set_id"] = set_id
+        await admin.difundir_a_partida(partida_id, payload2)
     except Exception:
         pass
 
 async def notificar_efecto_set_aplicado(
     admin,
     partida_id: int,
-    set_id: int,
     jugador_id: int,
     secreto_id: int,
-    posicion_secreto: Optional[int],
-    secreto_estado: Optional[str],
-    secreto_tipo: Optional[str],
+    posicion_secreto: str,
+    secreto_estado: str,
+    secreto_tipo: str,
+    set_id: Optional[int] | None = None,
+) -> None:
+    try:
+        payload = {
+            "evento": "efecto_set_aplicado",
+            "partida_id": partida_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion_secreto,
+            "secreto_estado": secreto_estado,
+            "secreto_tipo": secreto_tipo,
+        }
+        if set_id is not None:
+            payload["set_id"] = set_id
+        await admin.difundir_a_partida(partida_id, payload)
+    except Exception:
+        pass
+
+async def notificar_fin_por_desgracia_social_detalle(
+    admin,
+    partida_id: int,
+    asesino_id: int
 ) -> None:
     try:
         await admin.difundir_a_partida(
             partida_id,
             {
-                "evento": "efecto_set_aplicado",
+                "evento": "fin_por_desgracia_social",
                 "partida_id": partida_id,
-                "set_id": set_id,
-                "jugador_id": jugador_id,
-                "secreto_id": secreto_id,
-                "posicion_secreto": posicion_secreto,
-                "secreto_estado": secreto_estado,
-                "secreto_tipo": secreto_tipo,
-            },
+                "asesinoId": asesino_id,
+            }
         )
     except Exception:
         pass

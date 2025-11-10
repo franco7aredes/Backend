@@ -89,4 +89,3 @@ class CartaNoCompatibleConSet(Exception):
 
 class TipoCartaNoCompatibleConSet(Exception):
     pass
-

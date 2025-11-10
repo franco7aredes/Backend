@@ -203,7 +203,13 @@ async def aplicar_efecto_set(
         posicion_secreto = getattr(e, "posicion_secreto", None)
         secreto_tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
         await notificar_asesino_revelado_detalle(
-            administrador, partida_id, set_id, jugador_id, secreto_id, posicion_secreto, secreto_tipo
+            administrador,
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            secreto_id=secreto_id,
+            posicion_secreto=posicion_secreto,
+            secreto_tipo=secreto_tipo,
+            set_id=set_id,
         )
 
         return {
@@ -220,7 +226,14 @@ async def aplicar_efecto_set(
         secreto_estado = getattr(getattr(secreto, "estado", None), "name", None) if secreto else None
         secreto_tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
         await notificar_jugador_entra_en_desgracia_detalle(
-            administrador, partida_id, set_id, jugador_id, secreto_id, posicion, secreto_estado, secreto_tipo
+            administrador,
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            secreto_id=secreto_id,
+            posicion_secreto=posicion,
+            secreto_estado=secreto_estado,
+            secreto_tipo=secreto_tipo,
+            set_id=set_id,
         )
         return {
             "mensaje": "Efecto del set aplicado correctamente",
@@ -239,7 +252,14 @@ async def aplicar_efecto_set(
         secreto_estado = getattr(getattr(secreto, "estado", None), "name", None) if secreto else None
         secreto_tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
         await notificar_jugador_sale_de_desgracia_detalle(
-            administrador, partida_id, set_id, jugador_id, secreto_id, posicion, secreto_estado, secreto_tipo
+            administrador,
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            secreto_id=secreto_id,
+            posicion_secreto=posicion,
+            secreto_estado=secreto_estado,
+            secreto_tipo=secreto_tipo,
+            set_id=set_id,
         )
         return {
             "mensaje": "Efecto del set aplicado correctamente",
@@ -255,18 +275,16 @@ async def aplicar_efecto_set(
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-    # caso normal: solo eco de efecto aplicado
     await notificar_efecto_set_aplicado(
         administrador,
-        partida_id,
-        set_id,
-        jugador_id,
-        secreto_id,
-        resultado.posicion_secreto,
-        getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
-        getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None),
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        secreto_id=secreto_id,
+        posicion_secreto=resultado.posicion_secreto,
+        secreto_estado=getattr(getattr(resultado.secreto_afectado, "estado", None), "name", None),
+        secreto_tipo=getattr(getattr(resultado.secreto_afectado, "tipo", None), "name", None),
+        set_id=set_id,
     )
-
     return {
         "mensaje": "Efecto del set aplicado correctamente",
         "set_id": set_id,

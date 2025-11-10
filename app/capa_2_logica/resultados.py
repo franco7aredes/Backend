@@ -151,3 +151,4 @@ class AplicarEfectoSetResultado:
 @dataclass(slots=True)
 class ObtenerNombreSetResultado:
     nombre: str
+

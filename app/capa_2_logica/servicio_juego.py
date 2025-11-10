@@ -1162,6 +1162,9 @@ class ServicioJuego:
         if not jugador:
             raise JugadorNoEncontrado()
 
+        if getattr(jugador, "en_desgracia_social", False):
+            raise JugadorEnDesgraciaSocial()
+
         partida = await self.partidas.obtener(partida_id)
         if not partida:
             raise PartidaNoEncontrada()
@@ -1216,12 +1219,26 @@ class ServicioJuego:
                 return EventoResultado(tipo_evento="Look Into The Ashes", cartas_agregadas=[carta_objetivo], mensaje=f"La carta {carta_objetivo.id_carta} fue recuperada del descarte", carta_evento_descartada=descartado.carta)
 
             case "and then there was one more...":
-                secreto = await self.robar_secreto(partida_id, jugador_objetivo_id, secreto_id)
-                if not secreto:
+                try:
+                    robado = await self.robar_secreto(partida_id, jugador_objetivo_id, secreto_id)
+                except (JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                    # Intentar adjuntar contexto si es posible; si no, relanzar tal cual
+                    try:
+                        secreto_ctx, posicion_ctx = await self._obtener_secreto_y_posicion(partida_id, jugador_objetivo_id, secreto_id)
+                        raise self._adjuntar_ctx_desgracia(e, secreto=secreto_ctx, posicion=posicion_ctx, partida_id=partida_id, jugador_id=jugador_objetivo_id)
+                    except Exception:
+                        raise e
+                if not robado:
                     return EventoResultado(tipo_evento="And Then There Was One More...", mensaje="No se pudo ocultar el secreto")
-                
                 descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
-                return EventoResultado(tipo_evento="And Then There Was One More...", secreto_oculto=secreto.secreto , mensaje=f"Se ocultó el secreto {secreto.secreto.id_secreto}", carta_evento_descartada=descartado.carta, jugador_que_recibe_secreto=jugador_objetivo_id)
+                secreto_final = getattr(robado, "secreto", None)
+                return EventoResultado(
+                    tipo_evento="And Then There Was One More...",
+                    secreto_oculto=secreto_final,
+                    mensaje=f"Se ocultó el secreto {getattr(secreto_final,'id_secreto', None)}",
+                    carta_evento_descartada=descartado.carta,
+                    jugador_que_recibe_secreto=jugador_objetivo_id
+                )
 
             case "delay the murderer's espace!":
                 resultado = await self.ver_del_descarte(partida_id, jugador_id)
@@ -1290,20 +1307,26 @@ class ServicioJuego:
                 raise EventoNoImplementado()
 
     async def _obtener_secreto_y_posicion(self, partida_id: int, jugador_id: int, secreto_id: int) -> tuple[SecretoDB, int]:
-        """Resuelve el secreto y su índice dentro del orden del jugador. Lanza SecretoNoEncontrado."""
-        secretos_ordenados = await self.secretos.obtener_secretos(partida_id, jugador_id)
+        """Resuelve el secreto y su índice dentro de los secretos del jugador.
+        Intenta primero obtener la lista completa; si está vacía prueba con revelados.
+        Lanza SecretoNoEncontrado si no puede resolverlo."""
+        secretos_ordenados: list[SecretoDB] = []
+        if hasattr(self.secretos, "obtener_secretos"):
+            try:
+                secretos_ordenados = await self.secretos.obtener_secretos(partida_id, jugador_id)
+            except Exception:
+                secretos_ordenados = []
+        if (not secretos_ordenados) and hasattr(self.secretos, "obtener_secretos_revelados"):
+            try:
+                secretos_ordenados = await self.secretos.obtener_secretos_revelados(partida_id)
+            except Exception:
+                secretos_ordenados = []
         if not secretos_ordenados:
             raise SecretoNoEncontrado()
-        posicion = -1
-        secreto = None
         for idx, s in enumerate(secretos_ordenados):
             if getattr(s, "id_secreto", None) == secreto_id:
-                posicion = idx
-                secreto = s
-                break
-        if secreto is None or posicion == -1:
-            raise SecretoNoEncontrado()
-        return secreto, posicion
+                return s, idx
+        raise SecretoNoEncontrado()
 
     async def _validar_posicion_en_secretos(self, partida_id: int, jugador_id: int, posicion: int) -> None:
         """Valida que la posición exista para el jugador en la partida."""
@@ -1312,12 +1335,21 @@ class ServicioJuego:
             raise SecretoNoEncontrado()
 
     @staticmethod
-    def _adjuntar_ctx_desgracia(e: Exception, *, secreto: SecretoDB, posicion: int, partida_id: int, jugador_id: int, set_id: int) -> Exception:
+    def _adjuntar_ctx_desgracia(
+        e: Exception,
+        *,
+        secreto: SecretoDB,
+        posicion: int,
+        partida_id: int,
+        jugador_id: int,
+        set_id: Optional[int] = None
+    ) -> Exception:
         setattr(e, "secreto_afectado", secreto)
         setattr(e, "posicion_secreto", posicion)
         setattr(e, "jugador_id", jugador_id)
-        setattr(e, "set_id", set_id)
         setattr(e, "partida_id", partida_id)
+        if set_id is not None:  # solo se agrega si tiene sentido
+            setattr(e, "set_id", set_id)
         return e
 
 
@@ -1353,21 +1385,25 @@ class ServicioJuego:
         if posicion_en_lista == -1:
             raise SecretoNoEncontrado()
 
-        secreto = None
+        # establecer el secreto afectado desde la lista ordenada
+        secreto = secretos_ordenados[posicion_en_lista]
         match set_a_aplicar.nombre:
             case "Hercule Poirot" | "Miss Marple":
-                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
-                if not secreto:
-                    raise SecretoNoEncontrado()
-                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                try:
+                    res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                except (AsesinoRevelado, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                    raise self._adjuntar_ctx_desgracia(e, secreto=secreto, posicion=posicion_en_lista,
+                                                       partida_id=partida_id, jugador_id=jugador_id, set_id=set_id)
                 if not res:
                     raise SecretoNoDisponible()
+                secreto = getattr(res, "secreto", secreto)
 
             case "Mr Satterthwaite":
-                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
-                if not secreto:
-                    raise SecretoNoEncontrado()
-                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                try:
+                    res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                except (AsesinoRevelado, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                    raise self._adjuntar_ctx_desgracia(e, secreto=secreto, posicion=posicion_en_lista,
+                                                       partida_id=partida_id, jugador_id=jugador_id, set_id=set_id)
                 if not res:
                     raise SecretoNoDisponible()
 
@@ -1375,38 +1411,29 @@ class ServicioJuego:
                 tiene_wildcard = any(getattr(c, "nombre", "") == "Harley Quin Wildcard" for c in cartas_del_set)
 
                 if tiene_wildcard:
-                    res = await self.robar_secreto(partida_id, getattr(set_a_aplicar, "id_jugador", 0), secreto_id)
-                    if not res:
+                    rob = await self.robar_secreto(partida_id, getattr(set_a_aplicar, "id_jugador", 0), secreto_id)
+                    if not rob:
                         raise SecretoNoDisponible()
+                    secreto = getattr(rob, "secreto", secreto)
 
             case "Parker Pyne":
-                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
-                if not secreto:
-                    raise SecretoNoEncontrado()
+                # ocultar secreto del jugador afectado
                 res = await self.ocultar_secreto(partida_id, jugador_id, secreto_id)
                 if not res:
                     raise SecretoNoDisponible()
+                secreto = getattr(res, "secreto", secreto)
 
-            case "Lady Eileen \"Bundle\" Brent":
-                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
-                if not secreto:
-                    raise SecretoNoEncontrado()
-                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
-                if not res:
-                    raise SecretoNoDisponible()
-
-            case "Beresford":
-                secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
-                if not secreto:
-                    raise SecretoNoEncontrado()
-                res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
-                if not res:
-                    raise SecretoNoDisponible()
-        if not secreto:
-            raise SecretoNoEncontrado()
+            case "Lady Eileen \"Bundle\" Brent" | "Beresford":
+                try:
+                    res = await self.revelar_secreto(partida_id, jugador_id, secreto_id)
+                except (AsesinoRevelado, JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial) as e:
+                    raise self._adjuntar_ctx_desgracia(e, secreto=secreto, posicion=posicion_en_lista,
+                                                       partida_id=partida_id, jugador_id=jugador_id, set_id=set_id)
+        if not res:
+            raise SecretoNoDisponible()
+        secreto = getattr(res, "secreto", secreto)
 
         return AplicarEfectoSetResultado(secreto_afectado=secreto, posicion_secreto=posicion_en_lista)
-
 
     async def permite_nsf(
         self,
@@ -1567,4 +1594,3 @@ class ServicioJuego:
         else:
             resultado = set.nombre
         return ObtenerNombreSetResultado(nombre=resultado)
-      

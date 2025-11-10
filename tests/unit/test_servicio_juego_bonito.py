@@ -2792,6 +2792,120 @@ async def test_ocultar_secreto_sale_de_desgracia():
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
     with pytest.raises(JugadorSaleDeDesgraciaSocial):
         await servicio.ocultar_secreto(2, 3, 2)
+
+@pytest.mark.asyncio
+async def test_preparar_evento_and_then_there_was_one_more_contexto_excepcion():
+    partida_id = 50
+    jugador_id = 5
+    jugador_objetivo_id = 9
+    carta_id = 123
+    secreto_id = 777
+
+    # Repos
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+    # secreto revelado (para poder ocultarlo) en la lista ordenada
+    secreto_existente = crear_secreto(id_secreto=secreto_id, id_partida=partida_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_existente])
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "And Then There Was One More..."
+    carta_evento.tipo = TipoCarta.event
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
+
+    servicio.robar_secreto = AsyncMock(side_effect=JugadorSaleDeDesgraciaSocial())
+
+    with pytest.raises(JugadorSaleDeDesgraciaSocial) as exc:
+        await servicio.preparar_evento(
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            carta_id=carta_id,
+            secreto_id=secreto_id,
+            jugador_objetivo_id=jugador_objetivo_id
+        )
+
+    e = exc.value
+    # Contexto adjuntado
+    assert getattr(e, "secreto_afectado", None) is not None
+    assert getattr(e.secreto_afectado, "id_secreto", None) == secreto_id
+    assert getattr(e, "posicion_secreto", None) == 0  # único en la lista -> índice 0
+    # En eventos no debe agregarse set_id
+    assert not hasattr(e, "set_id") or getattr(e, "set_id", None) is None
+
+
+@pytest.mark.asyncio
+async def test_aplicar_efectos_set_contexto_excepcion_con_set_id():
+    partida_id = 60
+    jugador_afectado_id = 7
+    set_id = 99
+    secreto_id = 500
+
+    # Partida y jugador válidos
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_afectado_id, id_partida=partida_id))
+
+    # Set que aplica efecto (nombre que fuerza revelar -> "Hercule Poirot")
+    set_obj = crear_set(id_set=set_id, id_partida=partida_id, id_jugador=3, nombre="Hercule Poirot")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+
+    # Secretos ordenados del jugador afectado, ponemos el objetivo en índice 1
+    s1 = crear_secreto(id_secreto=111, id_partida=partida_id, id_jugador=jugador_afectado_id, estado=EstadoSecreto.oculto)
+    s_target = crear_secreto(id_secreto=secreto_id, id_partida=partida_id, id_jugador=jugador_afectado_id, estado=EstadoSecreto.oculto)
+    s2 = crear_secreto(id_secreto=222, id_partida=partida_id, id_jugador=jugador_afectado_id, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[s1, s_target, s2])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, sets=repo_set, secretos=repo_s)
+    # Simular que revelar_secreto dispara JugadorEnDesgraciaSocial
+    servicio.revelar_secreto = AsyncMock(side_effect=JugadorEnDesgraciaSocial())
+
+    with pytest.raises(JugadorEnDesgraciaSocial) as exc:
+        await servicio.aplicar_efectos_set(partida_id, jugador_afectado_id, set_id, secreto_id)
+
+    e = exc.value
+    # Contexto debe incluir set_id y secreto
+    assert getattr(e, "set_id", None) == set_id
+    assert getattr(e, "secreto_afectado", None) is not None
+    assert getattr(e.secreto_afectado, "id_secreto", None) == secreto_id
+    assert getattr(e, "posicion_secreto", None) == 1  # índice esperado
+
+
+@pytest.mark.asyncio
+async def test_preparar_evento_and_then_there_was_one_more_excepcion_sin_set_id_ni_modificacion():
+    # Verifica nuevamente que al lanzar JugadorEnDesgraciaSocial en evento no se incluya set_id
+    partida_id = 70
+    jugador_id = 9
+    jugador_objetivo_id = 10
+    carta_id = 200
+    secreto_id = 900
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+    secreto_existente = crear_secreto(id_secreto=secreto_id, id_partida=partida_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_existente])
+    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "And Then There Was One More..."
+    carta_evento.tipo = TipoCarta.event
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
+    servicio.robar_secreto = AsyncMock(side_effect=JugadorEnDesgraciaSocial())
+
+    with pytest.raises(JugadorEnDesgraciaSocial) as exc:
+        await servicio.preparar_evento(
+            partida_id=partida_id,
+            jugador_id=jugador_id,
+            carta_id=carta_id,
+            secreto_id=secreto_id,
+            jugador_objetivo_id=jugador_objetivo_id
+        )
+
+    e = exc.value
+    assert getattr(e, "secreto_afectado", None) is not None
+    assert getattr(e.secreto_afectado, "id_secreto", None) == secreto_id
+    # Confirmamos ausencia de set_id
+    assert not hasattr(e, "set_id") or getattr(e, "set_id", None) is None
+
     
 @pytest.mark.asyncio
 async def test_regla_nsf_cancelable_agregar_beresford_mixto():
