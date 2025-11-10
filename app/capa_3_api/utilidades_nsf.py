@@ -1,7 +1,8 @@
 import asyncio
+import uuid
 import time
-from typing import Dict
-from .nsf_tipos import VentanaNSFActiva
+from typing import Dict, Any
+from .nsf_tipos import VentanaNSFActiva, tiempo_en_ms
 from .websockets.ApiWS import administrador
 
 async def gestionar_fin_ventana(
@@ -37,3 +38,57 @@ async def gestionar_fin_ventana(
         await administrador.difundir_a_partida(actual.partida_id, mensaje)
     finally:
         ventanas_dict.pop(actual.partida_id, None)
+
+async def activar_ventana_nsf(
+    tipo_accion: str, 
+    id_jugador: int, 
+    partida_id: int,
+    ventanas_dict: Dict[int, VentanaNSFActiva],
+    payload: Dict[str, Any]
+) -> VentanaNSFActiva:
+
+    # creamos la ventana
+
+    ventana_id = uuid.uuid4().hex
+    tiempo = await tiempo_en_ms(5.0)
+
+    ventana = VentanaNSFActiva(
+        partida_id=partida_id,
+        ventana_id=ventana_id,
+        actor_id=id_jugador,
+        tipo_accion=tipo_accion,
+        payload=payload,
+        contador=0,
+        tiempo_ms=tiempo,
+    )
+    ventanas_dict[partida_id] = ventana
+
+    # orquestamos la tarea
+    ventana.tarea = asyncio.create_task(
+        gestionar_fin_ventana(ventana, ventanas_dict)
+    )
+
+    return ventana
+
+async def refrescar_ventana_nsf(
+    ventana: VentanaNSFActiva,
+    ventanas_dict: Dict[int, VentanaNSFActiva]
+    ) -> None:
+
+        # orquestamos la tarea
+    ventana.contador += 1
+    ventana.tiempo_ms = await tiempo_en_ms(5.0) # renuevo el timer
+
+    # reprogramo la resolucion de la ventana
+    if ventana.tarea and not ventana.tarea.done():
+        ventana.tarea.cancel()
+        try:
+            await asyncio.sleep(0) # permito que se procese la cancelacion
+        except Exception:
+            pass
+
+    ventana.tarea = asyncio.create_task(
+        gestionar_fin_ventana(ventana, ventanas_dict)
+    )
+
+

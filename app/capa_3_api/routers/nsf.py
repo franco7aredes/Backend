@@ -19,7 +19,7 @@ from app.capa_3_api.dtos.nsf import (
 )
 
 from app.capa_3_api.nsf_tipos import VentanaNSFActiva, tiempo_en_ms
-from app.capa_3_api.utilidades_nsf import gestionar_fin_ventana
+from app.capa_3_api.utilidades_nsf import *
 
 
 nsf_router = APIRouter()
@@ -59,26 +59,8 @@ async def activar_nsf(
         # ver si hace falta algo mas si no es cancelable
         return Response(status_code=204)
     
-    # creamos la ventana
-
-    ventana_id = uuid.uuid4().hex
-    tiempo = await tiempo_en_ms(5.0)
-
-    ventana = VentanaNSFActiva(
-        partida_id=partida_id,
-        ventana_id=ventana_id,
-        actor_id=datos.id_jugador,
-        tipo_accion=datos.tipo_accion,
-        payload=datos.payload,
-        contador=0,
-        tiempo_ms=tiempo,
-    )
-    _VENTANAS[partida_id] = ventana
-
-    # orquestamos la tarea
-    ventana.tarea = asyncio.create_task(
-        gestionar_fin_ventana(ventana, _VENTANAS)
-    )
+    # esto devuelve la ventana
+    res = await activar_ventana_nsf(datos.tipo_accion, datos.id_jugador, partida_id, _VENTANAS, datos.payload)
 
     # Difundo a los jugadores
     try:
@@ -87,16 +69,16 @@ async def activar_nsf(
             {
                 "evento": "canplaynsf",
                 "partida_id": partida_id,
-                "window_id": ventana_id,
+                "window_id": res.ventana_id,
                 "tipo_accion": datos.tipo_accion,
                 "actor_id": datos.id_jugador,
-                "deadline": tiempo,
+                "deadline": res.tiempo_ms,
             },
         )
     except Exception:
         pass  #No fallar si falla la difusion
     
-    return ActivarNSFRespuesta(window_id=ventana_id, deadline_ms=tiempo)
+    return ActivarNSFRespuesta(window_id=res.ventana_id, deadline_ms=res.tiempo_ms)
 
 @nsf_router.post(
     "/partidas/{partida_id}/nsf/jugar",
@@ -181,21 +163,8 @@ async def jugar_nsf(
     except Exception:
         pass
 
-    # orquestamos la tarea
-    ventana.contador += 1
-    ventana.tiempo_ms = await tiempo_en_ms(5.0) # renuevo el timer
-
-    # reprogramo la resolucion de la ventana
-    if ventana.tarea and not ventana.tarea.done():
-        ventana.tarea.cancel()
-        try:
-            await asyncio.sleep(0) # permito que se procese la cancelacion
-        except Exception:
-            pass
-   
-    ventana.tarea = asyncio.create_task(
-        gestionar_fin_ventana(ventana, _VENTANAS)
-    )
+    # refrescamos la ventana
+    await refrescar_ventana_nsf(ventana, _VENTANAS)
 
     # difundo lo que acaba de pasar
     try:

@@ -32,15 +32,15 @@ async def test_activar_nsf_bonito(async_client, monkeypatch):
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
     mock_difundir = AsyncMock()
-    mock_resolver = AsyncMock()
-    mock_tiempo = AsyncMock(return_value=621877)
-    mock_uuid = MagicMock()
-    mock_uuid.return_value.hex = "ventana-test-uuid"
+    # mockeo la ventana
+    mock_obj = MagicMock()
+    mock_obj.ventana_id = "ventana-test-uuid"
+    mock_obj.tiempo_ms = 621877
+    mock_obj.tarea = MagicMock()
+    mock_activar = AsyncMock(return_value=mock_obj)
 
     monkeypatch.setattr(nsf_router_modulo.administrador, "difundir_a_partida", mock_difundir)
-    monkeypatch.setattr(nsf_router_modulo, "gestionar_fin_ventana", mock_resolver)
-    monkeypatch.setattr(nsf_router_modulo, "tiempo_en_ms", mock_tiempo)
-    monkeypatch.setattr(nsf_router_modulo.uuid, "uuid4", mock_uuid)
+    monkeypatch.setattr(nsf_router_modulo,"activar_ventana_nsf", mock_activar)
 
     pedido = {
         "id_jugador": 1,
@@ -62,14 +62,10 @@ async def test_activar_nsf_bonito(async_client, monkeypatch):
         payload={"juajua":"esto no se si importa para test"},
         id_jugador_accion=1
     )
-    mock_resolver.assert_called_once()
     mock_difundir.assert_called_once()
+    mock_activar.assert_called_once()
     assert mock_difundir.call_args[0][1]["evento"] == "canplaynsf"
 
-    # veo el estado en _VENTANAS
-    assert 1 in nsf_router_modulo._VENTANAS
-    assert nsf_router_modulo._VENTANAS[1].ventana_id == "ventana-test-uuid"
-    assert nsf_router_modulo._VENTANAS[1].tarea is not None
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
 
@@ -155,17 +151,20 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
 
     fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: mock_service
 
+    async def mock_refrescar_side_effect(ventana, ventanas_dict):
+        ventana.contador += 1
+        ventana.tiempo_ms = 55555  # El valor que el test espera
+        if ventana.tarea:
+            ventana.tarea.cancel()
+
+
     # mockeo utilidades que voy a chequear despues
     mock_difundir = AsyncMock()
-    mock_resolver = AsyncMock()
-    mock_tiempo = AsyncMock(return_value=55555) # el nuevo
-    mock_sleep = AsyncMock()
+    mock_refrescar = AsyncMock(side_effect=mock_refrescar_side_effect)
 
     monkeypatch.setattr(nsf_router_modulo.administrador, "difundir_a_partida", mock_difundir)
-    monkeypatch.setattr(nsf_router_modulo, "gestionar_fin_ventana", mock_resolver)
-    monkeypatch.setattr(nsf_router_modulo, "tiempo_en_ms", mock_tiempo)
-    monkeypatch.setattr(nsf_router_modulo.asyncio, "sleep", mock_sleep)
-    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 1000.0) # para que no se me acabe el tiempo
+    monkeypatch.setattr(nsf_router_modulo.time, "time", lambda: 50000.0)
+    monkeypatch.setattr(nsf_router_modulo, "refrescar_ventana_nsf", mock_refrescar)
 
     # el otro jugador va a hacer el pedido
     pedido = {
@@ -186,7 +185,7 @@ async def test_jugar_nsf_bonito(async_client, monkeypatch):
     mock_service.validar_carta_nsf.assert_called_once_with(2, 6, 99)
     mock_service.descartar_carta.assert_called_once_with(2, 6, 99)
     mock_tarea_original.cancel.assert_called_once()
-    mock_resolver.assert_called_once()
+    mock_refrescar.assert_called_once()
 
     # veamos que se difundio 3 veces
     assert mock_difundir.call_count == 3
