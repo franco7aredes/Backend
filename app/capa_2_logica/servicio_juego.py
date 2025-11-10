@@ -952,7 +952,13 @@ class ServicioJuego:
         posterior_en_desgracia = getattr(jugador, "en_desgracia_social", False)
         # Si no estaba y ahora todos revelados -> entra en desgracia
         if (not previo_en_desgracia) and posterior_en_desgracia:
-            raise JugadorEnDesgraciaSocial()
+             try:
+                es_fin = await self.verificar_fin_por_desgracia_social(partida_id)
+             except Exception:
+                es_fin = False
+             if es_fin:
+                raise FinPorDesgraciaSocial()
+             raise JugadorEnDesgraciaSocial()
 
         return RevelarSecretoResultado(secreto=secreto)
 
@@ -1027,6 +1033,10 @@ class ServicioJuego:
 
     async def ocultar_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> OcultarSecretoResultado:
         jugador = await self.jugadores.obtener(jugador_id)
+        """Revela un secreto del jugador. Si al revelar entra en desgracia social:
+        - consulta fin global (si el repo lo provee) y lanza FinPorDesgraciaSocial si corresponde
+        - si no, lanza JugadorEnDesgraciaSocial
+        En todos los casos de excepción adjunta contexto (secreto y posición)."""
         if not jugador:
             raise JugadorNoEncontrado()
 
@@ -1595,3 +1605,33 @@ class ServicioJuego:
         else:
             resultado = set.nombre
         return ObtenerNombreSetResultado(nombre=resultado)
+
+    async def verificar_fin_por_desgracia_social(self, partida_id: int) -> Optional[int]:
+        """Si todos los inocentes (no asesino ni cómplice) están en desgracia social:
+        - cambia la partida a Finalizada
+        - retorna el id del asesino
+        Caso contrario retorna None.
+        """
+        partida = await self.partidas.obtener(partida_id)
+        if not partida:
+            raise PartidaNoEncontrada()
+        secreto_asesino = await self.secretos.obtener_secreto_asesino(partida_id)
+        if not secreto_asesino:
+            return None
+        asesino_id = getattr(secreto_asesino, "id_jugador", None)
+        jugadores = await self.jugadores.listar_por_partida(partida_id) or []
+        if not jugadores:
+            return None
+        for j in jugadores:
+            jj = cast(Any, j)
+            if jj.id_jugador == asesino_id:
+                continue
+            secretos_jugador = await self.secretos.obtener_secretos(partida_id, jj.id_jugador) or []
+            # Si el jugador es cómplice, no cuenta para la condición de revelados
+            if any(getattr(s, "tipo", None) == TipoSecreto.complice for s in secretos_jugador):
+                continue
+            if (not secretos_jugador) or (not all(getattr(s, "estado", None) == EstadoSecreto.revelado for s in secretos_jugador)):
+                return None
+        cast(Any, partida).estado = EstadoPartida.Finalizada
+        await self.partidas.guardar(cast(Any, partida))
+        return asesino_id if asesino_id is not None else None
