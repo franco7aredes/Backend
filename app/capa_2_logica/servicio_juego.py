@@ -970,7 +970,7 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
-        secreto = await self.secretos.obtener_secreto_revelado(partida_id, jugador_id, secreto_id)
+        secreto = await self.secretos.obtener_secreto_revelado(partida_id, secreto_id)
         if not secreto:
             raise SecretoNoEncontrado()
         
@@ -1228,8 +1228,11 @@ class ServicioJuego:
                         raise self._adjuntar_ctx_desgracia(e, secreto=secreto_ctx, posicion=posicion_ctx, partida_id=partida_id, jugador_id=jugador_objetivo_id)
                     except Exception:
                         raise e
-                if not robado:
-                    return EventoResultado(tipo_evento="And Then There Was One More...", mensaje="No se pudo ocultar el secreto")
+                except (SecretoNoEncontrado, SecretoNoDisponible):
+                    descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
+                    return EventoResultado(tipo_evento="And Then There Was One More...", mensaje="No se pudo ocultar el secreto", carta_evento_descartada=descartado.carta)
+               
+                # si el robo fue exitoso  
                 descartado = await self.descartar_carta(partida_id, jugador_id, carta.id_carta)
                 secreto_final = getattr(robado, "secreto", None)
                 return EventoResultado(

@@ -120,6 +120,6 @@ async def test_obtener_secreto_ok(db, secreto_valido):
 async def test_obtener_secreto_revelado_ok(db, secreto_valido_revelado):
     db.execute.return_value.scalar_one_or_none = lambda: secreto_valido_revelado
     repo = RepositorioSecretoSQLAlchemy(db)
-    res = await repo.obtener_secreto_revelado(partida_id=2, jugador_id=3, secreto_id=1)
+    res = await repo.obtener_secreto_revelado(partida_id=2, secreto_id=1)
     assert res == secreto_valido_revelado
     assert res.estado == EstadoSecreto.revelado

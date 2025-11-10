@@ -2149,7 +2149,7 @@ async def test_preparar_evento_and_then_there_was_one_more_falla():
     repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[])
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
-    servicio.robar_secreto = AsyncMock(return_value=None)
+    servicio.robar_secreto = AsyncMock(side_effect=SecretoNoEncontrado())
     servicio.descartar_carta = AsyncMock(return_value=type("Descartado", (), {"carta": carta_evento})())
 
     resultado = await servicio.preparar_evento(
