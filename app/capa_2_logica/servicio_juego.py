@@ -970,7 +970,7 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
-        secreto = await self.secretos.obtener_secreto_revelado(partida_id, jugador_id, secreto_id)
+        secreto = await self.secretos.obtener_secreto_revelado(partida_id, secreto_id)
         if not secreto:
             raise SecretoNoEncontrado()
         
