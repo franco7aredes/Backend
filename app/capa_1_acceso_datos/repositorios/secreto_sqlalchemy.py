@@ -70,3 +70,12 @@ class RepositorioSecretoSQLAlchemy:
         
         res = await self.db.execute(stmt)
         return res.scalar_one_or_none()
+    
+    async def obtener_secreto_revelado(self, partida_id: int, jugador_id: int, secreto_id: int) -> SecretoDB:
+        stmt = (
+            select(SecretoDB)
+            .where((SecretoDB.id_partida == partida_id) & (SecretoDB.id_jugador == jugador_id) & (SecretoDB.id_secreto == secreto_id) & (SecretoDB.estado == EstadoSecreto.revelado))
+            )
+        
+        res = await self.db.execute(stmt)
+        return res.scalar_one_or_none()

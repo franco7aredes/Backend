@@ -79,6 +79,14 @@ class JugarEventoDTO(BaseModel):
         extra="ignore"
     )
 
+class AgregarCartaASetRequest(BaseModel):
+    id_jugador: int
+    carta_id: int
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
 
 class AplicarEfectoSetSolicitud(BaseModel):
     jugador_id: int
@@ -88,4 +96,3 @@ class SeleccionarDestinoSolicitud(BaseModel):
     id_jugador: int
     id_seleccionado: int
     posicion_secreto: Optional[int] = Field(None, ge=0)
-

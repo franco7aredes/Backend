@@ -4,6 +4,7 @@ from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
 import app.capa_3_api.routers.sets as rsets
+from tests.mocks.repos_mocks import crear_repo_secreto_mock, crear_secreto, TipoSecreto
 
 @pytest.fixture
 def servicio_mock_override():
@@ -105,29 +106,6 @@ async def test_aplicar_efecto_set_falla_broadcast_no_rompe(async_client, servici
     assert "secreto_estado" in data
     assert "secreto_tipo" in data
 
-@pytest.mark.asyncio
-async def test_aplicar_efecto_set_entra_en_desgracia_200_y_broadcast_doble(async_client, servicio_mock_override, difundir_mock):
-    # el servicio lanzará la excepción de negocio
-    servicio_mock_override.next_exception = JugadorEnDesgraciaSocial()
-    body = {"jugador_id": 10, "secreto_id": 7}
-    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["mensaje"] == "Efecto del set aplicado correctamente"
-    assert data["jugador_entra_en_desgracia_social"] is True
-    # se emiten 2 broadcasts: entrada en desgracia + eco del efecto
-    assert difundir_mock.await_count == 2
-
-@pytest.mark.asyncio
-async def test_aplicar_efecto_set_sale_de_desgracia_200_y_broadcast_doble(async_client, servicio_mock_override, difundir_mock):
-    servicio_mock_override.next_exception = JugadorSaleDeDesgraciaSocial()
-    body = {"jugador_id": 10, "secreto_id": 7}
-    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["mensaje"] == "Efecto del set aplicado correctamente"
-    assert data["jugador_sale_de_desgracia_social"] is True
-    assert difundir_mock.await_count == 2
 
 @pytest.mark.asyncio
 async def test_aplicar_efecto_set_asesino_revelado_200_y_broadcast(async_client, servicio_mock_override, difundir_mock):
@@ -140,50 +118,5 @@ async def test_aplicar_efecto_set_asesino_revelado_200_y_broadcast(async_client,
     # asesino: un solo broadcast
     difundir_mock.assert_awaited_once()
 
-@pytest.mark.asyncio
-async def test_aplicar_efecto_set_broadcast_falla_en_desgracia_no_rompe(async_client, servicio_mock_override, monkeypatch):
-    servicio_mock_override.next_exception = JugadorEnDesgraciaSocial()
-    boom = AsyncMock(side_effect=Exception("ws ex"))
-    monkeypatch.setattr(rsets.administrador, "difundir_a_partida", boom)
-    body = {"jugador_id": 10, "secreto_id": 7}
-    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["mensaje"] == "Efecto del set aplicado correctamente"
 
-@pytest.mark.asyncio
-async def test_aplicar_efecto_set_fin_por_desgracia_200_y_broadcast(async_client, servicio_mock_override, difundir_mock):
-    # el servicio lanzará la excepción de fin global
-    servicio_mock_override.next_exception = FinPorDesgraciaSocial()
-    servicio_mock_override.asesino_id = 42
-    body = {"jugador_id": 10, "secreto_id": 7}
 
-    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["mensaje"] == "La partida finaliza por desgracia social."
-    assert data["asesinoId"] == 42
-
-    # Se notifica una sola vez a la partida con el evento fin_por_desgracia_social
-    difundir_mock.assert_awaited_once()
-    # Validar payload mínimo del broadcast
-    args, kwargs = difundir_mock.await_args
-    assert args[0] == 1  # partida_id
-    payload = args[1]
-    assert payload["evento"] == "fin_por_desgracia_social"
-    assert payload["asesinoId"] == 42
-
-@pytest.mark.asyncio
-async def test_aplicar_efecto_set_fin_por_desgracia_broadcast_falla_no_rompe(async_client, servicio_mock_override, monkeypatch):
-    servicio_mock_override.next_exception = FinPorDesgraciaSocial()
-    servicio_mock_override.asesino_id = 7
-    boom = AsyncMock(side_effect=Exception("ws ex"))
-    # forzamos fallo del broadcast del fin por desgracia social
-    monkeypatch.setattr(rsets.administrador, "difundir_a_partida", boom)
-
-    body = {"jugador_id": 10, "secreto_id": 7}
-    resp = await async_client.post("/partidas/1/sets/5/aplicar_efecto", json=body)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["mensaje"] == "La partida finaliza por desgracia social."
-    assert data["asesinoId"] == 7

@@ -78,5 +78,14 @@ class JugadorEnDesgraciaSocial(Exception):
 class JugadorSaleDeDesgraciaSocial(Exception):
     pass
 
-class FinPorDesgraciaSocial(Exception):
+class CartaNoEncontrada(Exception):
+    pass
+
+class CartaNoEnMano(Exception):
+    pass
+
+class CartaNoCompatibleConSet(Exception):
+    pass
+
+class TipoCartaNoCompatibleConSet(Exception):
     pass

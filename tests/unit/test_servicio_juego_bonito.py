@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 
 from app.capa_2_logica.resultados import *
@@ -1444,7 +1444,7 @@ async def test_revelar_secreto_exitoso():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=1))
 
     secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.oculto)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto) 
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
     resultado = await servicio.revelar_secreto(partida_id=1, jugador_id=3, secreto_id=3)
@@ -1459,8 +1459,7 @@ async def test_revelar_secreto_no_encontrado():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
 
     # El secreto con ID 99 no estÃ¡ en la lista
-    otro_secreto = crear_secreto(id_secreto=88, id_partida=1, id_jugador=2, estado=EstadoSecreto.oculto)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[otro_secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=None)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
@@ -1474,7 +1473,7 @@ async def test_revelar_secreto_no_disponible():
 
     # El secreto existe pero ya estÃ¡ revelado
     secreto = crear_secreto(id_secreto=99, id_partida=1, id_jugador=2, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
@@ -1572,7 +1571,7 @@ async def test_robar_secreto_exitoso():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
 
     secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_revelado_return=secreto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
     resultado = await servicio.robar_secreto(partida_id=1, jugador_id=2, secreto_id=3)
@@ -1585,9 +1584,7 @@ async def test_robar_secreto_no_encontrado():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
 
-    # El secreto con ID 99 no estÃ¡ en la lista
-    otro_secreto = crear_secreto(id_secreto=88, id_partida=1, id_jugador=5, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[otro_secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_revelado_return=None)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
@@ -1603,7 +1600,7 @@ async def test_robar_secreto_no_disponible():
     secreto = crear_secreto(id_secreto=99, id_partida=1, id_jugador=9, estado=EstadoSecreto.oculto)
     # con lo siguiente, estamos asumiendo que la
     # consulta a la base de datos se puede hacer mal
-    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_revelado_return=secreto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
@@ -1617,7 +1614,7 @@ async def test_revelar_asesino():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=1))
 
     secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.oculto, tipo=TipoSecreto.asesino)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
     with pytest.raises(AsesinoRevelado):
@@ -2098,63 +2095,25 @@ async def test_preparar_evento_look_into_the_ashes_carta_no_en_descarte():
 async def test_preparar_evento_and_then_there_was_one_more_exitoso():
     partida_id = 5
     jugador_id = 3
-    carta_id = 54 
-    secreto_id = 77
-    jugador_objetivo_id = 8
-
-    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
-    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
-    # Secreto existente para el jugador objetivo (usado por _obtener_secreto_y_posicion)
-    secreto_existente = crear_secreto(id_partida=partida_id, id_secreto=secreto_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_existente])
-    
-    carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
-    carta_evento.tipo = TipoCarta.event
-
-    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
-
-    secreto_ocultado = crear_secreto(id_partida=partida_id, id_secreto=secreto_id, id_jugador=jugador_objetivo_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto)
-
-    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
-    servicio.ocultar_secreto = AsyncMock(return_value=OcultarSecretoResultado(secreto=secreto_ocultado))
-
-    resultado = await servicio.preparar_evento(
-        partida_id=partida_id,
-        jugador_id=jugador_id,
-        carta_id=carta_id,
-        secreto_id=secreto_id,
-        jugador_objetivo_id=jugador_objetivo_id
-    )
-
-    assert isinstance(resultado, EventoResultado)
-    assert resultado.tipo_evento == "And Then There Was One More"
-    assert resultado.secreto_oculto == secreto_ocultado
-    assert resultado.mensaje == f"Se ocultó el secreto {secreto_id}"
-    
-
-@pytest.mark.asyncio
-async def test_preparar_evento_and_then_there_was_one_more_falla():
-    partida_id = 5
-    jugador_id = 3
     carta_id = 54
     secreto_id = 77
     jugador_objetivo_id = 8
 
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
-
-    secreto_existente = crear_secreto(id_partida=partida_id, id_secreto=secreto_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_existente])
-
+    
     carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.nombre = "And Then There Was One More..."
     carta_evento.tipo = TipoCarta.event
 
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
 
+    secreto_ocultado = crear_secreto(id_partida=partida_id, id_secreto=secreto_id, id_jugador=jugador_objetivo_id, tipo=TipoSecreto.otro, estado=EstadoSecreto.oculto)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[secreto_ocultado])
+
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
-    servicio.ocultar_secreto = AsyncMock(return_value=None) 
+    servicio.robar_secreto = AsyncMock(return_value=RobarSecretoResultado(secreto=secreto_ocultado))
+    servicio.descartar_carta = AsyncMock(return_value=type("Descartado", (), {"carta": carta_evento})())
 
     resultado = await servicio.preparar_evento(
         partida_id=partida_id,
@@ -2165,10 +2124,47 @@ async def test_preparar_evento_and_then_there_was_one_more_falla():
     )
 
     assert isinstance(resultado, EventoResultado)
-    assert resultado.tipo_evento == "And Then There Was One More"
+    assert resultado.tipo_evento == "And Then There Was One More..."
+    assert resultado.secreto_oculto == secreto_ocultado
+    assert resultado.jugador_que_recibe_secreto == jugador_objetivo_id
+    assert resultado.mensaje == f"Se ocultó el secreto {secreto_id}"
+    assert resultado.carta_evento_descartada.id_carta == carta_id
+
+@pytest.mark.asyncio
+async def test_preparar_evento_and_then_there_was_one_more_falla():
+    partida_id = 5
+    jugador_id = 3
+    carta_evento_id = 54
+    secreto_id = 77
+    jugador_objetivo_id = 8
+
+    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=partida_id))
+    repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=jugador_id, id_partida=partida_id))
+
+    carta_evento = crear_carta(id_carta=carta_evento_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
+    carta_evento.nombre = "And Then There Was One More..."
+    carta_evento.tipo = TipoCarta.event
+
+    repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
+    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[])
+
+    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
+    servicio.robar_secreto = AsyncMock(return_value=None)
+    servicio.descartar_carta = AsyncMock(return_value=type("Descartado", (), {"carta": carta_evento})())
+
+    resultado = await servicio.preparar_evento(
+        partida_id=partida_id,
+        jugador_id=jugador_id,
+        carta_id=carta_evento_id,
+        secreto_id=secreto_id,
+        jugador_objetivo_id=jugador_objetivo_id
+    )
+
+    assert isinstance(resultado, EventoResultado)
+    assert resultado.tipo_evento == "And Then There Was One More..."
     assert resultado.secreto_oculto is None
     assert resultado.mensaje == "No se pudo ocultar el secreto"
-
+    
 @pytest.mark.asyncio
 async def test_preparar_evento_delay_the_murderer_escape_exitoso():
     partida_id = 5
@@ -2630,6 +2626,101 @@ async def test_aplicar_efectos_set_errores_basicos():
         await s.aplicar_efectos_set(1, 2, 5, 7)
 
 @pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_exito():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta.nombre = "Miss Marple"
+    carta.tipo = TipoCarta.detective
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    res = await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+    assert res.set == set_obj
+    assert carta.posicion == PosicionCarta.set
+    assert carta.id_set == set_obj.id_set
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_no_en_mano():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mazo)
+    carta.nombre = "Miss Marple"
+    carta.tipo = TipoCarta.detective
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    with pytest.raises(CartaNoEnMano):
+        await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_set_no_corresponde():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=99, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta.nombre = "Miss Marple"
+    carta.tipo = TipoCarta.detective
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    with pytest.raises(SetNoCorrespondeAlJugadorSeleccionado):
+        await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_tipo_no_detective():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta.nombre = "Miss Marple"
+    carta.tipo = TipoCarta.event
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    with pytest.raises(TipoCartaNoCompatibleConSet):
+        await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_no_compatible():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Miss Marple")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    carta = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta.nombre = "Tommy Beresford"
+    carta.tipo = TipoCarta.detective
+    repo_carta = crear_repo_carta_mock(obtener_carta_return=carta)
+    s = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta, sets=repo_set)
+    with pytest.raises(CartaNoCompatibleConSet):
+        await s.agregar_carta_a_set_propio(1, 2, 5, 10)
+
+@pytest.mark.asyncio
+async def test_agregar_carta_a_set_propio_beresford_acepta_ambos():
+    repo_partida = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
+    repo_jugador = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
+    set_obj = crear_set(id_set=10, id_partida=1, id_jugador=2, nombre="Beresford")
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=set_obj)
+    # Tommy
+    carta1 = crear_carta(id_carta=5, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta1.nombre = "Tommy Beresford"
+    carta1.tipo = TipoCarta.detective
+    repo_carta1 = crear_repo_carta_mock(obtener_carta_return=carta1)
+    s1 = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta1, sets=repo_set)
+    res1 = await s1.agregar_carta_a_set_propio(1, 2, 5, 10)
+    assert res1.set == set_obj
+    # Tuppence
+    carta2 = crear_carta(id_carta=6, id_partida=1, id_jugador=2, posicion=PosicionCarta.mano)
+    carta2.nombre = "Tuppence Beresford"
+    carta2.tipo = TipoCarta.detective
+    repo_carta2 = crear_repo_carta_mock(obtener_carta_return=carta2)
+    s2 = ServicioJuego(repo_partida, jugadores=repo_jugador, cartas=repo_carta2, sets=repo_set)
+    res2 = await s2.agregar_carta_a_set_propio(1, 2, 6, 10)
+    assert res2.set == set_obj
+
+@pytest.mark.asyncio
 async def test_aplicar_efectos_set_posicion():
     """Verifica que posicion_secreto se tome el índice del secreto en la lista ordenada."""
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
@@ -2666,10 +2757,9 @@ async def test_aplicar_efectos_set_asesino_revelado_burbujea_excepcion():
 async def test_revelar_secreto_exitoso_entrando_en_desgracia():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
     secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.oculto)
-    lista_secretos = [secreto]
-    jugador = crear_jugador(id_jugador=3, id_partida=1, secretos=lista_secretos)
+    jugador = crear_jugador(id_jugador=3, id_partida=1, secretos=[secreto])
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=lista_secretos)
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
     with pytest.raises(JugadorEnDesgraciaSocial):
         await servicio.revelar_secreto(1, 3, 3)
@@ -2678,14 +2768,11 @@ async def test_revelar_secreto_exitoso_entrando_en_desgracia():
 async def test_robar_secreto_sale_de_desgracia():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
     sec1 = crear_secreto(id_secreto=1, id_partida=1, id_jugador=2, estado=EstadoSecreto.revelado)
-    sec2 = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.revelado)
+    sec2 = crear_secreto(id_secreto=3, id_partida=1, id_jugador=2, estado=EstadoSecreto.revelado)
     lista_secretos_jugador = [sec1, sec2]
     jugador = crear_jugador(id_jugador=2, id_partida=1, secretos=lista_secretos_jugador)
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
-    repo_s = crear_repo_secreto_mock(
-        obtener_secretos_return=lista_secretos_jugador,
-        obtener_secretos_revelados_return=[sec2],
-    )
+    repo_s = crear_repo_secreto_mock(obtener_secreto_revelado_return=sec2)
     # asegurar dos llamadas devuelven misma lista actualizable
     repo_s.obtener_secretos.side_effect = [lista_secretos_jugador, lista_secretos_jugador]
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
@@ -2721,14 +2808,13 @@ async def test_preparar_evento_and_then_there_was_one_more_contexto_excepcion():
     secreto_existente = crear_secreto(id_secreto=secreto_id, id_partida=partida_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
     repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_existente])
     carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.nombre = "And Then There Was One More..."
     carta_evento.tipo = TipoCarta.event
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
 
-    # Simular que al ocultar se dispara desgracia social (jugador entra o sale)
-    servicio.ocultar_secreto = AsyncMock(side_effect=JugadorSaleDeDesgraciaSocial())
+    servicio.robar_secreto = AsyncMock(side_effect=JugadorSaleDeDesgraciaSocial())
 
     with pytest.raises(JugadorSaleDeDesgraciaSocial) as exc:
         await servicio.preparar_evento(
@@ -2798,12 +2884,12 @@ async def test_preparar_evento_and_then_there_was_one_more_excepcion_sin_set_id_
     secreto_existente = crear_secreto(id_secreto=secreto_id, id_partida=partida_id, id_jugador=jugador_objetivo_id, estado=EstadoSecreto.revelado)
     repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto_existente])
     carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.nombre = "And Then There Was One More..."
     carta_evento.tipo = TipoCarta.event
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
-    servicio.ocultar_secreto = AsyncMock(side_effect=JugadorEnDesgraciaSocial())
+    servicio.robar_secreto = AsyncMock(side_effect=JugadorEnDesgraciaSocial())
 
     with pytest.raises(JugadorEnDesgraciaSocial) as exc:
         await servicio.preparar_evento(
@@ -2820,130 +2906,363 @@ async def test_preparar_evento_and_then_there_was_one_more_excepcion_sin_set_id_
     # Confirmamos ausencia de set_id
     assert not hasattr(e, "set_id") or getattr(e, "set_id", None) is None
 
-@pytest.mark.asyncio 
-async def test_revelar_secreto_fin_por_desgracia_social():
-    """Al revelar el último secreto oculto y el repo indica fin global -> FinPorDesgraciaSocial."""
-    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=50))
-    secreto = crear_secreto(id_secreto=3, id_partida=50, id_jugador=7, estado=EstadoSecreto.oculto)
-    lista_secretos = [secreto]
-    jugador = crear_jugador(id_jugador=7, id_partida=50, secretos=lista_secretos)
+    
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_agregar_beresford_mixto():
+
+    payload = {"id_jugador": 1, "set_id": 10, "carta_id": 120}
+    partida_id = 2
+    tipo_accion = "agregar_a_set"
+
+    tommy = crear_carta(id_carta=100)
+    tommy.nombre = "Tommy Beresford"
+    tuppence = crear_carta(id_carta=101)
+    tuppence.nombre ="Tuppence Beresford"
+
+    repo_set = crear_repo_set_mock(obtener_cartas_del_set_return=[tommy, tuppence])
+
+    nueva = crear_carta(id_carta=120)
+    nueva.nombre = "Tommy Beresford"
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nueva)
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        sets=repo_set
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == False
+    s.cartas.obtener_carta.assert_called_with(partida_id, 1, 120)
+    s.sets.obtener_cartas_del_set.assert_called_with(10)
+        
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_agregar_beresford_puro():
+
+    payload = {"id_jugador": 1, "set_id": 10, "carta_id": 120}
+    partida_id = 2
+    tipo_accion = "agregar_a_set"
+
+    tommy = crear_carta(id_carta=100)
+    tommy.nombre = "Tommy Beresford"
+    tommy2 = crear_carta(id_carta=101)
+    tommy2.nombre = "Tommy Beresford"
+
+    repo_set = crear_repo_set_mock(obtener_cartas_del_set_return=[tommy, tommy2])
+
+    nueva = crear_carta(id_carta=120)
+    nueva.nombre = "Tommy Beresford"
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nueva)
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        sets=repo_set
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == True
+    s.cartas.obtener_carta.assert_called_with(partida_id, 1, 120)
+    s.sets.obtener_cartas_del_set.assert_called_with(10)
+ 
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_agregar_no_es_beresford():
+
+    payload = {"id_jugador": 1, "set_id": 10, "carta_id": 120}
+    partida_id = 2
+    tipo_accion = "agregar_a_set"
+
+
+    nueva = crear_carta(id_carta=120)
+    nueva.nombre = "Hercule Poirot"
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nueva)
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        sets=crear_repo_set_mock()
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == True
+    s.cartas.obtener_carta.assert_called_with(partida_id, 1, 120)
+    s.sets.obtener_cartas_del_set.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_jugar_nsf():
+
+    payload = {}
+    partida_id = 2
+    tipo_accion = "jugar_nsf"
+
+
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == True
+
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_jugar_cards_off():
+
+    payload = {"nombre": "Cards OFF the table"}
+    partida_id = 2
+    tipo_accion = "jugar_evento"
+
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == False
+   
+    
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_jugar_evento_cualquiera():
+
+    payload = {"nombre": "aca que me importa si dice cards of o que"}
+    partida_id = 2
+    tipo_accion = "jugar_evento"
+
+
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == True
+   
+@pytest.mark.asyncio
+async def test_regla_nsf_cancelable_jugar_cualquiera():
+
+    payload = {}
+    partida_id = 2
+    tipo_accion = "me_metiste_basura_aca"
+
+
+
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        )
+
+    res = await s._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+
+    assert res == False
+   
+
+@pytest.mark.asyncio
+async def test_accion_cancelable_beresford_en_set():
+    tommy = crear_carta(id_carta=100)
+    tommy.nombre = "Tommy Beresford"
+    tuppence = crear_carta(id_carta=101)
+    tuppence.nombre ="Tuppence Beresford"
+
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[tommy, tuppence])
+    
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        )
+    
+    payload = {"cartas_id": [100, 101], "id_jugador": 1} # no manejo el id del jugador en la funcion que testeo
+    
+    res = await s.permite_nsf(
+        partida_id=1,
+        tipo_accion="jugar_set",
+        payload=payload,
+        id_jugador_accion=1
+        )
+
+    assert res == False
+    s.cartas.obtener_cartas_en_mano.assert_called_once_with(1,1)
+
+@pytest.mark.asyncio
+async def test_accion_cancelable_set_normal():
+
+    carta = crear_carta(id_carta=101)
+    carta.nombre = "Hercule Poirot"
+
+    repo_c = crear_repo_carta_mock(obtener_cartas_en_mano_return=[carta])
+    
+    s = ServicioJuego(
+        partidas=crear_repo_partida_mock(),
+        jugadores=crear_repo_jugador_mock(),
+        cartas=repo_c,
+        )
+    
+    payload = {"cartas_id": [101], "id_jugador": 1} 
+    
+    res = await s.permite_nsf(
+        partida_id=1,
+        tipo_accion="jugar_set",
+        payload=payload,
+        id_jugador_accion=1
+        )
+
+    assert res == True
+
+@pytest.mark.asyncio
+async def test_validar_carta_nsf_bonito():
+
+    partida = crear_partida_en_juego(id_partida=1)
+    jugador = crear_jugador(id_jugador=2, id_partida=1)
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Not So Fast"
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=lista_secretos)
-    repo_s.verificar_fin_de_desgracia_social = AsyncMock(return_value=True)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
 
-    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
-    with pytest.raises(FinPorDesgraciaSocial):
-        await servicio.revelar_secreto(50, 7, 3)
-    repo_s.verificar_fin_de_desgracia_social.assert_awaited_once_with(50)
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
 
+    try:
+        await s.validar_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+    except Exception as e:
+        pytest.fail(f"fallo y no deberia haber pasado: {e}")
+
+    s.jugadores.obtener.assert_called_once_with(2)
+    s.partidas.obtener.assert_called_once_with(1)
+    s.cartas.obtener_carta.assert_called_once_with(1, 2, 12)
 
 @pytest.mark.asyncio
-async def test_revelar_secreto_entrando_en_desgracia_sin_fin_global():
-    """Último secreto oculto revela -> JugadorEnDesgraciaSocial si fin global False."""
-    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=51))
-    secreto = crear_secreto(id_secreto=5, id_partida=51, id_jugador=8, estado=EstadoSecreto.oculto)
-    lista_secretos = [secreto]
-    jugador = crear_jugador(id_jugador=8, id_partida=51, secretos=lista_secretos)
+async def test_validar_carta_nsf_falla_no_es_nsf():
+        
+    partida = crear_partida_en_juego(id_partida=1)
+    jugador = crear_jugador(id_jugador=2, id_partida=1)
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Hercule Poirot"
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=lista_secretos)
-    repo_s.verificar_fin_de_desgracia_social = AsyncMock(return_value=False)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
 
-    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
-    with pytest.raises(JugadorEnDesgraciaSocial):
-        await servicio.revelar_secreto(51, 8, 5)
-    repo_s.verificar_fin_de_desgracia_social.assert_awaited_once_with(51)
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
 
+    with pytest.raises(ValueError, match="no_es_nsf_pero_intento_actuar_como_nsf"):
+        await s.validar_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
 
 @pytest.mark.asyncio
-async def test_verificar_fin_por_desgracia_social_finaliza():
-    """Todos los inocentes en desgracia -> retorna asesino y finaliza partida."""
-    partida_id = 70
-    asesino_id = 10
-    repo_partidas = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=70, estado=EstadoPartida.en_juego))
-    repo_jugadores = crear_repo_jugador_mock(
-        listar_por_partida_return=[
-            crear_jugador(id_jugador=asesino_id, id_partida=70),
-            crear_jugador(id_jugador=20, id_partida=70),
-            crear_jugador(id_jugador=30, id_partida=70),
-        ]
-    )
-    # asesino + secretos inocentes todos revelados
-    secreto_asesino = crear_secreto(id_secreto=1, id_partida=70, id_jugador=asesino_id, estado=EstadoSecreto.oculto, tipo=TipoSecreto.asesino)
-    secretos_20 = [
-        crear_secreto(id_secreto=2, id_partida=70, id_jugador=20, estado=EstadoSecreto.revelado),
-        crear_secreto(id_secreto=3, id_partida=70, id_jugador=20, estado=EstadoSecreto.revelado),
-    ]
-    secretos_30 = [
-        crear_secreto(id_secreto=4, id_partida=70, id_jugador=30, estado=EstadoSecreto.revelado),
-    ]
+async def test_validar_carta_nsf_jugador_no_en_partida():
 
-    repo_secretos = crear_repo_secreto_mock(
-        obtener_secreto_asesino_return=secreto_asesino
-    )
-    async def _obtener_secretos_side_effect(pid, jid):
-        if jid == 20:
-            return secretos_20
-        if jid == 30:
-            return secretos_30
-        return []  # asesino u otros (no se usan en la lógica)
-    repo_secretos.obtener_secretos.side_effect = _obtener_secretos_side_effect
+    partida = crear_partida_en_juego(id_partida=1)
+    jugador = crear_jugador(id_jugador=2, id_partida=2)
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Not So Fast"
 
-    servicio = ServicioJuego(partidas=repo_partidas, jugadores=repo_jugadores, secretos=repo_secretos)
-    ganador = await servicio.verificar_fin_por_desgracia_social(partida_id)
-    assert ganador == asesino_id
-    assert repo_partidas.obtener.return_value.estado == EstadoPartida.Finalizada
-    repo_partidas.guardar.assert_awaited()
-
-
-@pytest.mark.asyncio
-async def test_verificar_fin_por_desgracia_social_no_finaliza_si_inocente_no_revelado():
-    partida_id = 71
-    asesino_id = 11
-    repo_partidas = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=71, estado=EstadoPartida.en_juego))
-    repo_jugadores = crear_repo_jugador_mock(
-        listar_por_partida_return=[
-            crear_jugador(id_jugador=asesino_id, id_partida=71),
-            crear_jugador(id_jugador=22, id_partida=71),
-        ]
-    )
-    secreto_asesino = crear_secreto(id_secreto=1, id_partida=71, id_jugador=asesino_id, estado=EstadoSecreto.oculto, tipo=TipoSecreto.asesino)
-    secretos_22 = [
-        crear_secreto(id_secreto=2, id_partida=71, id_jugador=22, estado=EstadoSecreto.revelado),
-        crear_secreto(id_secreto=3, id_partida=71, id_jugador=22, estado=EstadoSecreto.oculto),
-    ]
-    repo_secretos = crear_repo_secreto_mock(obtener_secreto_asesino_return=secreto_asesino)
-    async def _obtener_secretos_side_effect(pid, jid):
-        if jid == 22:
-            return secretos_22
-        return []
-    repo_secretos.obtener_secretos.side_effect = _obtener_secretos_side_effect
-
-    servicio = ServicioJuego(partidas=repo_partidas, jugadores=repo_jugadores, secretos=repo_secretos)
-    ganador = await servicio.verificar_fin_por_desgracia_social(partida_id)
-    assert ganador is None
-    assert repo_partidas.obtener.return_value.estado == EstadoPartida.en_juego
-    repo_partidas.guardar.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_revelar_secreto_no_llama_fin_global_si_no_entra_en_desgracia():
-    """Si el jugador aún no queda con todos revelados, no consulta verificar_fin_de_desgracia_social."""
-    repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=80))
-    # jugador con 2 secretos: uno oculto (el que se revela) y otro ya revelado -> después ambos revelados -> entra en desgracia (sí llama)
-    # Ajustamos para que NO entre en desgracia: deja otro oculto
-    sec_obj = crear_secreto(id_secreto=5, id_partida=80, id_jugador=9, estado=EstadoSecreto.oculto)
-    sec_otro = crear_secreto(id_secreto=6, id_partida=80, id_jugador=9, estado=EstadoSecreto.oculto)
-    lista_secretos = [sec_obj, sec_otro]
-    jugador = crear_jugador(id_jugador=9, id_partida=80, secretos=lista_secretos)
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
     repo_j = crear_repo_jugador_mock(obtener_return=jugador)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=lista_secretos)
-    repo_s.verificar_fin_de_desgracia_social = AsyncMock(return_value=False)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
 
-    servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
-    # Revelar sec_obj no deja todos revelados (sec_otro sigue oculto) -> no debe entrar en desgracia social
-    res = await servicio.revelar_secreto(80, 9, 5)
-    assert isinstance(res, RevelarSecretoResultado)
-    repo_s.verificar_fin_de_desgracia_social.assert_not_awaited()
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="jugador_no_en_partida"):
+        await s.validar_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+    assert s.cartas.obtener_carta.called == False
+    
+@pytest.mark.asyncio
+async def test_validar_carta_nsf_jugador_no_encontrado():
+    
+    partida = crear_partida_en_juego(id_partida=1)
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Not So Fast"
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock()
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="jugador_no_encontrado"):
+        await s.validar_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+    assert s.cartas.obtener_carta.called == False
+
+@pytest.mark.asyncio
+async def test_validar_carta_nsf_partida_no_encontrada():
+
+    jugador = crear_jugador(id_jugador=2, id_partida=2)
+    nsf = crear_carta(id_carta=12)
+    nsf.nombre = "Not so fast"
+
+    repo_p = crear_repo_partida_mock()
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_c = crear_repo_carta_mock(obtener_carta_return=nsf)
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(PartidaNoEncontrada):
+        await s.validar_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+    assert s.cartas.obtener_carta.called == False
+
+@pytest.mark.asyncio
+async def test_validar_carta_nsf_no_hay_tal_carta():
+
+    partida = crear_partida_en_juego(id_partida=1)
+    jugador = crear_jugador(id_jugador=2, id_partida=1)
+
+    repo_p = crear_repo_partida_mock(obtener_return=partida)
+    repo_j = crear_repo_jugador_mock(obtener_return=jugador)
+    repo_c = crear_repo_carta_mock()
+
+    s = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c)
+
+    with pytest.raises(ValueError, match="no_hay_tal_carta"):
+        await s.validar_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
+
+    assert s.cartas.obtener_carta.called == True
+
+
+@pytest.mark.asyncio
+async def test_obtener_nombre_set_bonito():
+    
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Hercule Poirot"))
+
+    s = ServicioJuego(
+    partidas=crear_repo_partida_mock(),
+    jugadores=crear_repo_jugador_mock(),
+    sets=repo_set
+    )
+
+    res = await s.obtener_nombre_set(5)
+
+    assert res.nombre == "Hercule Poirot"
+    s.sets.obtener_set_por_id.assert_called_once_with(5)
+
+@pytest.mark.asyncio
+async def test_obtener_nombre_set_none():
+    
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=None)
+
+    s = ServicioJuego(
+    partidas=crear_repo_partida_mock(),
+    jugadores=crear_repo_jugador_mock(),
+    sets=repo_set
+    )
+
+    res = await s.obtener_nombre_set(5)
+
+    assert res.nombre == "Desconocido"
+    s.sets.obtener_set_por_id.assert_called_once_with(5)
 
 @pytest.mark.asyncio
 async def test_preparar_evento_and_then_there_was_one_more_fin_por_desgracia_social_ctx():
