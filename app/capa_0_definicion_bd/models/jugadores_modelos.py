@@ -20,7 +20,7 @@ class Jugador(Base):
 
     secretos = relationship("SecretoDB", back_populates="jugador", lazy="selectin")
 
-    sets = relationship("Set", back_populates="jugador", lazy="selectin")
+    sets = relationship("Set", back_populates="jugador")
 
     @property
     def en_desgracia_social(self) -> bool:

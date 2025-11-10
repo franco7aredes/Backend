@@ -211,7 +211,6 @@ async def aplicar_efecto_set(
             secreto_tipo=secreto_tipo,
             set_id=set_id,
         )
-
         return {
             "mensaje": "Se reveló el asesino. La partida finaliza.",
             "set_id": set_id,
@@ -219,6 +218,28 @@ async def aplicar_efecto_set(
             "secreto_id": secreto_id,
             "posicion_secreto": posicion_secreto,
             "secreto_tipo": secreto_tipo
+        }
+    except FinPorDesgraciaSocial as e:
+        # El servicio adjuntó contexto con _adjuntar_ctx_desgracia
+        secreto = getattr(e, "secreto_afectado", None)
+        posicion = getattr(e, "posicion_secreto", None)
+        secreto_tipo = getattr(getattr(secreto, "tipo", None), "name", None) if secreto else None
+        # Obtener asesinoId (ganador)
+        try:
+            asesino_res = await service.obtener_asesino(partida_id)
+            asesino_id = asesino_res.asesino
+        except Exception:
+            asesino_id = None
+        await notificar_fin_por_desgracia_social_detalle(administrador, partida_id, asesino_id)
+        return {
+            "mensaje": "La partida finaliza por desgracia social.",
+            "partida_id": partida_id,
+            "set_id": set_id,
+            "jugador_id": jugador_id,
+            "secreto_id": secreto_id,
+            "posicion_secreto": posicion,
+            "secreto_tipo": secreto_tipo,
+            "asesinoId": asesino_id #id del jugador que es asesino
         }
     except JugadorEnDesgraciaSocial as e:
         secreto = getattr(e, "secreto_afectado", None)
@@ -269,8 +290,7 @@ async def aplicar_efecto_set(
             "posicion_secreto": posicion,
             "secreto_estado": secreto_estado,
             "secreto_tipo": secreto_tipo,
-            "jugador_sale_de_desgracia_social": True,
-            "secreto_tipo": secreto_tipo
+            "jugador_sale_de_desgracia_social": True
         }
     except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")

@@ -1,11 +1,12 @@
 import pytest
 from unittest.mock import AsyncMock
-
+from types import SimpleNamespace
 from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.resultados import EventoResultado
-from app.capa_2_logica.errores import PartidaNoEncontrada, JugadorNoEncontrado, JugadorNoEnPartida
-from app.capa_2_logica.errores import JugadorEnDesgraciaSocial, JugadorSaleDeDesgraciaSocial
+from app.capa_2_logica.errores import *
+from app.capa_3_api.utilidades_asincronas import *
+import app.capa_3_api.routers.partidas as rpartidas
 
 @pytest.mark.asyncio
 async def test_jugar_evento_exitoso(async_client):
@@ -185,7 +186,6 @@ async def test_jugar_evento_jugador_no_en_partida(async_client):
 
 @pytest.mark.asyncio
 async def test_jugar_evento_entra_en_desgracia_sin_set_id_notificacion(async_client, monkeypatch):
-    import app.capa_3_api.routers.partidas as rpartidas
 
     llamadas = []
 
@@ -290,5 +290,51 @@ async def test_jugar_evento_sale_de_desgracia_sin_set_id_notificacion(async_clie
     assert kw["posicion_secreto"] == 0
     assert kw["secreto_estado"] == "revelado"
     assert kw["secreto_tipo"] == "otro"
+
+    fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
+
+@pytest.mark.asyncio
+async def test_jugar_evento_fin_por_desgracia_social_notificacion(async_client, monkeypatch):
+    import app.capa_3_api.routers.partidas as rpartidas
+
+    llamadas = []
+    async def fake_notificar_fin(admin, partida_id, asesino_id):
+        llamadas.append(dict(partida_id=partida_id, asesino_id=asesino_id))
+
+    monkeypatch.setattr(rpartidas, "notificar_fin_por_desgracia_social_detalle", fake_notificar_fin, raising=True)
+
+    class ServicioMock:
+        async def preparar_evento(self, *_, **__):
+            e = FinPorDesgraciaSocial()
+            secreto = SimpleNamespace(id_secreto=321, tipo=SimpleNamespace(name="otro"))
+            setattr(e, "secreto_afectado", secreto)
+            setattr(e, "posicion_secreto", 0)
+            setattr(e, "jugador_id", 7)
+            setattr(e, "partida_id", 1)
+            raise e
+
+        async def obtener_asesino(self, partida_id: int):
+            return SimpleNamespace(asesino=42)
+
+    fastapi_app.dependency_overrides[obtener_servicio_juego] = lambda: ServicioMock()
+
+    payload = {
+        "id_jugador": 2,
+        "id_carta": 10,
+        "id_carta_descarte": None,
+        "id_secreto": 321,
+        "id_jugador_objetivo": 7,
+        "id_set": None
+    }
+
+    resp = await async_client.post("/partidas/1/eventos", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mensaje"].startswith("La partida finaliza por desgracia social")
+    assert data["asesinoId"] == 42
+    # notificación enviada sin set_id
+    assert len(llamadas) == 1
+    assert llamadas[0]["partida_id"] == 1
+    assert llamadas[0]["asesino_id"] == 42
 
     fastapi_app.dependency_overrides.pop(obtener_servicio_juego, None)
