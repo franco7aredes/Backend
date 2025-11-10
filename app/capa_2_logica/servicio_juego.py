@@ -68,6 +68,7 @@ class _RepoSetProto(Protocol):
     async def guardar_set(self, set: SetModelo) -> None: ...
     async def obtener_cartas_del_set(self, set_id: int) -> List[CartaModelo]: ...
 
+
 class ServicioJuego:
     """Servicio de reglas de negocio del juego.
 
@@ -1174,6 +1175,102 @@ class ServicioJuego:
         return AplicarEfectoSetResultado(secreto_afectado=secreto, posicion_secreto=posicion_en_lista)
 
 
+    async def permite_nsf(
+        self,
+        partida_id:int,
+        tipo_accion: str,
+        payload: Dict[str, Any],
+        id_jugador_accion: int
+    ) -> bool:
+        """
+        Verifica si una accion es cancelable, incluyendo las reglas complejas.
+        Devuelve Falso si NO es cancelable.
+        """
+
+        # regla Beresford
+        if tipo_accion == "jugar_set":
+            cartas_ids = list(map(int, (payload.get("cartas_id") or [])))
+            # usamos el id del jugador si no viene en el payload
+            jugador_id = int(payload.get("id_jugador", id_jugador_accion))
+            try:
+                res = await self.cartas.obtener_cartas_en_mano(partida_id, jugador_id)
+                nombres = {cast(Any, c).nombre.lower(): cast(Any,c).id_carta for c in res if cast(Any,c).id_carta in cartas_ids}
+                if len(nombres) == len(cartas_ids) and {"tommy beresford", "tuppence beresford"}.issubset(set(nombres.keys())) and len(cartas_ids) == 2:
+                    return False
+            except Exception:
+                    pass
+                
+        # si no es, lo paso por la ruta simple
+        return await self._regla_nsf_es_cancelable_tipo(tipo_accion, payload, partida_id)
+    
+    async def _regla_nsf_es_cancelable_tipo(self, tipo_accion: str, payload: Dict[str, Any], partida_id: int) -> bool:
+        """
+        Define si una accion es cancelable por su tipo
+        """
+        if tipo_accion == "jugar_evento":
+            nombre = str(payload.get("nombre", "")).lower()
+            if "cards off the table" in nombre:
+                return False
+            return True
+        
+        if tipo_accion == "jugar_set":
+            return True
+        if tipo_accion == "agregar_a_set":
+        # Aca, el payload tiene id_jugador, set_id, carta_id
+        # necesito ver el caso particular Beresford
+            id_jugador = payload.get("id_jugador")
+            id_de_carta = payload.get("carta_id")
+        # todos los chequeos importantes se hacen en otras funciones, acá no puedo perder mucho tiempo
+            carta_involucrada = await self.cartas.obtener_carta(partida_id, id_jugador, id_de_carta)
+            beresford = {"tommy beresford", "tuppence beresford"}
+            nombre_carta = carta_involucrada.nombre.lower()
+
+            if nombre_carta not in beresford:
+                return True
+            
+            set_involucrado_id = payload.get("set_id")
+            set_jugador = await self.sets.obtener_cartas_del_set(set_involucrado_id)
+            nombres_en_set = {carta.nombre.lower() for carta in set_jugador}
+            tiene_tommy = "tommy beresford" in nombres_en_set
+            tiene_tuppence = "tuppence beresford" in nombres_en_set
+            if tiene_tommy and tiene_tuppence:
+               return False
+
+            # el caso de si no estan mezclados
+            return True
+
+        if tipo_accion == "jugar_nsf":
+            return True
+        return False
+
+
+
+    async def validar_carta_nsf(self, partida_id: int, jugador_id: int, carta_id: int) -> None:
+        """
+        Esta funcion busca revisar si la carta es nsf y compatible en sus datos.
+        En caso de que no lo sea, va a levantar alguna de las excepciones que tenemos,
+        y va a ser manejado por quien corresponda.
+        """
+
+        jugador = await self.jugadores.obtener(jugador_id)
+        if jugador is None:
+            raise ValueError("jugador_no_encontrado")
+
+        partida = await self.partidas.obtener(partida_id)
+        if partida is None:
+            raise PartidaNoEncontrada()
+
+        if getattr(jugador, "id_partida", None) != partida_id:
+            raise ValueError("jugador_no_en_partida")
+
+        carta = await self.cartas.obtener_carta(partida_id, jugador_id, carta_id)
+        if not carta:
+            raise ValueError("no_hay_tal_carta")
+        
+        if carta.nombre.lower() != "not so fast":
+            raise ValueError("no_es_nsf_pero_intento_actuar_como_nsf")
+
+     
     async def agregar_carta_a_set_propio(self, partida_id: int, jugador_id: int, carta_id: int, set_id: int) -> JugarSetResultado:
         """ Permite a un jugador agregar una carta de su mano a un set que ya posee."""
         
