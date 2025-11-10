@@ -249,7 +249,7 @@ async def aplicar_efecto_set(
             "posicion_secreto": posicion,
             "secreto_estado": secreto_estado,
             "secreto_tipo": secreto_tipo,
-            "jugador_sale_de_desgracia_social": True
+            "jugador_sale_de_desgracia_social": True,
             "secreto_tipo": secreto_tipo
         }
     except Exception:
