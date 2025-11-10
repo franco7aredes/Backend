@@ -59,6 +59,7 @@ class _RepoSecretoProto(Protocol):
     async def obtener_secretos_revelados(self, partida_id: int) -> List[SecretoDB]: ...
     async def guardar(self, secreto: SecretoDB) -> None: ...
     async def obtener_secreto(self, partida_id: int, jugador_id: int, secreto_id: int) -> Optional[SecretoDB]: ...
+    async def obtener_secreto_revelado(self, partida_id: int, jugador_id: int, secreto_id: int) -> SecretoDB: ...
 
 @runtime_checkable
 class _RepoSetProto(Protocol):
@@ -915,13 +916,8 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
         
-        secretos = await self.secretos.obtener_secretos(partida_id, jugador_id)
-        secreto = None
-        for s in secretos:
-            if getattr(s, "id_secreto", None) == secreto_id:
-                secreto = s
-                break
-        if secreto is None:
+        secreto = await self.secretos.obtener_secreto(partida_id, jugador_id, secreto_id)
+        if not secreto:
             raise SecretoNoEncontrado()
         
         if getattr(secreto, "estado", None) != EstadoSecreto.oculto:
@@ -954,13 +950,8 @@ class ServicioJuego:
         if getattr(jugador, "id_partida", None) != partida_id:
             raise JugadorNoEnPartida()
 
-        secretos = await self.secretos.obtener_secretos_revelados(partida_id)
-        secreto = None
-        for s in secretos:
-            if getattr(s, "id_secreto", None) == secreto_id:
-                secreto = s
-                break
-        if secreto is None:
+        secreto = await self.secretos.obtener_secreto_revelado(partida_id, jugador_id, secreto_id)
+        if not secreto:
             raise SecretoNoEncontrado()
         
         if getattr(secreto, "estado", None) != EstadoSecreto.revelado:
@@ -1329,3 +1320,17 @@ class ServicioJuego:
         if hasattr(self.cartas, "guardar"):
             await self.cartas.guardar(carta)
         return JugarSetResultado(set=set_del_jugador)
+
+
+    async def obtener_nombre_set(self, set_id: int) -> ObtenerNombreSetResultado:
+
+        """Se busca obtener el nombre del set. Se usa despues de 
+        verificar_seleccionar_jugador_set"""
+
+        set = await self.sets.obtener_set_por_id(set_id)
+
+        if set is None:
+            resultado = "Desconocido"
+        else:
+            resultado = set.nombre
+        return ObtenerNombreSetResultado(nombre=resultado)

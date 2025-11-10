@@ -1444,7 +1444,7 @@ async def test_revelar_secreto_exitoso():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=1))
 
     secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.oculto)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto) 
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
     resultado = await servicio.revelar_secreto(partida_id=1, jugador_id=3, secreto_id=3)
@@ -1459,8 +1459,7 @@ async def test_revelar_secreto_no_encontrado():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
 
     # El secreto con ID 99 no estÃ¡ en la lista
-    otro_secreto = crear_secreto(id_secreto=88, id_partida=1, id_jugador=2, estado=EstadoSecreto.oculto)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[otro_secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=None)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
@@ -1474,7 +1473,7 @@ async def test_revelar_secreto_no_disponible():
 
     # El secreto existe pero ya estÃ¡ revelado
     secreto = crear_secreto(id_secreto=99, id_partida=1, id_jugador=2, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
@@ -1572,7 +1571,7 @@ async def test_robar_secreto_exitoso():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
 
     secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_revelado_return=secreto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
     resultado = await servicio.robar_secreto(partida_id=1, jugador_id=2, secreto_id=3)
@@ -1585,9 +1584,7 @@ async def test_robar_secreto_no_encontrado():
     repo_p = crear_repo_partida_mock(obtener_return=crear_partida_en_juego(id_partida=1))
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=2, id_partida=1))
 
-    # El secreto con ID 99 no estÃ¡ en la lista
-    otro_secreto = crear_secreto(id_secreto=88, id_partida=1, id_jugador=5, estado=EstadoSecreto.revelado)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[otro_secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_revelado_return=None)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
@@ -1603,7 +1600,7 @@ async def test_robar_secreto_no_disponible():
     secreto = crear_secreto(id_secreto=99, id_partida=1, id_jugador=9, estado=EstadoSecreto.oculto)
     # con lo siguiente, estamos asumiendo que la
     # consulta a la base de datos se puede hacer mal
-    repo_s = crear_repo_secreto_mock(obtener_secretos_revelados_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_revelado_return=secreto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
 
@@ -1617,7 +1614,7 @@ async def test_revelar_asesino():
     repo_j = crear_repo_jugador_mock(obtener_return=crear_jugador(id_jugador=3, id_partida=1))
 
     secreto = crear_secreto(id_secreto=3, id_partida=1, id_jugador=3, estado=EstadoSecreto.oculto, tipo=TipoSecreto.asesino)
-    repo_s = crear_repo_secreto_mock(obtener_secretos_return=[secreto])
+    repo_s = crear_repo_secreto_mock(obtener_secreto_return=secreto)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, secretos=repo_s)
     with pytest.raises(AsesinoRevelado):
@@ -2433,3 +2430,36 @@ async def test_validar_carta_nsf_no_hay_tal_carta():
         await s.validar_carta_nsf(partida_id=1, jugador_id=2, carta_id=12)
 
     assert s.cartas.obtener_carta.called == True
+
+
+@pytest.mark.asyncio
+async def test_obtener_nombre_set_bonito():
+    
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=crear_set(id_set=5, id_partida=1, id_jugador=3, nombre="Hercule Poirot"))
+
+    s = ServicioJuego(
+    partidas=crear_repo_partida_mock(),
+    jugadores=crear_repo_jugador_mock(),
+    sets=repo_set
+    )
+
+    res = await s.obtener_nombre_set(5)
+
+    assert res.nombre == "Hercule Poirot"
+    s.sets.obtener_set_por_id.assert_called_once_with(5)
+
+@pytest.mark.asyncio
+async def test_obtener_nombre_set_none():
+    
+    repo_set = crear_repo_set_mock(obtener_set_por_id_return=None)
+
+    s = ServicioJuego(
+    partidas=crear_repo_partida_mock(),
+    jugadores=crear_repo_jugador_mock(),
+    sets=repo_set
+    )
+
+    res = await s.obtener_nombre_set(5)
+
+    assert res.nombre == "Desconocido"
+    s.sets.obtener_set_por_id.assert_called_once_with(5)
