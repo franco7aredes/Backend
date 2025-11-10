@@ -4,6 +4,7 @@ from app.main import app as fastapi_app
 from app.capa_2_logica.fabrica import obtener_servicio_juego
 from app.capa_2_logica.errores import *
 import app.capa_3_api.routers.sets as rsets
+from tests.mocks.repos_mocks import crear_repo_secreto_mock, crear_secreto, TipoSecreto
 
 @pytest.fixture
 def servicio_mock_override():
@@ -143,3 +144,4 @@ async def test_aplicar_efecto_set_broadcast_falla_en_desgracia_no_rompe(async_cl
     assert resp.status_code == 200
     data = resp.json()
     assert data["mensaje"] == "Efecto del set aplicado correctamente"
+    
