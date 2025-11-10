@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 import time
 from typing import Dict, Any
 from .nsf_tipos import VentanaNSFActiva, tiempo_en_ms
@@ -60,16 +61,19 @@ async def activar_ventana_nsf(
         contador=0,
         tiempo_ms=tiempo,
     )
-    _VENTANAS[partida_id] = ventana
+    ventanas_dict[partida_id] = ventana
 
     # orquestamos la tarea
     ventana.tarea = asyncio.create_task(
-        gestionar_fin_ventana(ventana, _VENTANAS)
+        gestionar_fin_ventana(ventana, ventanas_dict)
     )
 
     return ventana
 
-async def refrescar_ventana_nsf(ventana: VentanaNSFActiva) -> None:
+async def refrescar_ventana_nsf(
+    ventana: VentanaNSFActiva,
+    ventanas_dict: Dict[int, VentanaNSFActiva]
+    ) -> None:
 
         # orquestamos la tarea
     ventana.contador += 1
@@ -84,7 +88,7 @@ async def refrescar_ventana_nsf(ventana: VentanaNSFActiva) -> None:
             pass
 
     ventana.tarea = asyncio.create_task(
-        gestionar_fin_ventana(ventana, _VENTANAS)
+        gestionar_fin_ventana(ventana, ventanas_dict)
     )
 
 

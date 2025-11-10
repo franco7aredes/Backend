@@ -164,7 +164,7 @@ async def jugar_nsf(
         pass
 
     # refrescamos la ventana
-    await refrescar_ventana_nsf(ventana)
+    await refrescar_ventana_nsf(ventana, _VENTANAS)
 
     # difundo lo que acaba de pasar
     try:
