@@ -89,3 +89,6 @@ class CartaNoCompatibleConSet(Exception):
 
 class TipoCartaNoCompatibleConSet(Exception):
     pass
+
+class FinPorDesgraciaSocial(Exception):
+    pass

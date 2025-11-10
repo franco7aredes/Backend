@@ -3282,14 +3282,14 @@ async def test_preparar_evento_and_then_there_was_one_more_fin_por_desgracia_soc
 
     # Carta de evento
     carta_evento = crear_carta(id_carta=carta_id, id_partida=partida_id, id_jugador=jugador_id, posicion=PosicionCarta.mano)
-    carta_evento.nombre = "And Then There Was One More"
+    carta_evento.nombre = "And Then There Was One More..."
     carta_evento.tipo = TipoCarta.event
     repo_c = crear_repo_carta_mock(obtener_carta_return=carta_evento)
 
     servicio = ServicioJuego(partidas=repo_p, jugadores=repo_j, cartas=repo_c, secretos=repo_s)
 
-    # Simular que ocultar el secreto dispara FinPorDesgraciaSocial
-    servicio.ocultar_secreto = AsyncMock(side_effect=FinPorDesgraciaSocial())
+    # Simular que robar el secreto dispara FinPorDesgraciaSocial
+    servicio.robar_secreto = AsyncMock(side_effect=FinPorDesgraciaSocial())
 
     with pytest.raises(FinPorDesgraciaSocial) as exc:
         await servicio.preparar_evento(
